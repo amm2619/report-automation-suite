@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Guide Workflow Preview</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<style>
+/* ── Variables copied verbatim from Jira_ReportSuite_v8_35 ─────────── */
+:root{
+  --bg:#060810;--s1:#0b0e17;--s2:#101420;--s3:#161b28;--s4:#1c2234;
+  --bd:#1e2740;--bd2:#2a3550;--bd3:#354165;
+  --a1:#6ba8ff;--a1d:rgba(107,168,255,.09);--a1b:rgba(107,168,255,.22);
+  --a2:#b48fff;--a2d:rgba(180,143,255,.09);--a2b:rgba(180,143,255,.22);
+  --a3:#4dd89a;--a3d:rgba(77,216,154,.08);--a3b:rgba(77,216,154,.22);
+  --a4:#ffb347;--a4d:rgba(255,179,71,.08);--a4b:rgba(255,179,71,.22);
+  --a5:#ff7b7b;
+  --tx:#e4eaf8;--mu:#8c9dbd;--di:#4a5878;
+  --sans:'Instrument Sans','Segoe UI','Inter','Arial',sans-serif;
+  --mono:'Geist Mono','Cascadia Code','Consolas','Menlo',monospace;
+  --r:7px;--r2:4px;
+  --fs-base:14px;--fs-sm:13px;--fs-xs:12px;--fs-lg:15px;--fs-xl:17px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(--fs-lg);line-height:1.5;min-height:100vh;padding:40px 20px}
+
+/* Preview chrome */
+.preview-label{max-width:960px;margin:0 auto 10px;color:var(--mu);font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.6px;font-weight:700}
+
+/* ── Guide modal mock ──────────────────────────────────────────────── */
+.guide-modal{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);width:min(960px,96vw);margin:0 auto;max-height:93vh;display:flex;flex-direction:column;overflow:hidden}
+.guide-header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--bd);flex-shrink:0}
+.guide-title{font-weight:700;color:var(--tx);font-size:var(--fs-lg);display:flex;align-items:center;gap:8px}
+.guide-close{background:none;border:none;color:var(--mu);font-size:18px;cursor:pointer;padding:2px 8px;border-radius:var(--r2)}
+.guide-split{display:flex;flex:1;overflow:hidden}
+.guide-sidebar{width:175px;flex-shrink:0;background:var(--s2);border-right:1px solid var(--bd);overflow-y:auto;padding:8px 0}
+.guide-body{flex:1;overflow-y:auto;padding:24px 30px;font-size:var(--fs-sm);line-height:1.75;color:var(--tx)}
+
+/* ── Guide nav (existing styles + NEW .guide-nav-group) ────────────── */
+.guide-nav-item{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:var(--fs-xs);color:var(--mu);cursor:pointer;transition:all .1s;border-left:2px solid transparent;user-select:none;line-height:1.3}
+.guide-nav-item:hover{color:var(--tx);background:var(--s3)}
+.guide-nav-item.active{color:var(--a1);background:var(--a1d);border-left-color:var(--a1)}
+.guide-nav-group{padding:14px 12px 4px;font-size:9px;font-weight:700;color:var(--di);text-transform:uppercase;letter-spacing:.6px;user-select:none}
+.guide-nav-group:first-child{padding-top:6px}
+
+/* Table (copied from real .rt / .tw) */
+.tw{overflow-x:auto;border-radius:var(--r2);border:1px solid var(--bd);margin:6px 0}
+.rt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);background:var(--s2)}
+.rt thead th{background:var(--s3);color:var(--mu);padding:7px 10px;font-weight:700;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}
+.rt tbody td{padding:6px 10px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--tx)}
+.rt tbody tr:last-child td{border-bottom:none}
+.rt tbody tr:hover td{background:rgba(107,168,255,.04)}
+
+/* Workflow step card */
+.wf-card{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--a1);border-radius:var(--r2);padding:16px 18px;margin:0 0 14px}
+.wf-steps{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:11px}
+.wf-step{display:flex;gap:12px;align-items:flex-start}
+.wf-num{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--a1);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-xs)}
+.wf-body strong{color:var(--tx)}
+.wf-body a{color:var(--a1);text-decoration:none;border-bottom:1px dotted var(--a1)}
+.wf-body a:hover{border-bottom-style:solid}
+
+.section-label{font-weight:700;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.4px;color:var(--mu);margin:14px 0 6px}
+
+.mi{font-family:'Material Icons';font-weight:normal;font-style:normal;display:inline-block;line-height:1;letter-spacing:normal;text-transform:none;white-space:nowrap;word-wrap:normal;direction:ltr;-webkit-font-feature-settings:'liga';font-feature-settings:'liga';-webkit-font-smoothing:antialiased;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<div class="preview-label">Preview — Guide with grouped sidebar + Workflow section (v8.35 → v8.36)</div>
+
+<div class="guide-modal">
+
+  <!-- ── Header ─────────────────────────────────────────────────── -->
+  <div class="guide-header">
+    <span class="guide-title">
+      <span class="mi" style="font-size:18px">menu_book</span>
+      Report Suite v8.36 — User Guide
+    </span>
+    <button class="guide-close">✕</button>
+  </div>
+
+  <!-- ── Split body ─────────────────────────────────────────────── -->
+  <div class="guide-split">
+
+    <!-- Sidebar (NEW: grouped) -->
+    <div class="guide-sidebar">
+      <div class="guide-nav-group">Start Here</div>
+      <div class="guide-nav-item active"><span class="mi" style="font-size:16px;margin-right:8px">route</span><span>Workflow</span></div>
+
+      <div class="guide-nav-group">Getting Started</div>
+      <div class="guide-nav-item"><span class="mi" style="font-size:16px;margin-right:8px">folder_open</span><span>Files</span></div>
+      <div class="guide-nav-item"><span class="mi" style="font-size:16px;margin-right:8px">save</span><span>Drafts</span></div>
+      <div class="guide-nav-item"><span class="mi" style="font-size:16px;margin-right:8px">settings</span><span>Configuration</span></div>
+
+      <div class="guide-nav-group">Reports</div>
+      <div class="guide-nav-item"><span class="mi" style="font-size:16px;margin-right:8px">newspaper</span><span>Weekly Digest</span></div>
+      <div class="guide-nav-item"><span class="mi" style="font-size:16px;margin-right:8px">flag</span><span>End of Sprint</span></div>
+      <div class="guide-nav-item"><span class="mi" style="font-size:16px;margin-right:8px">task_alt</span><span>Sprint Plan/Report</span></div>
+      <div class="guide-nav-item"><span class="mi" style="font-size:16px;margin-right:8px">bar_chart</span><span>PMR</span></div>
+      <div class="guide-nav-item"><span class="mi" style="font-size:16px;margin-right:8px">account_tree</span><span>Spin Plan</span></div>
+
+      <div class="guide-nav-group">Routing &amp; Rules</div>
+      <div class="guide-nav-item"><span class="mi" style="font-size:16px;margin-right:8px">label</span><span>Topics</span></div>
+      <div class="guide-nav-item"><span class="mi" style="font-size:16px;margin-right:8px">group</span><span>Excluded People</span></div>
+      <div class="guide-nav-item"><span class="mi" style="font-size:16px;margin-right:8px">rule</span><span>Rule Overrides</span></div>
+
+      <div class="guide-nav-group">Reference</div>
+      <div class="guide-nav-item"><span class="mi" style="font-size:16px;margin-right:8px">info</span><span>Legend</span></div>
+      <div class="guide-nav-item"><span class="mi" style="font-size:16px;margin-right:8px">tips_and_updates</span><span>Tips</span></div>
+    </div>
+
+    <!-- Body content (NEW: Workflow section) -->
+    <div class="guide-body">
+
+      <h3 style="color:var(--a1);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:0 0 10px">
+        <span class="mi" style="font-size:15px;margin-right:6px">route</span>Workflow
+      </h3>
+
+      <p style="margin:0 0 12px">Every report follows the same six steps. Skim this once, then use the per-report cards below for the details that differ.</p>
+
+      <!-- 6-step flow card -->
+      <div class="wf-card">
+        <ol class="wf-steps">
+          <li class="wf-step">
+            <span class="wf-num">1</span>
+            <div class="wf-body">
+              <strong>Load your CSVs</strong> — drop Jira exports onto the header drop zone. The app auto-detects Issues / Epics / Roadmap by header sniffing, so order doesn't matter. See <a href="#">Files</a> for the exact JQL queries.
+            </div>
+          </li>
+          <li class="wf-step">
+            <span class="wf-num">2</span>
+            <div class="wf-body">
+              <strong>Configure once</strong> — Jira URL, sprint calendar, component filters, topic rules. Settings auto-save to your browser. See <a href="#">Configuration</a>.
+            </div>
+          </li>
+          <li class="wf-step">
+            <span class="wf-num">3</span>
+            <div class="wf-body">
+              <strong>Pick a report</strong> from the home screen. Each card shows what it needs and whether your current CSVs satisfy it.
+            </div>
+          </li>
+          <li class="wf-step">
+            <span class="wf-num">4</span>
+            <div class="wf-body">
+              <strong>Set parameters</strong> — date range (Weekly), current + future sprint (EOS), month (PMR), or auto-detect (Sprint, Spin).
+            </div>
+          </li>
+          <li class="wf-step">
+            <span class="wf-num">5</span>
+            <div class="wf-body">
+              <strong>Generate &amp; review</strong> — fill in BLUFs, topic summaries, and PMR narratives directly in the report. Use the Debug tab to trace any surprise routing and <strong>+ Include</strong> or <strong>+ Create Rule</strong> to fix it inline.
+            </div>
+          </li>
+          <li class="wf-step">
+            <span class="wf-num">6</span>
+            <div class="wf-body">
+              <strong>Export</strong> — Copy for Confluence or Email, Download PPTX (PMR), or Download VBA (Sprint). <strong>Save Draft</strong> before closing so you can pick up where you left off next time.
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <!-- Matrix table -->
+      <div class="section-label">What each report needs</div>
+      <div class="tw">
+        <table class="rt">
+          <thead>
+            <tr>
+              <th style="text-align:left">Report</th>
+              <th style="text-align:center">Issues CSV</th>
+              <th style="text-align:center">Epics CSV</th>
+              <th style="text-align:center">Roadmap CSV</th>
+              <th style="text-align:left">Parameter</th>
+              <th style="text-align:left">Primary export</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Weekly Digest</strong></td>
+              <td style="text-align:center;color:var(--a3);font-weight:700">✓</td>
+              <td style="text-align:center;color:var(--a3);font-weight:700">✓</td>
+              <td style="text-align:center;color:var(--di)">—</td>
+              <td>Date range</td>
+              <td>Copy for Confluence / Email</td>
+            </tr>
+            <tr>
+              <td><strong>End of Sprint</strong></td>
+              <td style="text-align:center;color:var(--a3);font-weight:700">✓</td>
+              <td style="text-align:center;color:var(--a3);font-weight:700">✓</td>
+              <td style="text-align:center;color:var(--di)">—</td>
+              <td>Current + Future sprint</td>
+              <td>Copy for Confluence</td>
+            </tr>
+            <tr>
+              <td><strong>Sprint Plan/Report</strong></td>
+              <td style="text-align:center;color:var(--a3);font-weight:700">✓</td>
+              <td style="text-align:center;color:var(--di)">—</td>
+              <td style="text-align:center;color:var(--di)">—</td>
+              <td>Auto-detected</td>
+              <td>Download / Copy VBA</td>
+            </tr>
+            <tr>
+              <td><strong>PMR</strong></td>
+              <td style="text-align:center;color:var(--a3);font-weight:700">✓</td>
+              <td style="text-align:center;color:var(--a3);font-weight:700">✓</td>
+              <td style="text-align:center;color:var(--di)">—</td>
+              <td>Month</td>
+              <td>Download PPTX</td>
+            </tr>
+            <tr>
+              <td><strong>Spin Plan</strong></td>
+              <td style="text-align:center;color:var(--di)">—</td>
+              <td style="text-align:center;color:var(--di)">—</td>
+              <td style="text-align:center;color:var(--a3);font-weight:700">✓</td>
+              <td>None (live view)</td>
+              <td>View in-app</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p style="color:var(--mu);font-size:var(--fs-xs);margin:12px 0 0">↓ Scroll down to jump to the detailed section for any report.</p>
+
+      <!-- Spacer showing where existing Files heading would start -->
+      <div style="margin-top:36px;padding-top:16px;border-top:1px dashed var(--bd2)">
+        <div style="color:var(--di);font-size:var(--fs-xs);font-style:italic;margin-bottom:8px">↓ Existing guide content continues here unchanged ↓</div>
+        <h3 style="color:var(--a1);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:0 0 10px">
+          <span class="mi" style="font-size:15px;margin-right:6px">folder_open</span>Files
+        </h3>
+        <p style="color:var(--mu);font-style:italic">(existing Files section text…)</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
