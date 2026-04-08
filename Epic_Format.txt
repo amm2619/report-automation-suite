@@ -1,0 +1,65 @@
+Epic Key,Epic Name,Project
+DX-26151,(U) DX4 Results Grid Dev,DX
+DX-25425,(U) DX4 Migration,DX
+DX-25474,(U) DX4 Hierarchical Grid,DX
+DX-25113,(U) DX4 Results Grid Dev,DX
+DX-24791,(U) DX4 User Requested Features,DX
+DX-24625,(U) Saved Results Grid/Layout,DX
+DX-24623,(U) Panel Interactions,DX
+DX-24405,(U) Search Form Planning,DX
+DX-23477,(U) EWH Non-Hierarchical Grid,DX
+DX-26008,(U) Search Form Frontend,DX
+DX-25996,(U) Search Form Backend,DX
+DX-25945,(U) Recurring Queries,DX
+DX-25943,(U) General Search Backend,DX
+DX-25941,(U) Access & Authorization,DX
+DX-25476,(U) Coding Environment,DX
+DX-25383,(U) Tech Modernization,DX
+DX-25361,(U) Mission Support / Process Improvements,DX
+DX-25117,(U) SE & Testing Support,DX
+DX-25696,(U) Mitigate DX Vulnerabilities for HCI Deployment,DX
+DX-25114,(U) Bug Fixes,DX
+DX-25742,(U) DX3 to DX4 Database Transition,DX
+DX-25663,(U) DX HCI Migration Milestones,DX
+DX-21480,(U) DX HCI Migration,DX
+DX-26140,(U) AI/ML Integration,DX
+DX-26156,(U) 508 Compliance,DX
+DX-25118,(U) GCENext Support,DX
+DX-19545,(U) BAYARD,DX
+DX-26230,(U) CI/CD Pipelines,DX
+DX-17392,(U) UX Design Task List,DX
+LX-4995,(U) Future Features,LX
+LX-4991,(U) KMC Integration,LX
+LX-4958,(U) SWCA Audit Metadata,LX
+LX-4952,(U) GATS Requests,LX
+LX-4728,(U) DXS Requests,LX
+LX-4713,(U) Automated Testing,LX
+LX-4989,(U) SWCA Cloud Optimization,LX
+LX-4144,(U) SWCA Compliance,LX
+LX-4116,(U) SWCA Infrastructure,LX
+LX-4073,(U) SWCA Query Data,LX
+LX-3786,(U) Publish to RKS,LX
+LX-3530,(U) Deploying,LX
+LX-4948,(U) LX5 Baseline,LX
+LX-3772,(U) HCI Follow-on Tasks,LX
+LX-3735,(U) HCI WANDS-TS Deployment,LX
+LX-4729,(U) Defects,LX
+LX-4616,(U) CI/CD Pipeline,LX
+RCR-8595,(U) Distributed Locking Solution,RC
+RCR-8587,(U) Reference Data Handling & Utilization,RC
+RCR-8549,(U) Transition to RestClient,RC
+RCR-8484,(U) CI/CD Pipelines,RC
+RCR-8469,(U) Test Automation Modernization,RC
+RCR-8018,(U) RC DevOps,RC
+RCR-7729,(U) Replace RC Lite,RC
+RCR-7643,(U) Prepare for HCI EKS,RC
+RCR-3906,(U) Tool Modernization,RC
+RCR-8309,(U) HCI INT-C Rehosting in WANDS-TS,RC
+RCR-8202,(U) HCI Migration Milestones,RC
+RCR-5641,(U) HCI RC Rehosting in WANDS-TS,RC
+RCR-8068,(U) Bug Fixes,RC
+RCR-8067,(U) RC Mission Support,RC
+RCR-4444,(U) Enclave Support,RC
+RCR-4104,(U) Procedure Implementation,RC
+RCR-8471,(U) GCENext 2026 Support,RC
+RCR-3657,(U) TechSIGINT Revitalization (TSR),RC

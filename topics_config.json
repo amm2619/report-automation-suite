@@ -1,0 +1,426 @@
+[
+  {
+    "topic_id": "tile",
+    "header": "Tier 0: Priority 1: Strategic Surge Support: TIEREDLEGEND",
+    "tier_rank": 0,
+    "projects": [
+      "LX"
+    ],
+    "epic_keys": [],
+    "exact_phrases": [],
+    "keywords": [
+      "tile"
+    ],
+    "exclude_keywords": []
+  },
+  {
+    "topic_id": "bay",
+    "header": "Tier 0: Priority 1: Strategic Surge Support: BAYARD",
+    "tier_rank": 0,
+    "projects": [
+      "DX",
+      "LX",
+      "RC"
+    ],
+    "epic_keys": [
+      "DX-19545"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "bay"
+    ],
+    "exclude_keywords": []
+  },
+  {
+    "topic_id": "swing",
+    "header": "Tier 0: Priority 2: Strategic Surge Support: SWINGCAROUSEL",
+    "tier_rank": 0,
+    "projects": [
+      "LX"
+    ],
+    "epic_keys": [
+      "LX-4989",
+      "LX-4958",
+      "LX-4144",
+      "LX-4116",
+      "LX-4073"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "swca",
+      "swing"
+    ],
+    "exclude_keywords": []
+  },
+  {
+    "topic_id": "hci_migration",
+    "header": "Tier 1: Priority 1: HCI Migration",
+    "tier_rank": 1,
+    "projects": [
+      "DX",
+      "LX",
+      "RC"
+    ],
+    "epic_keys": [
+      "DX-25742",
+      "DX-25663",
+      "DX-21480",
+      "DX-25696",
+      "LX-3772",
+      "LX-3735",
+      "RCR-8309",
+      "RCR-8202",
+      "RCR-7643",
+      "RCR-5641"
+    ],
+    "exact_phrases": [
+      "prepare for hci eks"
+    ],
+    "keywords": [
+      "hci",
+      "migration",
+      "rehosting",
+      "eks",
+      "wands",
+      "cve",
+      "vulnerab"
+    ],
+    "exclude_keywords": []
+  },
+  {
+    "topic_id": "dx4",
+    "header": "Tier 1: Priority 2: Tool Modernization: DX4",
+    "tier_rank": 2,
+    "projects": [
+      "DX"
+    ],
+    "epic_keys": [
+      "DX-26151",
+      "DX-25425",
+      "DX-25474",
+      "DX-25113",
+      "DX-24791",
+      "DX-24625",
+      "DX-24623",
+      "DX-24405",
+      "DX-23477"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "dx4",
+      "results grid",
+      "panel interactions",
+      "saved results"
+    ],
+    "exclude_keywords": [
+      "hci",
+      "cve",
+      "vulnerab"
+    ]
+  },
+  {
+    "topic_id": "dx_improvements",
+    "header": "Tier 1: Priority 2: Tool Modernization: DX Improvements",
+    "tier_rank": 2,
+    "projects": [
+      "DX"
+    ],
+    "epic_keys": [
+      "DX-26008",
+      "DX-25996",
+      "DX-25945",
+      "DX-25943",
+      "DX-25941",
+      "DX-25476",
+      "DX-25383",
+      "DX-25361",
+      "DX-25117"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "search form",
+      "frontend",
+      "backend",
+      "authorization",
+      "access",
+      "query",
+      "recurring"
+    ],
+    "exclude_keywords": [
+      "hci",
+      "cve",
+      "vulnerab"
+    ]
+  },
+  {
+    "topic_id": "lx_improvements",
+    "header": "Tier 1: Priority 2: Tool Modernization: LX Improvements",
+    "tier_rank": 2,
+    "projects": [
+      "LX"
+    ],
+    "epic_keys": [
+      "LX-4995",
+      "LX-4991",
+      "LX-4952",
+      "LX-4728",
+      "LX-4713"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "feature",
+      "integration",
+      "automation",
+      "request",
+      "gats",
+      "dxs requests"
+    ],
+    "exclude_keywords": [
+      "hci",
+      "swca"
+    ]
+  },
+  {
+    "topic_id": "lx5",
+    "header": "Tier 1: Priority 2: Tool Modernization: LX5",
+    "tier_rank": 2,
+    "projects": [
+      "LX"
+    ],
+    "epic_keys": [
+      "LX-4948"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "lx5",
+      "baseline",
+      "neo4j",
+      "graph"
+    ],
+    "exclude_keywords": [
+      "hci",
+      "swca"
+    ]
+  },
+  {
+    "topic_id": "rc_improvements",
+    "header": "Tier 1: Priority 2: Tool Modernization: RC Improvements",
+    "tier_rank": 2,
+    "projects": [
+      "RC"
+    ],
+    "epic_keys": [
+      "RCR-8595",
+      "RCR-8587",
+      "RCR-8549",
+      "RCR-8484",
+      "RCR-8469",
+      "RCR-8018",
+      "RCR-7729",
+      "RCR-3906"
+    ],
+    "exact_phrases": [
+      "transition to restclient"
+    ],
+    "keywords": [
+      "restclient",
+      "rest client",
+      "ci cd",
+      "pipeline",
+      "automation",
+      "devops",
+      "locking",
+      "reference data",
+      "tool modernization"
+    ],
+    "exclude_keywords": [
+      "hci",
+      "cve",
+      "vulnerab",
+      "enclave",
+      "sdp"
+    ]
+  },
+  {
+    "topic_id": "gcenext",
+    "header": "Tier 1: Priority 3: GCENext",
+    "tier_rank": 3,
+    "projects": [
+      "DX",
+      "RC"
+    ],
+    "epic_keys": [
+      "DX-25118",
+      "RCR-8471"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "gce",
+      "gcenext"
+    ],
+    "exclude_keywords": []
+  },
+  {
+    "topic_id": "nanostorm_td",
+    "header": "Tier 1: Priority 3: NANOSTORM T&D",
+    "tier_rank": 3,
+    "projects": [
+      "DX",
+      "RC"
+    ],
+    "epic_keys": [],
+    "exact_phrases": [],
+    "keywords": [
+      "nanostorm",
+      "t d",
+      "training"
+    ],
+    "exclude_keywords": []
+  },
+  {
+    "topic_id": "sdp",
+    "header": "Tier 1: Priority 4: Sensitive Data Protection",
+    "tier_rank": 4,
+    "projects": [
+      "DX",
+      "RC"
+    ],
+    "epic_keys": [
+      "RCR-4444"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "enclave",
+      "sdp"
+    ],
+    "exclude_keywords": []
+  },
+  {
+    "topic_id": "dx_sustainment",
+    "header": "Tier 2: Priority 1: Mission Support: DX Sustainment",
+    "tier_rank": 5,
+    "projects": [
+      "DX"
+    ],
+    "epic_keys": [
+      "DX-25114"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "bug",
+      "fix",
+      "mission support",
+      "support"
+    ],
+    "exclude_keywords": [
+      "hci",
+      "dx4",
+      "search form",
+      "frontend",
+      "backend"
+    ]
+  },
+  {
+    "topic_id": "lx_sustainment",
+    "header": "Tier 2: Priority 1: Mission Support: LX Sustainment",
+    "tier_rank": 5,
+    "projects": [
+      "LX"
+    ],
+    "epic_keys": [
+      "LX-3786",
+      "LX-3530"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "publish",
+      "deploy",
+      "infrastructure",
+      "compliance"
+    ],
+    "exclude_keywords": [
+      "swca",
+      "hci",
+      "neo4j",
+      "graph"
+    ]
+  },
+  {
+    "topic_id": "rc_sustainment",
+    "header": "Tier 2: Priority 1: Mission Support: RC Sustainment",
+    "tier_rank": 5,
+    "projects": [
+      "RC"
+    ],
+    "epic_keys": [
+      "RCR-8068",
+      "RCR-8067"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "bug",
+      "mission support",
+      "support"
+    ],
+    "exclude_keywords": [
+      "hci",
+      "rest client",
+      "enclave"
+    ]
+  },
+  {
+    "topic_id": "aiml_integration",
+    "header": "Tier 2: Priority 1: Mission Support: AI/ML Capability Integration",
+    "tier_rank": 5,
+    "projects": [
+      "DX",
+      "LX",
+      "RC"
+    ],
+    "epic_keys": [
+      "DX-26140"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "ai ml",
+      "ai",
+      "ml"
+    ],
+    "exclude_keywords": []
+  },
+  {
+    "topic_id": "508_compliance",
+    "header": "Tier 2: Priority 1: Mission Support: 508 Compliance",
+    "tier_rank": 5,
+    "projects": [
+      "DX",
+      "LX"
+    ],
+    "epic_keys": [
+      "DX-26156"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "508"
+    ],
+    "exclude_keywords": []
+  },
+  {
+    "topic_id": "techsigint_revitalization",
+    "header": "Tier 3: Priority 1: TechSIGINT Revitalization",
+    "tier_rank": 6,
+    "projects": [
+      "DX",
+      "RC"
+    ],
+    "epic_keys": [
+      "RCR-3657"
+    ],
+    "exact_phrases": [],
+    "keywords": [
+      "techsigint",
+      "tsr"
+    ],
+    "exclude_keywords": []
+  }
+]
