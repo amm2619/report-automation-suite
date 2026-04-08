@@ -1,4 +1,4 @@
-Hierarchy,Project,Sprint,Target start date,Target end date,Parent,Priority,Issue key,Summary,Issue status,Source file,Page,Order,Assignee,Story Points,Components,Labels,Created,Updated,Resolved,Issue Type
+Hierarchy,Project,Sprint,Target start date,Target end date,Parent,Priority,Issue key,Title,Issue status,Source file,Page,Order,Assignee,Story Points,Components,Labels,Created,Updated,Resolved,Issue Type
 Strategy,Data Query and Visualization,,1-Jan-25,31-Dec-26,,Critical,DQV-39,Modernize Core Query Engine for Enterprise Scale,In Progress,roadmapv3.pdf,Page 1,1,,,,,,,,Strategy
 Strategy,Data Query and Visualization,,1-Jan-25,31-Dec-26,,Major,DQV-40,Establish Multi-Source Data Federation Architecture,In Progress,roadmapv3.pdf,Page 1,2,,,,,,,,Strategy
 Strategy,Data Query and Visualization,,1-Jan-25,31-Dec-26,,Medium,DQV-41,Drive Visualization Platform Convergence Initiative,To Do,roadmapv3.pdf,Page 1,3,,,,,,,,Strategy
