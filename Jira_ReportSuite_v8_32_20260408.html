@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- Material Icons: self-hosted inline SVG sprite -->
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ReportSuite v8.31</title>
+<title>ReportSuite v8.32</title>
 <style>
 
 :root{
@@ -1844,7 +1844,7 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
 //
 // ==========================================================
 
-const APP_VERSION='v8.31';
+const APP_VERSION='v8.32';
 
 // ============================================================
 // STATE
@@ -4350,7 +4350,7 @@ function renderSlide(header,subheaders,layout,base,isGroup){
   const ctx=sid.replace(/^pmr-slide-/,''); // stable slug derived from slide header; passed down explicitly
   // blufBox hoisted here — single definition shared by all layout branches
   const blufBox=(slug)=>`<div class="bluf-field pmr-bluf" id="pmrbluf-${slug}" contenteditable="true" data-pmr-bluf="${slug}" data-placeholder="Enter narrative..." style="margin:4px 0 10px"></div>`;
-  let html=`<div class="slide" id="${sid}"><h2>(U) ${esc(header)}</h2>`;
+  let html=`<div class="slide" id="${sid}" data-pmr-layout="${esc(layout||'simple_list')}"><h2>(U) ${esc(header)}</h2>`;
   // Top-level narrative box always present — appears below the slide title
   html+=blufBox(ctx);
   // feature_improvement_bug and mission_support_other layouts: always pool tickets,
@@ -6579,7 +6579,7 @@ function buildStandaloneHtml(title, bodyContent){
   var css=":root{--bg:#070910;--s1:#0c0f18;--s2:#111520;--s3:#171c2a;--s4:#1d2336;--bd:#1f2840;--bd2:#2b3652;--a1:#5b9cf6;--a1d:rgba(91,156,246,.09);--a1b:rgba(91,156,246,.2);--a2:#a07cf5;--a2d:rgba(160,124,245,.09);--a2b:rgba(160,124,245,.2);--a3:#3ecf8e;--a3d:rgba(62,207,142,.08);--a3b:rgba(62,207,142,.2);--a4:#f5a741;--a4d:rgba(245,167,65,.08);--a4b:rgba(245,167,65,.2);--a5:#f56b6b;--a5d:rgba(245,107,107,.08);--a5b:rgba(245,107,107,.2);--tx:#dde4f5;--mu:#6b7a9c;--di:#384060;--mono:'Consolas','Cascadia Code','Menlo',monospace;--sans:'Segoe UI','Inter','Arial',sans-serif;--r:8px;--r2:5px;--fs-base:13px;--fs-sm:12px;--fs-xs:11px;--fs-lg:14px;--fs-xl:16px}*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(--fs-base);line-height:1.55;padding:28px 32px 80px;min-height:100vh}a{color:var(--a1);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap}.bd-done{background:var(--a3d);color:var(--a3)}.bd-blk{background:var(--a5d);color:var(--a5)}.bd-prog{background:var(--a1d);color:var(--a1)}.bd-rev{background:var(--a4d);color:var(--a4)}.bd-open{background:var(--s4);color:var(--mu)}.nstr{color:var(--di);font-style:italic;font-size:var(--fs-sm);padding:3px 0}.rpt-frame{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:18px;max-width:1200px;margin-left:auto;margin-right:auto}.rpt-bar{background:var(--s2);border-bottom:1px solid var(--bd);padding:9px 14px;display:flex;align-items:center;justify-content:space-between}.rbd-row{display:flex;gap:5px}.rbd{width:8px;height:8px;border-radius:50%}.rbd-r{background:#ff7b7b}.rbd-y{background:#ffb347}.rbd-g{background:#4dd89a}.rpt-bar-fn{font-family:var(--mono);font-size:var(--fs-xs);color:var(--mu)}.rpt-body{padding:22px 26px}.rpt-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px;margin-bottom:20px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;border-left:4px solid var(--a1)}.rpt-hdr h1{font-size:17px;font-weight:600;color:var(--tx)}.rpt-hdr .rsub{font-size:var(--fs-xs);color:var(--mu);margin-top:3px}.r-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:18px}.r-tab{padding:8px 15px;font-size:var(--fs-sm);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-tab:hover{color:var(--tx)}.r-tab.active{color:var(--a1);border-bottom-color:var(--a1)}.r-panel{display:none}.r-panel.active{display:block}.r-tabs-sticky{position:sticky;top:0;z-index:10;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-tabs-sticky .r-tab{padding:8px 14px}.r-subtabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:14px}.r-subtab{padding:6px 13px;font-size:var(--fs-xs);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-subtab:hover{color:var(--tx)}.r-subtab.active{color:var(--a2);border-bottom-color:var(--a2)}.r-sub-panel{display:none}.r-sub-panel.active{display:block}.r-subtabs-sticky{position:sticky;top:37px;z-index:9;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-subtabs-sticky .r-subtab{padding:6px 12px}.r-card{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:14px 18px;margin-bottom:10px}.r-card.l1{border-left:3px solid var(--a1)}.r-card.l2{border-left:3px solid var(--a2)}.r-card.l3{border-left:3px solid var(--a3)}.r-card.lw{border-left:3px solid var(--a4)}.r-card.lr{border-left:3px solid var(--a5)}.r-card h3{font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}.stats-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.stat{background:var(--s3);border:1px solid var(--bd);border-radius:5px;padding:10px 15px}.stat .sv{font-size:20px;font-weight:600;color:var(--a1)}.stat .sl{font-size:var(--fs-xs);color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.tw{overflow-x:auto;border-radius:5px;border:1px solid var(--bd);margin:8px 0}.rt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);background:var(--s2)}.rt thead th{background:var(--s3);color:var(--mu);padding:8px 11px;font-weight:600;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}.rt tbody td{padding:7px 11px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--tx)}.rt tbody tr:last-child td{border-bottom:none}.tk-c{font-family:var(--mono);font-size:var(--fs-xs);color:var(--a1);white-space:nowrap}.bluf-label{display:block;font-size:var(--fs-xs);font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.bluf-field{padding:4px 0;font-size:var(--fs-sm);line-height:1.6;color:var(--tx);min-height:20px}.bluf-field:empty::before{content:attr(data-placeholder);color:var(--di)}.conf-pre{background:#04060c;color:#9bbbd4;border:1px solid var(--bd);border-radius:5px;padding:12px 14px;font-family:var(--mono);font-size:var(--fs-xs);line-height:1.7;white-space:pre;overflow:auto;max-height:400px;margin-top:8px}.slide{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--a2);border-radius:8px;padding:16px 20px;margin-bottom:14px}.slide h2{font-size:var(--fs-base);font-weight:600;color:var(--a2);margin-bottom:10px}.slide h3{font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 5px}.agenda-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:3px}.agenda-list li{padding:6px 13px;border-left:2px solid var(--bd);font-size:var(--fs-sm);border-radius:0 5px 5px 0}.agenda-list li.has{border-left-color:var(--a3);color:var(--tx);background:var(--a3d)}.agenda-list li.nstr{border-left-color:var(--di);color:var(--mu);font-style:italic}.ptabs{margin-bottom:12px}.ptab{display:inline-block;padding:4px 12px;border-radius:var(--r2);font-size:var(--fs-sm);font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--s3);color:var(--mu);margin:0 4px 4px 0}.ptab.active{background:var(--a1d);color:var(--a1);border-color:var(--a1b)}.muted{color:var(--mu)}.mono{font-family:var(--mono)}";
   var inlineJS="function switchRtab(btn){\n  var rtabs=btn.parentElement;\n  var idx=Array.from(rtabs.children).indexOf(btn);\n  rtabs.querySelectorAll('.r-tab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=rtabs.parentElement;\n  cont.querySelectorAll(':scope > .r-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchRstab(btn){\n  var stabs=btn.parentElement;\n  var idx=Array.from(stabs.children).indexOf(btn);\n  stabs.querySelectorAll('.r-subtab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=stabs.parentElement;\n  cont.querySelectorAll(':scope > .r-sub-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchPtab(btn,proj){\n  var cont=btn.closest('.ptabs').parentElement;\n  cont.querySelectorAll('.ptab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  cont.querySelectorAll('[data-ptab-panel]').forEach(function(p){\n    p.style.display=p.dataset.ptabPanel===proj?'block':'none';\n  });\n}\nfunction filterDbg(inp,tableId){\n  var val=inp.value.toLowerCase().trim();\n  var tbody=document.querySelector('#'+tableId+' tbody');\n  if(!tbody) return;\n  tbody.querySelectorAll('tr').forEach(function(tr){\n    tr.style.display=(!val||tr.textContent.toLowerCase().includes(val))?'':'none';\n  });\n}\ndocument.addEventListener('click',function(e){\n  var a=e.target.closest('.agenda-list a');\n  if(a){e.preventDefault();var t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'});}\n});";
   return '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">\n'
-    + '<title>ReportSuite v8.31</title>\n'
+    + '<title>ReportSuite v8.32</title>\n'
     + '<style>'+css+'</style>\n'
     + '</head>\n<body style="margin:0;padding:0">\n'
     + bodyContent
@@ -6780,107 +6780,392 @@ async function copyPmrNarrative(){
   await copyTextWithFallback(text, cst, 2500);
 }
 
-// ── DOWNLOAD PMR BUILD SCRIPT ───────────────────────────────────────────────
-function downloadPmrPptx() {
-  const frame = document.getElementById('rptf2');
-  if (!frame) { alert('Run PMR first before downloading PPTX.'); return; }
+// Feature / Improvement / Bug — mirrors BAMBOOTIGER slide 7
+// NEW FEATURES = full-height left card; IMPROVEMENTS = top-right; BUG FIXES = bottom-right
+function _pmrAddFibSlide(pres, ctx, sd) {
+  const { C, F, W, H, FOUO_H, BODY_Y, M, rect, text, addHeader, fit } = ctx;
+  const s = pres.addSlide();
+  s.background = { color: C.void };
+  addHeader(s, '(U//FOUO) ' + sd.header, C.cyan);
+  // Top-level narrative strip (if any)
+  let topY = BODY_Y;
+  if (sd.topNarrative) {
+    rect(s, M, topY, W - M*2, 0.50, C.cardLt);
+    rect(s, M, topY, 0.04, 0.50, C.cyan);
+    text(s, sd.topNarrative, { x:M+0.14, y:topY+0.05, w:W-M*2-0.22, h:0.40, fontSize:11, color:C.text, valign:'top', wrap:true });
+    topY += 0.60;
+  }
+  const sec = { features:null, improvements:null, bugs:null };
+  sd.sections.forEach(x => {
+    const l = x.label.toLowerCase();
+    if (l.indexOf('feature') >= 0) sec.features = x;
+    else if (l.indexOf('improvement') >= 0) sec.improvements = x;
+    else if (l.indexOf('bug') >= 0) sec.bugs = x;
+  });
+  const leftW = 6.6;
+  const rightX = M + leftW + 0.15;
+  const rightW = W - rightX - M;
+  const bodyH = H - FOUO_H - topY - 0.1;
+  const rightH = (bodyH - 0.15) / 2;
+  function card(x, y, w, h, label, color, section) {
+    rect(s, x, y, w, h, C.card);
+    rect(s, x, y, w, 0.048, color);
+    text(s, label, { x:x+0.14, y:y+0.06, w:w-0.28, h:0.22, fontSize:11, bold:true, color:color, fontFace:F.mono });
+    const narr = section && section.narrative ? section.narrative : '(no narrative)';
+    text(s, narr, { x:x+0.14, y:y+0.34, w:w-0.28, h:h-0.90, fontSize:13, color:C.text, valign:'top', wrap:true });
+    const cnt = section ? section.tickets.length : 0;
+    const tY = y + h - 0.42;
+    rect(s, x+0.14, tY, w-0.28, 0.012, C.divider);
+    text(s, cnt + ' ticket' + (cnt===1?'':'s'), { x:x+0.14, y:tY+0.04, w:w-0.28, h:0.18, fontSize:9, bold:true, color:C.muted, fontFace:F.mono });
+    if (cnt) text(s, fit(section.tickets.join(' · '), 130), { x:x+0.14, y:tY+0.20, w:w-0.28, h:0.18, fontSize:8, color:C.muted, fontFace:F.mono });
+  }
+  card(M, topY, leftW, bodyH, 'NEW FEATURES', C.green, sec.features);
+  card(rightX, topY, rightW, rightH, 'IMPROVEMENTS', C.blue2, sec.improvements);
+  card(rightX, topY + rightH + 0.15, rightW, rightH, 'BUG FIXES / BLOCKERS', C.red, sec.bugs);
+}
 
-  const slides = [];
+// Project split — mirrors BAMBOOTIGER slide 10 (stacked product rows)
+// Each row: square tag block (DX/LX/RC) + wide narrative card with ticket footer
+function _pmrAddProjectSlide(pres, ctx, sd, projects) {
+  const { C, F, W, H, FOUO_H, BODY_Y, M, rect, text, addHeader, fit } = ctx;
+  const s = pres.addSlide();
+  s.background = { color: C.void };
+  addHeader(s, '(U) ' + sd.header, C.cyan);
+  const info = {
+    DataXplorer:   { code:'DX', color:C.cyan },
+    LinkXplorer:   { code:'LX', color:C.cyanDk },
+    Rollercoaster: { code:'RC', color:C.purple },
+  };
+  // Top-level narrative strip (if any)
+  let topY = BODY_Y;
+  if (sd.topNarrative) {
+    rect(s, M, topY, W - M*2, 0.50, C.cardLt);
+    rect(s, M, topY, 0.04, 0.50, C.cyan);
+    text(s, sd.topNarrative, { x:M+0.14, y:topY+0.05, w:W-M*2-0.22, h:0.40, fontSize:11, color:C.text, valign:'top', wrap:true });
+    topY += 0.60;
+  }
+  const matched = projects.map(p => {
+    const found = sd.sections.find(sec => sec.label.toLowerCase() === p.toLowerCase());
+    return { name:p, info:info[p], section:found };
+  });
+  const totalH = H - FOUO_H - topY - 0.15;
+  const gap = 0.18;
+  const rowH = (totalH - gap * (projects.length - 1)) / projects.length;
+  const tagW = 1.10;
+  const narrX = M + tagW + 0.08;
+  const narrW = W - narrX - M;
+  matched.forEach((m, i) => {
+    const rY = topY + i * (rowH + gap);
+    // Tag block
+    rect(s, M, rY, tagW, rowH, C.card);
+    rect(s, M, rY, 0.06, rowH, m.info.color);
+    text(s, m.info.code, { x:M, y:rY + rowH*0.08, w:tagW, h:rowH*0.58, align:'center', fontSize:26, bold:true, color:m.info.color });
+    text(s, m.name, { x:M+0.05, y:rY + rowH*0.65, w:tagW-0.10, h:rowH*0.30, align:'center', fontSize:10, color:m.info.color });
+    // Narrative card
+    rect(s, narrX, rY, narrW, rowH, C.card);
+    rect(s, narrX, rY, narrW, 0.03, m.info.color);
+    const narr = m.section ? (m.section.narrative || '(no narrative)') : 'NSTR';
+    text(s, narr, { x:narrX+0.14, y:rY+0.10, w:narrW-0.28, h:rowH*0.62, fontSize:13, color:C.text, valign:'top', wrap:true });
+    // Ticket footer
+    const cnt = m.section ? m.section.tickets.length : 0;
+    const tY = rY + rowH - 0.34;
+    rect(s, narrX+0.14, tY, narrW-0.28, 0.012, C.divider);
+    const tixLine = cnt + ' ticket' + (cnt===1?'':'s') + (cnt ? '  ·  ' + fit(m.section.tickets.join(' · '), 150) : '');
+    text(s, tixLine, { x:narrX+0.14, y:tY+0.04, w:narrW-0.28, h:0.22, fontSize:9, color:C.muted, fontFace:F.mono });
+  });
+}
+
+// Mission support / other — two-column card layout with purple + gold accents
+function _pmrAddMissionSupportSlide(pres, ctx, sd) {
+  const { C, F, W, H, FOUO_H, BODY_Y, M, rect, text, addHeader, fit } = ctx;
+  const s = pres.addSlide();
+  s.background = { color: C.void };
+  addHeader(s, '(U) ' + sd.header, C.purple);
+  const sec = { ms:null, other:null };
+  sd.sections.forEach(x => {
+    const l = x.label.toLowerCase();
+    if (l.indexOf('mission support') >= 0) sec.ms = x;
+    else sec.other = x;
+  });
+  // Top-level narrative strip (if any)
+  let topY = BODY_Y;
+  if (sd.topNarrative) {
+    rect(s, M, topY, W - M*2, 0.50, C.cardLt);
+    rect(s, M, topY, 0.04, 0.50, C.purple);
+    text(s, sd.topNarrative, { x:M+0.14, y:topY+0.05, w:W-M*2-0.22, h:0.40, fontSize:11, color:C.text, valign:'top', wrap:true });
+    topY += 0.60;
+  }
+  const gap = 0.2;
+  const cardW = (W - M*2 - gap) / 2;
+  const cardH = H - FOUO_H - topY - 0.1;
+  function card(x, label, color, section) {
+    rect(s, x, topY, cardW, cardH, C.card);
+    rect(s, x, topY, cardW, 0.048, color);
+    text(s, label, { x:x+0.14, y:topY+0.06, w:cardW-0.28, h:0.22, fontSize:11, bold:true, color:color, fontFace:F.mono });
+    const narr = section ? (section.narrative || '(no narrative)') : 'NSTR';
+    text(s, narr, { x:x+0.14, y:topY+0.34, w:cardW-0.28, h:cardH*0.62, fontSize:13, color:C.text, valign:'top', wrap:true });
+    const cnt = section ? section.tickets.length : 0;
+    const tY = topY + cardH - 0.70;
+    rect(s, x+0.14, tY-0.04, cardW-0.28, 0.012, C.divider);
+    text(s, 'TICKETS  (' + cnt + ')', { x:x+0.14, y:tY, w:cardW-0.28, h:0.20, fontSize:9, bold:true, color:C.muted, fontFace:F.mono });
+    if (cnt) text(s, fit(section.tickets.join('  ·  '), 260), { x:x+0.14, y:tY+0.22, w:cardW-0.28, h:0.42, fontSize:9, color:C.muted, fontFace:F.mono, wrap:true });
+  }
+  card(M, 'MISSION SUPPORT', C.purple, sec.ms);
+  card(M + cardW + gap, 'OTHER', C.gold, sec.other);
+}
+
+// Title slide — mirrors BAMBOOTIGER slide 1 (split-panel hero + info chips)
+function _pmrAddTitleSlide(pres, ctx, meta, data) {
+  const { C, F, W, H, FOUO_H, rect, text, addFOUO } = ctx;
+  const s = pres.addSlide();
+  s.background = { color: C.navyDk };
+  addFOUO(s);
+  // Left navy panel + cyan strip
+  rect(s, 0, FOUO_H, 7.063, H - FOUO_H*2, C.navy);
+  rect(s, 7.063, FOUO_H, 0.055, H - FOUO_H*2, C.cyan);
+  // Title
+  text(s, meta.pmrTitle || 'PMR', { x:0.36, y:1.6, w:6.5, h:1.3, fontSize:44, bold:true, color:'FFFFFF', charSpacing:2 });
+  // Accent divider
+  rect(s, 0.36, 3.02, 2.8, 0.04, C.cyan);
+  rect(s, 3.20, 3.02, 2.467, 0.04, '3A4A5A');
+  // Subtitle
+  text(s, 'Monthly Progress Report', { x:0.36, y:3.14, w:6.5, h:0.45, fontSize:18, color:C.subtle });
+  // WORK PERIOD line
+  if (meta.workPeriod) {
+    text(s, [
+      { text:'WORK PERIOD  ', options:{ fontSize:12, bold:true, color:'6A7A8A', fontFace:F.mono } },
+      { text: meta.workPeriod, options:{ fontSize:16, bold:true, color:'FFFFFF' } },
+    ], { x:0.36, y:3.72, w:6.8, h:0.36 });
+  }
+  // SUBMITTED line
+  text(s, [
+    { text:'SUBMITTED  ', options:{ fontSize:12, bold:true, color:'6A7A8A', fontFace:F.mono } },
+    { text: meta.submitted, options:{ fontSize:14, color:'FFFFFF' } },
+  ], { x:0.36, y:4.84, w:6.8, h:0.36 });
+
+  // Right side — subtitle tag + product name block
+  text(s, 'XPLORER SUITE', { x:7.981, y:0.45, w:5, h:0.38, fontSize:11, bold:true, color:'5A6070', fontFace:F.mono });
+  rect(s, 8.081, 0.88, 4.99, 0.022, C.border);
+  text(s, [
+    { text:'Program Management', options:{ fontSize:34, bold:true, color:'1E2736', breakLine:true } },
+    { text:'Review', options:{ fontSize:34, bold:true, color:'1E2736' } },
+  ], { x:7.981, y:0.96, w:5, h:1.45 });
+
+  // Info chips: PERIOD / TOPICS / TICKETS / STATUS
+  function chip(y, label, value) {
+    rect(s, 7.981, y, 4.5, 0.456, 'FFFFFF');
+    rect(s, 7.981, y, 0.03, 0.454, C.cyan);
+    text(s, label, { x:8.048, y:y, w:1.2, h:0.456, fontSize:10.5, bold:true, color:'5A6070', fontFace:F.mono, valign:'middle' });
+    text(s, value, { x:9.281, y:y, w:3.1, h:0.456, fontSize:14, color:'1E2736', valign:'middle' });
+  }
+  chip(2.75, 'PERIOD',  meta.monthLong || meta.monthLabel || '—');
+  chip(3.40, 'TOPICS',  String(data.length));
+  const totalTix = data.reduce((a, sd) => a + sd.allTickets.length, 0);
+  chip(4.05, 'TICKETS', String(totalTix));
+  chip(4.70, 'STATUS',  'IN PROGRESS');
+}
+
+// Agenda slide — two-column list of topic headers under a single "TOPICS" section header
+function _pmrAddAgendaSlide(pres, ctx, data) {
+  const { C, F, W, H, FOUO_H, BODY_Y, M, rect, text, addHeader } = ctx;
+  const s = pres.addSlide();
+  s.background = { color: C.void };
+  addHeader(s, '(U) Presentation Agenda', C.cyan);
+  const gap = 0.2;
+  const half = (W - M*2 - gap) / 2;
+  const itemH = 0.30, headerH = 0.27;
+  const splitAt = Math.ceil(data.length / 2);
+  const cols = [ data.slice(0, splitAt), data.slice(splitAt) ];
+  cols.forEach((items, ci) => {
+    const x = M + ci * (half + gap);
+    let y = BODY_Y + 0.05;
+    // Section header bar
+    rect(s, x, y, half, headerH, C.navy);
+    rect(s, x, y, 0.032, headerH, C.cyan);
+    text(s, 'TOPICS', { x:x+0.10, y:y, w:half-0.14, h:headerH, fontSize:11, bold:true, color:'FFFFFF', fontFace:F.mono, valign:'middle' });
+    y += headerH + 0.005;
+    // Items
+    const maxY = H - FOUO_H - itemH - 0.1;
+    items.forEach(item => {
+      if (y > maxY) return;
+      rect(s, x, y, half, itemH, C.cardLt);
+      rect(s, x + 0.10, y + 0.11, 0.08, 0.08, C.cyan);
+      const label = item.header.length > 56 ? item.header.slice(0, 53) + '…' : item.header;
+      text(s, label, { x:x+0.26, y:y, w:half-0.30, h:itemH, fontSize:13, color:'1E2736', valign:'middle' });
+      y += itemH;
+    });
+  });
+}
+
+// Dispatcher: pick the layout-specific renderer
+function _pmrAddContentSlide(pres, ctx, sd) {
+  switch (sd.layout) {
+    case 'feature_improvement_bug':  _pmrAddFibSlide(pres, ctx, sd); break;
+    case 'project_split_3':          _pmrAddProjectSlide(pres, ctx, sd, ['DataXplorer','LinkXplorer','Rollercoaster']); break;
+    case 'project_split_2':          _pmrAddProjectSlide(pres, ctx, sd, ['DataXplorer','Rollercoaster']); break;
+    case 'mission_support_other':    _pmrAddMissionSupportSlide(pres, ctx, sd); break;
+    default:                         _pmrAddSimpleListSlide(pres, ctx, sd);
+  }
+}
+
+// Simple list — single full-width card with narrative + ticket strip
+function _pmrAddSimpleListSlide(pres, ctx, sd) {
+  const { C, F, W, H, FOUO_H, BODY_Y, M, rect, text, addHeader, fit } = ctx;
+  const s = pres.addSlide();
+  s.background = { color: C.void };
+  addHeader(s, '(U) ' + sd.header, C.cyan);
+  const x = M, y = BODY_Y, w = W - M*2, h = H - FOUO_H - y - 0.1;
+  rect(s, x, y, w, h, C.card);
+  rect(s, x, y, w, 0.048, C.cyan);
+  text(s, 'NARRATIVE', { x:x+0.18, y:y+0.06, w:w-0.36, h:0.22, fontSize:11, bold:true, color:C.cyan, fontFace:F.mono });
+  const narr = sd.topNarrative || (sd.sections[0] && sd.sections[0].narrative) || '(no narrative provided)';
+  text(s, narr, { x:x+0.18, y:y+0.34, w:w-0.36, h:h*0.62, fontSize:13, color:C.text, valign:'top', wrap:true });
+  // Ticket footer
+  const tx = sd.allTickets;
+  const tY = y + h - 0.70;
+  rect(s, x+0.18, tY-0.04, w-0.36, 0.018, C.divider);
+  text(s, 'TICKETS  (' + tx.length + ')', { x:x+0.18, y:tY, w:w-0.36, h:0.20, fontSize:9, bold:true, color:C.muted, fontFace:F.mono });
+  if (tx.length) text(s, fit(tx.join('  ·  '), 420), { x:x+0.18, y:tY+0.22, w:w-0.36, h:0.42, fontSize:9, color:C.muted, fontFace:F.mono, wrap:true });
+}
+
+// ── PMR PPTX HELPERS (BAMBOOTIGER format) ──────────────────────────────────
+// Walk PMR slide DOM → [{header, layout, topNarrative, sections:[{label,narrative,tickets}], allTickets}]
+function _pmrExtractSlides(frame) {
+  const out = [];
   frame.querySelectorAll('.slide').forEach(slide => {
     const h2 = slide.querySelector('h2');
-    const header = h2 ? h2.textContent.trim() : '(Untitled)';
-    const subheaders = [];
-    slide.querySelectorAll('h3').forEach(h3 => subheaders.push(h3.textContent.trim()));
-    const blufItems = [];
-    slide.querySelectorAll('[data-pmr-bluf]').forEach(el => {
-      const key = el.dataset.pmrBluf || '';
-      const txt = (el.innerText || el.textContent || '').trim() || '';
-      blufItems.push({ key, text: txt });
+    let header = h2 ? h2.textContent.trim() : '(Untitled)';
+    header = header.replace(/^\(U\)\s*/i, '').trim();
+    if (/^agenda$/i.test(header)) return;
+    const layout = slide.getAttribute('data-pmr-layout') || 'simple_list';
+    const slugCtx = (slide.id || '').replace(/^pmr-slide-/, '');
+    let topNarrative = '';
+    const topBluf = slide.querySelector('[data-pmr-bluf="' + slugCtx + '"]');
+    if (topBluf) topNarrative = (topBluf.innerText || topBluf.textContent || '').trim();
+    // Sections from h4 elements (pooled layouts) or entire slide (simple_list)
+    const sections = [];
+    const h4s = slide.querySelectorAll('h4');
+    if (h4s.length > 0) {
+      h4s.forEach(h4 => {
+        const label = h4.textContent.trim();
+        let narrative = ''; const tickets = [];
+        let n = h4.nextElementSibling;
+        while (n && n.tagName !== 'H4' && n.tagName !== 'H3' && n.tagName !== 'H2') {
+          if (n.dataset && n.dataset.pmrBluf !== undefined && !narrative) {
+            narrative = (n.innerText || n.textContent || '').trim();
+          }
+          if (n.querySelectorAll) {
+            n.querySelectorAll('a.tk, .tk-c, span.tk').forEach(tk => {
+              const k = (tk.textContent || '').trim();
+              if (k && tickets.indexOf(k) < 0) tickets.push(k);
+            });
+          }
+          n = n.nextElementSibling;
+        }
+        sections.push({ label, narrative, tickets });
+      });
+    } else {
+      const tickets = [];
+      slide.querySelectorAll('a.tk, .tk-c, span.tk').forEach(tk => {
+        const k = (tk.textContent || '').trim();
+        if (k && tickets.indexOf(k) < 0) tickets.push(k);
+      });
+      sections.push({ label: '', narrative: '', tickets });
+    }
+    // Dedupe sections by label (combines h3-grouped sub-topics with same h4 labels)
+    const map = {}, order = [];
+    sections.forEach(s => {
+      const k = s.label.toLowerCase();
+      if (!map[k]) { map[k] = { label:s.label, narrative:s.narrative, tickets:s.tickets.slice() }; order.push(k); }
+      else {
+        if (s.narrative && !map[k].narrative) map[k].narrative = s.narrative;
+        s.tickets.forEach(t => { if (map[k].tickets.indexOf(t) < 0) map[k].tickets.push(t); });
+      }
     });
-    const tickets = [];
-    slide.querySelectorAll('.tk-c').forEach(el => {
-      const k = (el.textContent || '').trim();
-      if (k) tickets.push(k);
-    });
-    slides.push({ header, subheaders, blufItems, tickets });
+    const merged = order.map(k => map[k]);
+    const allTickets = [];
+    merged.forEach(sec => sec.tickets.forEach(t => { if (allTickets.indexOf(t) < 0) allTickets.push(t); }));
+    out.push({ header, layout, topNarrative, sections: merged, allTickets });
   });
+  return out;
+}
 
-  const p = S.params || {};
+// Build title/month/work-period metadata from wizard params and cfg
+function _pmrBuildMeta() {
   const cfg = S.cfg || {};
-  const pmrTitle = cfg.pmr_title || '(U) PMR';
-  const pmrMonth = p.pmrMonth || '';
-  let monthLabel = pmrMonth;
+  const wp = S._wizParams || S.params || {};
+  const pmrTitle = (cfg.pmr_title || '(U) PMR').replace(/^\(U\)\s*/i, '').trim();
+  const pmrMonth = wp.pmrMonth || '';
+  const pmrStart = wp.pmrStart || '';
+  const pmrEnd = wp.pmrEnd || '';
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let monthLabel = pmrMonth, monthLong = '', workPeriod = '';
   try {
     if (pmrMonth) {
       const [yr, mo] = pmrMonth.split('-');
-      const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      monthLabel = (MONTHS[parseInt(mo)-1] || mo) + ' ' + yr;
+      const i = parseInt(mo, 10) - 1;
+      monthLabel = (SHORT[i] || mo) + ' ' + yr;
+      monthLong = (MONTHS[i] || mo) + ' ' + yr;
     }
-  } catch(e) { /* keep raw */ }
+    if (pmrStart && pmrEnd) {
+      const sd = new Date(pmrStart + 'T00:00:00');
+      const ed = new Date(pmrEnd + 'T00:00:00');
+      workPeriod = MONTHS[sd.getMonth()] + ' ' + sd.getDate() + ' – ' + MONTHS[ed.getMonth()] + ' ' + ed.getDate() + ', ' + ed.getFullYear();
+    }
+  } catch (e) { /* keep raw */ }
+  const today = new Date();
+  const submitted = MONTHS[today.getMonth()] + ' ' + today.getDate() + ', ' + today.getFullYear();
+  const safeName = (monthLabel || 'current').replace(/\s+/g, '_');
+  return { pmrTitle, pmrMonth, monthLabel, monthLong, workPeriod, submitted, safeName };
+}
 
-  const safeName = monthLabel.replace(/\s+/g,'_') || 'current';
+// Shared constants + low-level helpers (colors, dimensions, shape/text primitives)
+function _pmrCtx(pres) {
+  const C = {
+    void:'F7F5F1', navy:'1E2736', navyDk:'141A26', card:'FFFFFF', cardLt:'F0EDE8', border:'D4CFC8',
+    cyan:'0071A4', cyanDk:'2952A3', purple:'6030A0', orange:'B84A10', magenta:'B02060',
+    gold:'B87800', green:'0A7A4A', red:'C0392B', blue2:'0060B0', amber:'F5A800',
+    text:'1A1E28', muted:'5A6070', subtle:'8899BB', divider:'D4CFC8', fouoBg:'007A33',
+  };
+  const F = { body:'Calibri', mono:'Courier New' };
+  const W = 13.333, H = 7.5, FOUO_H = 0.22, HDR_Y = 0.22, HDR_H = 0.82;
+  const BAR_Y = HDR_Y + HDR_H, BAR_H = 0.05;
+  const BODY_Y = BAR_Y + BAR_H + 0.1, M = 0.26;
+  const rect = (s,x,y,w,h,fill) => s.addShape(pres.ShapeType.rect, { x,y,w,h, fill:{color:fill}, line:{color:fill} });
+  const text = (s,t,opts) => s.addText(typeof t === 'string' ? t : t, Object.assign({ margin:0, fontFace:F.body }, opts));
+  function addFOUO(s) {
+    rect(s, 0, 0, W, FOUO_H, C.fouoBg);
+    text(s, 'UNCLASSIFIED // FOR OFFICIAL USE ONLY', { x:0,y:0,w:W,h:FOUO_H, align:'center', valign:'middle', fontSize:8, bold:true, color:'FFFFFF', charSpacing:2.5, fontFace:F.mono });
+    rect(s, 0, H - FOUO_H, W, FOUO_H, C.fouoBg);
+    text(s, 'UNCLASSIFIED // FOR OFFICIAL USE ONLY', { x:0,y:H-FOUO_H,w:W,h:FOUO_H, align:'center', valign:'middle', fontSize:8, bold:true, color:'FFFFFF', charSpacing:2.5, fontFace:F.mono });
+  }
+  function addHeader(s, title, accent) {
+    accent = accent || C.cyan;
+    rect(s, 0, HDR_Y, W, HDR_H, C.navy);
+    rect(s, 0, HDR_Y, 0.05, HDR_H, accent);
+    text(s, title, { x:0.20, y:HDR_Y, w:W-0.4, h:HDR_H, valign:'middle', fontSize:22, bold:true, color:'FFFFFF' });
+    rect(s, 0, BAR_Y, W*0.35, BAR_H, accent);
+    rect(s, W*0.35, BAR_Y, W*0.65, BAR_H, C.border);
+  }
+  const fit = (str, n) => (str && str.length > n) ? str.slice(0, n-1) + '…' : (str || '');
+  return { pres, C, F, W, H, FOUO_H, HDR_Y, HDR_H, BAR_Y, BAR_H, BODY_Y, M, rect, text, addFOUO, addHeader, fit };
+}
 
-  // Build PPTX using PptxGenJS browser bundle
+// ── DOWNLOAD PMR PPTX (BAMBOOTIGER format) ─────────────────────────────────
+function downloadPmrPptx() {
+  const frame = document.getElementById('rptf2');
+  if (!frame) { alert('Run PMR first before downloading PPTX.'); return; }
+  const data = _pmrExtractSlides(frame);
+  const meta = _pmrBuildMeta();
   const pres = new PptxGenJS();
   pres.layout = 'LAYOUT_WIDE';
-  pres.title = pmrTitle + ' ' + monthLabel;
-
-  const C = {
-    void:'f7f5f1',navy:'1e2736',card:'ffffff',cardLt:'f0ede8',border:'d4cfc8',
-    cyan:'0071a4',offwht:'1a1e28',muted:'5a6070',dim:'5a6070',
-  };
-  const F = { body:'Calibri',mono:'Courier New',display:'Calibri',
-    szSlideTitle:22,szCardBody:13,szTicket:10,szMeta:11 };
-  const W=13.333,H=7.5,FOUO_H=0.22,HDR_H=0.82;
-  const HDR_Y=FOUO_H,BAR_Y=HDR_Y+HDR_H,BAR_H=0.05;
-  const BODY_Y=BAR_Y+BAR_H+0.1,M=0.26,BODY_W=W;
-
-  const logoB64 = cfg.pmr_logo_b64 || '';
-
-  function addFOUO(s){
-    const bg='007a33';
-    s.addShape(pres.ShapeType.rect,{x:0,y:0,w:W,h:FOUO_H,fill:{color:bg},line:{color:bg}});
-    s.addText('UNCLASSIFIED // FOR OFFICIAL USE ONLY',{x:0,y:0,w:W,h:FOUO_H,align:'center',valign:'middle',fontSize:8,bold:true,color:'ffffff',charSpacing:2.5,fontFace:F.mono,margin:0});
-    s.addShape(pres.ShapeType.rect,{x:0,y:H-FOUO_H,w:W,h:FOUO_H,fill:{color:bg},line:{color:bg}});
-    s.addText('UNCLASSIFIED // FOR OFFICIAL USE ONLY',{x:0,y:H-FOUO_H,w:W,h:FOUO_H,align:'center',valign:'middle',fontSize:8,bold:true,color:'ffffff',charSpacing:2.5,fontFace:F.mono,margin:0});
-  }
-  function addChrome(s,title,accent){
-    addFOUO(s);
-    s.addShape(pres.ShapeType.rect,{x:0,y:HDR_Y,w:W,h:HDR_H,fill:{color:C.navy},line:{color:C.navy}});
-    s.addShape(pres.ShapeType.rect,{x:0,y:HDR_Y,w:0.05,h:HDR_H,fill:{color:accent},line:{color:accent}});
-    s.addText(title,{x:0.20,y:HDR_Y,w:W-1.1,h:HDR_H,valign:'middle',fontSize:F.szSlideTitle,bold:true,color:'ffffff',fontFace:F.body,margin:0});
-    if(logoB64) s.addImage({data:'data:image/png;base64,'+logoB64,x:W-0.65,y:HDR_Y+0.08,w:0.45,h:0.45});
-    s.addShape(pres.ShapeType.rect,{x:0,y:BAR_Y,w:W*0.35,h:BAR_H,fill:{color:accent},line:{color:accent}});
-    s.addShape(pres.ShapeType.rect,{x:W*0.35,y:BAR_Y,w:W*0.65,h:BAR_H,fill:{color:C.border},line:{color:C.border}});
-  }
-
-  // Title slide
-  {
-    const s=pres.addSlide(); s.background={color:C.navy}; addFOUO(s);
-    s.addShape(pres.ShapeType.rect,{x:0,y:FOUO_H,w:0.08,h:H-FOUO_H*2,fill:{color:C.cyan},line:{color:C.cyan}});
-    s.addText(pmrTitle,{x:0.28,y:FOUO_H+0.6,w:W-0.56,h:1.1,fontSize:42,bold:true,color:'ffffff',fontFace:F.display,charSpacing:4,margin:0});
-    s.addText(monthLabel,{x:0.28,y:FOUO_H+1.9,w:W-0.56,h:0.45,fontSize:18,color:'8899bb',fontFace:F.body,margin:0});
-    if(logoB64) s.addImage({data:'data:image/png;base64,'+logoB64,x:W-0.9,y:H-FOUO_H-0.85,w:0.6,h:0.6});
-  }
-
-  // Content slides
-  slides.forEach(function(sd){
-    const s=pres.addSlide(); s.background={color:C.void}; addChrome(s,'(U) '+sd.header,C.cyan);
-    let y=BODY_Y; const lineH=0.36,itemH=0.28;
-    sd.subheaders.forEach(function(sub,i){
-      const bg=i%2===0?C.cardLt:C.card;
-      s.addShape(pres.ShapeType.rect,{x:M,y,w:BODY_W-M*2,h:lineH-0.04,fill:{color:bg},line:{color:C.border,pt:0.3}});
-      s.addShape(pres.ShapeType.rect,{x:M,y,w:0.04,h:lineH-0.04,fill:{color:C.cyan},line:{color:C.cyan}});
-      s.addText(sub,{x:M+0.14,y,w:BODY_W-M*2-0.18,h:lineH-0.04,fontSize:F.szCardBody,bold:true,color:C.offwht,fontFace:F.body,valign:'middle',margin:0});
-      y+=lineH;
-    });
-    if(sd.blufItems.length>0){ y+=0.08;
-      sd.blufItems.forEach(function(b){ if(b.text){ s.addText(b.text,{x:M+0.18,y,w:BODY_W-M*2-0.22,h:itemH,fontSize:F.szMeta,color:C.muted,fontFace:F.body,valign:'middle',wrap:true,margin:0}); y+=itemH+0.04; } });
-    }
-    if(sd.tickets.length>0){ y+=0.06; s.addText(sd.tickets.join('  \xb7  '),{x:M+0.1,y,w:BODY_W-M*2-0.14,h:0.22,fontSize:F.szTicket,color:C.dim,fontFace:F.mono,valign:'middle',wrap:true,margin:0}); }
-  });
-
-  pres.writeFile({ fileName: 'PMR_' + safeName + '_generated.pptx' });
+  pres.title = meta.pmrTitle + ' — ' + meta.monthLabel;
+  const ctx = _pmrCtx(pres);
+  _pmrAddTitleSlide(pres, ctx, meta, data);
+  _pmrAddAgendaSlide(pres, ctx, data);
+  data.forEach(sd => _pmrAddContentSlide(pres, ctx, sd));
+  pres.writeFile({ fileName: 'BAMBOOTIGER_PMR_' + meta.safeName + '.pptx' });
 }
 
 
@@ -7121,28 +7406,29 @@ function openGuide(){
     <li>Click <strong>Generate Report →</strong>.</li>
     <li>Edit the BLUF and narrative fields directly in the report — all text is editable in place.</li>
     <li>Click <strong>Copy Narrative</strong> in the sticky bar to copy the formatted narrative text.</li>
-    <li>Optionally, click <strong>Download Build Script</strong> to get a pre-populated Node.js script that generates a PowerPoint deck from this report.</li>
+    <li>Click <strong>Download PPTX</strong> to generate a BAMBOOTIGER-formatted PowerPoint deck directly in your browser.</li>
   </ol>
   <div style="margin-top:8px;font-size:var(--fs-xs);color:var(--mu)">Note: A ticket appears in the PMR only if it was in a sprint that overlapped the selected month AND its updated/resolved date falls within that month.</div>
 </div>
 <div style="background:var(--s3);border:1px solid var(--bd);border-left:3px solid var(--a4);border-radius:var(--r2);padding:14px 18px;margin:14px 0">
-  <div style="font-weight:700;font-size:var(--fs-sm);margin-bottom:10px;color:var(--a4)"><span class="mi" style="font-size:14px;margin-right:5px;vertical-align:middle">slideshow</span>Using the PMR PowerPoint build script</div>
-  <p style="font-size:var(--fs-xs);color:var(--mu);margin:0 0 10px">A standalone Node.js file that generates a formatted <code>.pptx</code> deck from your current PMR data. Run it after finalising your narrative.</p>
-  <div style="font-weight:600;font-size:var(--fs-xs);color:var(--tx);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Prerequisites (one-time setup)</div>
-  <ol style="margin:0 0 12px;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2">
-    <li>Install <strong>Node.js</strong> v18 or later if you do not already have it.</li>
-    <li>Create a working folder (e.g. <code>pmr-build/</code>) and place your <code>nw_b64.txt</code> logo file inside it.</li>
-    <li>Inside that folder, run: <code style="background:var(--s4);padding:1px 6px;border-radius:3px;font-size:var(--fs-xs)">npm install pptxgenjs</code></li>
-  </ol>
-  <div style="font-weight:600;font-size:var(--fs-xs);color:var(--tx);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Each reporting cycle</div>
+  <div style="font-weight:700;font-size:var(--fs-sm);margin-bottom:10px;color:var(--a4)"><span class="mi" style="font-size:14px;margin-right:5px;vertical-align:middle">slideshow</span>BAMBOOTIGER PMR PowerPoint export</div>
+  <p style="font-size:var(--fs-xs);color:var(--mu);margin:0 0 10px">Generates a fully-formatted <code>.pptx</code> matching the BAMBOOTIGER Monthly Progress Report template — hero title slide, two-column agenda, and layout-specific content slides — directly in the browser via the bundled pptxgenjs library.</p>
+  <div style="font-weight:600;font-size:var(--fs-xs);color:var(--tx);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Slide types generated</div>
+  <ul class="u-list-indent" style="font-size:var(--fs-sm);line-height:1.8;margin:0 0 12px">
+    <li><strong>Title slide</strong> — BAMBOOTIGER navy/cyan hero with work period, submitted date, and PERIOD/TOPICS/TICKETS/STATUS info chips.</li>
+    <li><strong>Presentation Agenda</strong> — two-column list of every topic, with section header and accent squares.</li>
+    <li><strong>Feature / Improvement / Bug</strong> — NEW FEATURES card on the left (full height) with IMPROVEMENTS and BUG FIXES stacked on the right.</li>
+    <li><strong>Project split (DX / LX / RC)</strong> — stacked product rows, each with a product tag block and narrative card.</li>
+    <li><strong>Mission Support / Other</strong> — two-column card layout with purple + gold accents.</li>
+    <li><strong>Simple list</strong> — single full-width narrative card with ticket strip.</li>
+  </ul>
+  <div style="font-weight:600;font-size:var(--fs-xs);color:var(--tx);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Usage</div>
   <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2">
     <li>Generate and finalise your PMR report (fill in narratives, check unmatched tickets).</li>
-    <li>Click <strong>Download Build Script</strong> in the PMR sticky bar. A <code>build_pmr_&lt;Month_Year&gt;.cjs</code> file is saved to your downloads.</li>
-    <li>Move the <code>.cjs</code> file into your <code>pmr-build/</code> folder alongside <code>nw_b64.txt</code>.</li>
-    <li>Open a terminal in that folder and run:<br><code style="display:inline-block;background:var(--s4);border:1px solid var(--bd2);border-radius:4px;padding:4px 10px;font-size:var(--fs-xs);margin-top:4px">node build_pmr_March_2026.cjs</code></li>
-    <li>A <code>.pptx</code> file is written to the same folder. Open in PowerPoint, then add any remaining slides (agenda, certifications, staffing, conclusion) from your master template.</li>
+    <li>Click <strong>Download PPTX</strong> in the PMR sticky bar. A <code>BAMBOOTIGER_PMR_&lt;Month_Year&gt;.pptx</code> file is saved to your downloads.</li>
+    <li>Open in PowerPoint. The topic content slides are formatted — add any remaining deck slides (kudos, actions, tier dividers, roadmap, closing) from your master template.</li>
   </ol>
-  <div style="margin-top:10px;font-size:var(--fs-xs);color:var(--mu)">Tip: The script embeds all slide data as a JSON block at the top. Edit it directly in any text editor for last-minute corrections without re-generating from the app.</div>
+  <div style="margin-top:10px;font-size:var(--fs-xs);color:var(--mu)">Tip: Slide layouts are chosen automatically per topic based on the <strong>PMR Layouts</strong> setting in Settings → PMR. Change the layout there and regenerate to see a different slide style.</div>
 </div>
 <h3 class="u-a2-hdr" data-guide-section="pmr">PMR</h3>
           <p>Monthly Program Review. Select a month from the calendar grid (click the display to open — year navigation with ‹ › buttons, 4-column month grid). Future months are dimmed. Tickets are included if updated within the month, in a non-future sprint, and resolved within the month or still open.</p>
