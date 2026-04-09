@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- Material Icons: self-hosted inline SVG sprite -->
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ReportSuite v8.35</title>
+<title>ReportSuite v8.36</title>
 <style>
 
 :root{
@@ -1365,6 +1365,13 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
               <div id="pmr-layouts-editor"></div>
             </div>
           </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Integrated Milestone Roadmap</span></div>
+            <div class="stn-hint">Tier-based roadmap slide sourced from the spin plan. Pick the months or quarters to show, toggle which milestones appear, and optionally add a zoomed second slide.</div>
+            <div class="stn-body" style="padding:12px 16px">
+              <div id="pmr-roadmap-editor"></div>
+            </div>
+          </div>
         </div>
 
         <!-- == SPIN STATUS == -->
@@ -1831,7 +1838,7 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
 //
 // ==========================================================
 
-const APP_VERSION='v8.35';
+const APP_VERSION='v8.36';
 
 // ============================================================
 // STATE
@@ -1882,6 +1889,31 @@ const S = {
       dx_sustainment:'mission_support_other', lx_sustainment:'mission_support_other',
       rc_sustainment:'mission_support_other', aiml_integration:'project_split_3',
       '508_compliance':'project_split_3', techsigint_revitalization:'project_split_3'
+    },
+    // ── Integrated Milestone Roadmap (slide + editor) ───────────────────────
+    // Milestones are seeded from the spin plan (S.spin.issues) and then
+    // curated per-PMR via the editor on the PMR config page. Selection is
+    // per-slide so a milestone can appear on the overview and/or zoomed view.
+    pmr_roadmap: {
+      enabled: true,
+      // 1 or 2 slide definitions. The user can toggle between one overview
+      // slide and an overview + zoomed pair from the editor.
+      slides: [
+        {
+          id: 'overview',
+          title: 'Integrated Milestone Roadmap',
+          mode: 'months',            // 'months' | 'quarters'
+          year: 2026,
+          rangeStart: '2026-01',     // inclusive YYYY-MM
+          rangeEnd:   '2026-12',     // inclusive YYYY-MM
+          tiers: ['T0','T1','T2','T3'],
+          emphasizeTier: 'T1'        // row gets 2.5× weight
+        }
+      ],
+      // Per-ticketKey snapshot. Seeded from spin plan, survives re-seeds.
+      // Deselection (slideIds=[]) is sticky across re-seeds.
+      milestones: [],
+      seedVersion: 0
     },
     // Leave empty so initState() populates from DEFAULT_SPRINT_CALENDAR (single source of truth).
     sprint_calendar: [],
@@ -3062,6 +3094,38 @@ function _migrateCfg(){
       return days >= 13; // real 2-week sprint stays, short stubs get dropped
     });
   }
+
+  // Backfill pmr_roadmap on configs saved before the Integrated Roadmap feature.
+  // Keeps existing deselections / manual edits intact on re-loads.
+  if(!S.cfg.pmr_roadmap || typeof S.cfg.pmr_roadmap !== 'object'){
+    S.cfg.pmr_roadmap = {
+      enabled: true,
+      slides: [{
+        id: 'overview',
+        title: 'Integrated Milestone Roadmap',
+        mode: 'months', year: 2026,
+        rangeStart: '2026-01', rangeEnd: '2026-12',
+        tiers: ['T0','T1','T2','T3'],
+        emphasizeTier: 'T1'
+      }],
+      milestones: [],
+      seedVersion: 0
+    };
+  } else {
+    // Field-level backfill for partial configs
+    const r = S.cfg.pmr_roadmap;
+    if(typeof r.enabled !== 'boolean') r.enabled = true;
+    if(!Array.isArray(r.slides) || !r.slides.length){
+      r.slides = [{
+        id:'overview', title:'Integrated Milestone Roadmap',
+        mode:'months', year:2026,
+        rangeStart:'2026-01', rangeEnd:'2026-12',
+        tiers:['T0','T1','T2','T3'], emphasizeTier:'T1'
+      }];
+    }
+    if(!Array.isArray(r.milestones)) r.milestones = [];
+    if(typeof r.seedVersion !== 'number') r.seedVersion = 0;
+  }
 }
 function cfgSetRole(idx, field, val){
   if(!S.cfg.roles[idx]) S.cfg.roles[idx]={role:'',name:'',id:''};
@@ -3429,6 +3493,7 @@ function renderConfigUI(){
 
   renderPmrGroups();
   renderPmrLayouts();
+  renderPmrRoadmapEditor();
   renderFieldMapRows();
   renderClassPresets();
 }
@@ -3523,6 +3588,352 @@ function renderPmrLayouts(){
   el.querySelectorAll('select[data-layout-id]').forEach(function(sel){
     sel.addEventListener('change', function(){ S.cfg.pmr_layouts[this.dataset.layoutId]=this.value; });
   });
+}
+
+// ── Integrated Milestone Roadmap editor ──────────────────────────────────
+// Renders into #pmr-roadmap-editor. Shows slide config controls, the
+// milestone table, and an inline SVG preview that updates live.
+// Status/product color + letter mapping stay in sync with the PPTX helper
+// via the PMR_ROADMAP_STATUS / PMR_ROADMAP_PRODUCT constants below.
+const PMR_ROADMAP_STATUS = {
+  complete:    { color:'#0060B0', label:'Completed'    },
+  in_progress: { color:'#0A7A4A', label:'In Progress'  },
+  not_started: { color:'#8899BB', label:'Not Started'  },
+  blocked:     { color:'#C0392B', label:'Blocked'      }
+};
+const PMR_ROADMAP_PRODUCT = {
+  DX: { letter:'D', color:'#2952A3', name:'DataXplorer'  },
+  LX: { letter:'L', color:'#0071A4', name:'LinkXplorer'  },
+  RC: { letter:'R', color:'#6030A0', name:'Rollercoaster'},
+  X:  { letter:'×', color:'#5A6070', name:'Cross-product'}
+};
+
+function renderPmrRoadmapEditor(){
+  const el=document.getElementById('pmr-roadmap-editor'); if(!el) return;
+  const roadmap=S.cfg.pmr_roadmap;
+  if(!roadmap){ el.innerHTML='<div class="u-muted-xs">Roadmap config missing.</div>'; return; }
+
+  const hasSpin = !!(S.spin && Array.isArray(S.spin.issues) && S.spin.issues.length);
+  const seedBtn = hasSpin
+    ? '<button class="btn btn-ghost btn-xs" onclick="pmrRoadmapUiReseed()"><span class="mi" style="font-size:13px;margin-right:2px">refresh</span>Re-seed from Spin Plan</button>'
+    : '<button class="btn btn-ghost btn-xs" disabled title="Load the spin plan / roadmap CSV on the Files page first"><span class="mi" style="font-size:13px;margin-right:2px">refresh</span>Re-seed from Spin Plan</button>';
+
+  const enabledChk = '<label class="row" style="gap:6px;align-items:center;margin-bottom:10px">'
+    + '<input type="checkbox" id="pmr-roadmap-enabled" '+(roadmap.enabled?'checked':'')+'>'
+    + '<span>Include integrated roadmap in PMR</span></label>';
+
+  // Slide config controls (1 or 2 slides)
+  const slidesHtml = (roadmap.slides||[]).map((slide, i) => pmrRoadmapRenderSlideControls(slide, i)).join('');
+  const addSlideBtn = (roadmap.slides||[]).length < 2
+    ? '<button class="btn btn-ghost btn-xs" style="margin-top:4px" onclick="pmrRoadmapUiAddSlide()"><span class="mi" style="font-size:13px;margin-right:2px">add</span>Add Zoomed Slide</button>'
+    : '';
+
+  // Milestone table
+  const tableHtml = pmrRoadmapRenderMilestoneTable(roadmap);
+
+  // Preview SVG (shows the first slide)
+  const previewSvg = (roadmap.slides && roadmap.slides[0])
+    ? pmrRoadmapRenderPreviewSvg(roadmap.slides[0], 900, 320)
+    : '';
+
+  el.innerHTML = enabledChk
+    + '<div style="margin-bottom:10px">'+slidesHtml+addSlideBtn+'</div>'
+    + '<div class="row" style="justify-content:space-between;align-items:center;margin:14px 0 6px">'
+    +   '<div style="font-weight:600">Milestones <span class="u-muted-xs">('+(roadmap.milestones||[]).length+')</span></div>'
+    +   '<div class="row" style="gap:6px">'+seedBtn
+    +     '<button class="btn btn-ghost btn-xs" onclick="pmrRoadmapUiAddManual()"><span class="mi" style="font-size:13px;margin-right:2px">add</span>Manual</button>'
+    +   '</div>'
+    + '</div>'
+    + tableHtml
+    + '<div style="font-weight:600;margin:14px 0 6px">Preview</div>'
+    + '<div style="background:#F7F5F1;border:1px solid #D4CFC8;border-radius:4px;padding:8px;overflow:auto">'+previewSvg+'</div>';
+
+  // Wire listeners
+  const enBx = document.getElementById('pmr-roadmap-enabled');
+  if (enBx) enBx.addEventListener('change', function(){ roadmap.enabled = this.checked; autoSaveCfg(); });
+  el.querySelectorAll('[data-slide-field]').forEach(function(inp){
+    inp.addEventListener('change', function(){
+      const si = +this.dataset.slideIdx;
+      const fld = this.dataset.slideField;
+      const slide = roadmap.slides[si]; if(!slide) return;
+      if (fld === 'tiers') {
+        const t = this.value;
+        if (!Array.isArray(slide.tiers)) slide.tiers = [];
+        const ix = slide.tiers.indexOf(t);
+        if (this.checked && ix<0) slide.tiers.push(t);
+        if (!this.checked && ix>=0) slide.tiers.splice(ix,1);
+      } else {
+        slide[fld] = this.value;
+      }
+      autoSaveCfg();
+      renderPmrRoadmapEditor();
+    });
+  });
+  el.querySelectorAll('[data-ms-toggle]').forEach(function(bx){
+    bx.addEventListener('change', function(){
+      pmrRoadmapToggleSelected(this.dataset.msToggle, this.dataset.slideId);
+      renderPmrRoadmapEditor();
+    });
+  });
+  el.querySelectorAll('[data-ms-field]').forEach(function(inp){
+    inp.addEventListener('change', function(){
+      const mid = this.dataset.msId, fld = this.dataset.msField;
+      const m = (roadmap.milestones||[]).find(x=>x.id===mid); if(!m) return;
+      m[fld] = this.value;
+      if (fld === 'label') m.labelFull = this.value;
+      autoSaveCfg();
+      renderPmrRoadmapEditor();
+    });
+  });
+  el.querySelectorAll('[data-ms-delete]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      pmrRoadmapDeleteMilestone(this.dataset.msDelete);
+      renderPmrRoadmapEditor();
+    });
+  });
+  el.querySelectorAll('[data-slide-remove]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const si = +this.dataset.slideRemove;
+      roadmap.slides.splice(si, 1);
+      autoSaveCfg();
+      renderPmrRoadmapEditor();
+    });
+  });
+}
+
+function pmrRoadmapRenderSlideControls(slide, idx){
+  const tierChks = ['T0','T1','T2','T3'].map(t =>
+    '<label class="row" style="gap:4px;align-items:center;margin-right:10px"><input type="checkbox" data-slide-idx="'+idx+'" data-slide-field="tiers" value="'+t+'"'
+    + ((slide.tiers||[]).indexOf(t)>=0?' checked':'')+'> '+t+'</label>'
+  ).join('');
+  const monthOpts = [];
+  for (let y=2025; y<=2027; y++) {
+    for (let m=1; m<=12; m++) {
+      const key = y+'-'+String(m).padStart(2,'0');
+      const label = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]+' '+y;
+      monthOpts.push('<option value="'+key+'">'+label+'</option>');
+    }
+  }
+  const startSel = monthOpts.join('').replace('value="'+slide.rangeStart+'"','value="'+slide.rangeStart+'" selected');
+  const endSel = monthOpts.join('').replace('value="'+slide.rangeEnd+'"','value="'+slide.rangeEnd+'" selected');
+  const tierEmphOpts = ['T0','T1','T2','T3'].map(t =>
+    '<option value="'+t+'"'+(slide.emphasizeTier===t?' selected':'')+'>'+t+'</option>'
+  ).join('');
+  const removeBtn = idx>0
+    ? '<button class="btn btn-red btn-xs" data-slide-remove="'+idx+'" style="margin-left:auto">✕</button>'
+    : '';
+
+  return '<div class="card" style="margin-bottom:8px;padding:10px">'
+    + '<div class="row" style="align-items:center;margin-bottom:6px">'
+    +   '<span style="font-weight:600;font-size:var(--fs-sm)">'+(idx===0?'Slide 1 — Overview':'Slide 2 — Zoomed')+'</span>'
+    +   removeBtn
+    + '</div>'
+    + '<div class="row" style="gap:8px;margin-bottom:6px;flex-wrap:wrap">'
+    +   '<label class="row" style="gap:4px"><span style="font-size:var(--fs-xs);color:var(--mu);min-width:40px">Title</span>'
+    +     '<input type="text" data-slide-idx="'+idx+'" data-slide-field="title" value="'+esc(slide.title||'')+'" style="width:280px"></label>'
+    + '</div>'
+    + '<div class="row" style="gap:8px;margin-bottom:6px;flex-wrap:wrap">'
+    +   '<label class="row" style="gap:4px"><span style="font-size:var(--fs-xs);color:var(--mu);min-width:40px">From</span>'
+    +     '<select data-slide-idx="'+idx+'" data-slide-field="rangeStart">'+startSel+'</select></label>'
+    +   '<label class="row" style="gap:4px"><span style="font-size:var(--fs-xs);color:var(--mu)">to</span>'
+    +     '<select data-slide-idx="'+idx+'" data-slide-field="rangeEnd">'+endSel+'</select></label>'
+    +   '<label class="row" style="gap:4px"><span style="font-size:var(--fs-xs);color:var(--mu);margin-left:8px">Emphasize</span>'
+    +     '<select data-slide-idx="'+idx+'" data-slide-field="emphasizeTier">'+tierEmphOpts+'</select></label>'
+    + '</div>'
+    + '<div class="row" style="gap:4px"><span style="font-size:var(--fs-xs);color:var(--mu);min-width:40px">Tiers</span>'+tierChks+'</div>'
+    + '</div>';
+}
+
+function pmrRoadmapRenderMilestoneTable(roadmap){
+  const ms = (roadmap.milestones||[]).slice().sort((a,b)=>{
+    if (a.tier !== b.tier) return (a.tier||'').localeCompare(b.tier||'');
+    return (a.date||'').localeCompare(b.date||'');
+  });
+  if (!ms.length) {
+    return '<div class="u-muted-xs" style="padding:8px;background:var(--bg2);border:1px dashed var(--bd);border-radius:4px">No milestones yet. Click <b>Re-seed from Spin Plan</b> to import from the loaded roadmap CSV, or <b>Manual</b> to add one by hand.</div>';
+  }
+  const slideIds = (roadmap.slides||[]).map(s=>s.id);
+  const slideHdrs = slideIds.map((id,i)=>'<th style="width:38px" title="'+esc((roadmap.slides[i]&&roadmap.slides[i].title)||id)+'">S'+(i+1)+'</th>').join('');
+  const statusOpts = ['not_started','in_progress','complete','blocked']
+    .map(s=>'<option value="'+s+'">'+s.replace('_',' ')+'</option>').join('');
+  const tierOpts = ['T0','T1','T2','T3'].map(t=>'<option value="'+t+'">'+t+'</option>').join('');
+  const prodOpts = ['DX','LX','RC','X'].map(p=>'<option value="'+p+'">'+p+'</option>').join('');
+
+  const rows = ms.map(m => {
+    const toggles = slideIds.map(sid =>
+      '<td style="text-align:center"><input type="checkbox" data-ms-toggle="'+esc(m.id)+'" data-slide-id="'+esc(sid)+'"'
+      + ((m.slideIds||[]).indexOf(sid)>=0?' checked':'')+'></td>'
+    ).join('');
+    const tierSel = tierOpts.replace('value="'+m.tier+'"','value="'+m.tier+'" selected');
+    const prodSel = prodOpts.replace('value="'+m.product+'"','value="'+m.product+'" selected');
+    const statusSel = statusOpts.replace('value="'+m.status+'"','value="'+m.status+'" selected');
+    const tk = m.ticketKey ? '<span class="tk-c">'+esc(m.ticketKey)+'</span>' : '<span class="u-muted-xs">manual</span>';
+    return '<tr>'
+      + toggles
+      + '<td><select data-ms-id="'+esc(m.id)+'" data-ms-field="tier" style="font-size:var(--fs-xs)">'+tierSel+'</select></td>'
+      + '<td><select data-ms-id="'+esc(m.id)+'" data-ms-field="product" style="font-size:var(--fs-xs)">'+prodSel+'</select></td>'
+      + '<td><input type="date" data-ms-id="'+esc(m.id)+'" data-ms-field="date" value="'+esc(m.date||'')+'" style="font-size:var(--fs-xs)"></td>'
+      + '<td style="font-size:var(--fs-xs);white-space:nowrap">'+tk+'</td>'
+      + '<td><input type="text" data-ms-id="'+esc(m.id)+'" data-ms-field="label" value="'+esc(m.label||'')+'" style="width:100%;font-size:var(--fs-xs)" title="'+esc(m.labelFull||m.label||'')+'"></td>'
+      + '<td><select data-ms-id="'+esc(m.id)+'" data-ms-field="status" style="font-size:var(--fs-xs)">'+statusSel+'</select></td>'
+      + '<td><button class="btn btn-red btn-xs" data-ms-delete="'+esc(m.id)+'">✕</button></td>'
+      + '</tr>';
+  }).join('');
+
+  return '<div class="tw" style="max-height:320px;overflow:auto"><table class="rt"><thead><tr>'
+    + slideHdrs + '<th>Tier</th><th>Prd</th><th>Date</th><th>Ticket</th><th>Label</th><th>Status</th><th></th>'
+    + '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+// Thin UI wrappers that toast the user after data operations and re-render.
+function pmrRoadmapUiReseed(){
+  const r = pmrRoadmapSeedFromSpin();
+  if (r.reason) { alert('Re-seed failed: ' + r.reason); return; }
+  const msg = 'Re-seeded from spin plan: +'+r.added+' added · '+r.refreshed+' refreshed · '+r.manual+' manual';
+  // Light-touch status — reuse existing toast if present, else console
+  if (typeof toast === 'function') toast(msg);
+  else console.log(msg);
+  renderPmrRoadmapEditor();
+}
+function pmrRoadmapUiAddManual(){
+  pmrRoadmapAddManual();
+  renderPmrRoadmapEditor();
+}
+function pmrRoadmapUiAddSlide(){
+  const roadmap = S.cfg.pmr_roadmap; if(!roadmap) return;
+  if ((roadmap.slides||[]).length >= 2) return;
+  const base = roadmap.slides[0] || {};
+  roadmap.slides.push({
+    id: 'zoomed',
+    title: 'Integrated Roadmap — Zoomed',
+    mode: base.mode || 'months',
+    year: base.year || 2026,
+    rangeStart: base.rangeStart || '2026-03',
+    rangeEnd: '2026-07',
+    tiers: (base.tiers||['T0','T1','T2','T3']).slice(),
+    emphasizeTier: base.emphasizeTier || 'T1'
+  });
+  autoSaveCfg();
+  renderPmrRoadmapEditor();
+}
+
+// Inline SVG preview of a roadmap slide. Same geometry the PPTX helper uses,
+// translated to SVG units for live feedback in the editor.
+function pmrRoadmapRenderPreviewSvg(slide, pxW, pxH){
+  const months = pmrRoadmapMonthsForSlide(slide);
+  if (!months.length) return '<div class="u-muted-xs">Invalid month range.</div>';
+  const mils = pmrRoadmapMilestonesForSlide(slide);
+
+  const padL = 60, padR = 180, padT = 42, padB = 34;
+  const innerW = pxW - padL - padR;
+  const innerH = pxH - padT - padB;
+  const tiers = (slide.tiers && slide.tiers.length ? slide.tiers : ['T0','T1','T2','T3']);
+  const emph = slide.emphasizeTier || 'T1';
+  const totalWeight = tiers.reduce((s,t)=> s + (t===emph ? 2.5 : 1), 0);
+  const rowH = {};
+  let cursor = padT;
+  const tierYs = {};
+  tiers.forEach(t => {
+    const h = innerH * ((t===emph ? 2.5 : 1) / totalWeight);
+    rowH[t] = h;
+    tierYs[t] = cursor;
+    cursor += h;
+  });
+
+  const colW = innerW / months.length;
+  const monthX = {};
+  months.forEach((m, i) => { monthX[m.key] = padL + (colW * i) + (colW / 2); });
+
+  // Group milestones per tier for lane packing
+  const byTier = {};
+  tiers.forEach(t => byTier[t] = []);
+  mils.forEach(m => {
+    if (!byTier[m.tier]) return;
+    const x = monthX[pmrRoadmapMonthKey(m.date)];
+    if (x === undefined) return;
+    byTier[m.tier].push({ m, x });
+  });
+
+  let svg = '<svg viewBox="0 0 '+pxW+' '+pxH+'" width="100%" style="max-width:'+pxW+'px;display:block" xmlns="http://www.w3.org/2000/svg">';
+  // Background
+  svg += '<rect x="0" y="0" width="'+pxW+'" height="'+pxH+'" fill="#F7F5F1"/>';
+  // Header strip
+  svg += '<rect x="0" y="0" width="'+pxW+'" height="32" fill="#1E2736"/>';
+  svg += '<text x="12" y="21" fill="#FFFFFF" font-family="Cambria,Georgia,serif" font-weight="700" font-size="14">(U) '+esc(slide.title||'Integrated Milestone Roadmap')+'</text>';
+  svg += '<text x="'+(pxW-12)+'" y="21" fill="#FFFFFF" font-family="Cambria,Georgia,serif" font-weight="700" font-size="12" text-anchor="end">'+(slide.year||'')+'</text>';
+  // Month header row
+  months.forEach((m, i) => {
+    const x = padL + (colW * i);
+    svg += '<line x1="'+(x)+'" y1="'+padT+'" x2="'+(x)+'" y2="'+(padT+innerH)+'" stroke="#D4CFC8" stroke-width="1"/>';
+    svg += '<text x="'+(x+colW/2)+'" y="'+(padT-6)+'" fill="#5A6070" font-family="Cambria,Georgia,serif" font-weight="700" font-size="10" text-anchor="middle">'+m.label+'</text>';
+  });
+  svg += '<line x1="'+(padL+innerW)+'" y1="'+padT+'" x2="'+(padL+innerW)+'" y2="'+(padT+innerH)+'" stroke="#D4CFC8" stroke-width="1"/>';
+
+  // Tier rows + tier labels + diamonds
+  tiers.forEach(t => {
+    const y0 = tierYs[t];
+    const h = rowH[t];
+    // Row background
+    svg += '<rect x="'+padL+'" y="'+y0+'" width="'+innerW+'" height="'+h+'" fill="#FFFFFF" stroke="#D4CFC8"/>';
+    // Tier label
+    svg += '<text x="'+(padL-8)+'" y="'+(y0 + h/2 + 4)+'" fill="#1A1E28" font-family="Cambria,Georgia,serif" font-weight="700" font-size="12" text-anchor="end">'+t+'</text>';
+    // Lane packing within the row
+    const items = byTier[t] || [];
+    if (!items.length) return;
+    const packed = pmrRoadmapAssignLanes(items.map(it => ({ x: it.x, width: 70 })), 72);
+    const laneCount = packed.laneCount;
+    const laneH = h / (laneCount + 1); // +1 leaves space for labels
+    items.forEach((it, idx) => {
+      const lane = packed.laneOf[idx];
+      const cy = y0 + laneH * (lane + 0.4);
+      const sz = 9;
+      const st = PMR_ROADMAP_STATUS[it.m.status] || PMR_ROADMAP_STATUS.not_started;
+      const prod = PMR_ROADMAP_PRODUCT[it.m.product] || PMR_ROADMAP_PRODUCT.X;
+      // Diamond
+      svg += '<polygon points="'+it.x+','+(cy-sz)+' '+(it.x+sz)+','+cy+' '+it.x+','+(cy+sz)+' '+(it.x-sz)+','+cy+'" fill="'+st.color+'" stroke="#1A1E28" stroke-width="0.75"/>';
+      svg += '<text x="'+it.x+'" y="'+(cy+3)+'" fill="#FFFFFF" font-family="Cambria,Georgia,serif" font-weight="700" font-size="9" text-anchor="middle">'+prod.letter+'</text>';
+      // Label below (truncated)
+      const lbl = (it.m.label||'').length > 18 ? (it.m.label.slice(0,17)+'…') : (it.m.label||'');
+      svg += '<text x="'+it.x+'" y="'+(cy+sz+10)+'" fill="#1A1E28" font-family="Cambria,Georgia,serif" font-size="8" text-anchor="middle">'+esc(lbl)+'</text>';
+    });
+  });
+
+  // Next Steps panel on the right
+  const panelX = padL + innerW + 10;
+  const panelW = pxW - panelX - 10;
+  svg += '<rect x="'+panelX+'" y="'+padT+'" width="'+panelW+'" height="'+innerH+'" fill="#FFFFFF" stroke="#D4CFC8"/>';
+  svg += '<rect x="'+panelX+'" y="'+padT+'" width="'+panelW+'" height="18" fill="#1E2736"/>';
+  svg += '<text x="'+(panelX+6)+'" y="'+(padT+13)+'" fill="#FFFFFF" font-family="Cambria,Georgia,serif" font-weight="700" font-size="10">NEXT STEPS</text>';
+  const sorted = mils.slice().sort((a,b) => (a.date||'').localeCompare(b.date||''));
+  const maxRows = Math.floor((innerH - 22) / 14);
+  sorted.slice(0, maxRows).forEach((m, i) => {
+    const ly = padT + 32 + (i*14);
+    const st = PMR_ROADMAP_STATUS[m.status] || PMR_ROADMAP_STATUS.not_started;
+    svg += '<circle cx="'+(panelX+8)+'" cy="'+(ly-3)+'" r="3" fill="'+st.color+'"/>';
+    const dateLbl = (m.date||'').slice(5); // MM-DD
+    svg += '<text x="'+(panelX+16)+'" y="'+ly+'" fill="#1A1E28" font-family="Cambria,Georgia,serif" font-size="9" font-weight="700">'+esc(dateLbl)+'</text>';
+    const lab = (m.label||'');
+    const labShort = lab.length > 22 ? (lab.slice(0,21)+'…') : lab;
+    svg += '<text x="'+(panelX+46)+'" y="'+ly+'" fill="#1A1E28" font-family="Cambria,Georgia,serif" font-size="9">'+esc(labShort)+'</text>';
+  });
+
+  // Legend strip at bottom
+  const legY = padT + innerH + 14;
+  const legItems = [
+    { c:PMR_ROADMAP_STATUS.complete.color,    l:'Completed'   },
+    { c:PMR_ROADMAP_STATUS.in_progress.color, l:'In Progress' },
+    { c:PMR_ROADMAP_STATUS.not_started.color, l:'Not Started' },
+    { c:PMR_ROADMAP_STATUS.blocked.color,     l:'Blocked'     }
+  ];
+  let lx = padL;
+  legItems.forEach(it => {
+    svg += '<circle cx="'+(lx+5)+'" cy="'+(legY-4)+'" r="4" fill="'+it.c+'"/>';
+    svg += '<text x="'+(lx+13)+'" y="'+legY+'" fill="#1A1E28" font-family="Cambria,Georgia,serif" font-size="9">'+it.l+'</text>';
+    lx += 78;
+  });
+
+  svg += '</svg>';
+  return svg;
 }
 // Pre-computed sprint calendar: FY26 Q2 remainder through FY27 Q2
 // Format: YY.Q.S — 2-week sprints, US Federal FY (Q1=Oct-Dec, Q2=Jan-Mar, Q3=Apr-Jun, Q4=Jul-Sep)
@@ -4252,7 +4663,37 @@ function runPMR(){
   // Single pass: build agenda items and slide html together to avoid two identical O(n) loops
   const seenGroups=new Set();
   let agendaItems='', slidesHtml='';
+
+  // Integrated Milestone Roadmap — emitted once, immediately before the first
+  // T1 topic so it sits at the top of the T1 section of the deck. Gets agenda
+  // entries and slide HTML the same way ticket-driven topics do.
+  let roadmapEmitted=false;
+  const emitIntegratedRoadmap=()=>{
+    if(roadmapEmitted) return;
+    roadmapEmitted=true;
+    const rm=S.cfg.pmr_roadmap;
+    if(!rm||!rm.enabled||!Array.isArray(rm.slides)||!rm.slides.length) return;
+    rm.slides.forEach(slide=>{
+      const title=slide.title||'Integrated Milestone Roadmap';
+      const sid=slideSlug(title);
+      agendaItems+='<li class="has"><a href="#'+sid+'" style="color:inherit;text-decoration:none">'+esc(title)+'</a></li>';
+      // Snapshot the slide config + selected milestones. Encoded via
+      // encodeURIComponent so the JSON survives HTML attribute quoting.
+      const payload={ slide, milestones: pmrRoadmapMilestonesForSlide(slide) };
+      const encoded=encodeURIComponent(JSON.stringify(payload));
+      const previewSvg=(typeof pmrRoadmapRenderPreviewSvg==='function')
+        ? pmrRoadmapRenderPreviewSvg(slide, 1200, 520) : '';
+      slidesHtml+='<div class="slide" id="'+sid+'" data-pmr-layout="integrated_roadmap">'
+        +'<h2>(U) '+esc(title)+'</h2>'
+        +'<div class="pmr-roadmap-wrap" data-roadmap="'+encoded+'">'
+        +  previewSvg
+        +'</div></div>';
+    });
+  };
+
   S.topics.forEach(t=>{
+    // First T1 topic seen → inject the roadmap slide(s) right before it
+    if(t.tier_rank>=1&&t.tier_rank<=4) emitIntegratedRoadmap();
     const gid=topicToGroupId[t.topic_id];
     if(gid){
       if(seenGroups.has(gid)) return;
@@ -4280,6 +4721,9 @@ function runPMR(){
       }
     }
   });
+  // Safety net: if no T1 topic was encountered (empty PMR), still emit the
+  // roadmap so the slide doesn't silently disappear.
+  emitIntegratedRoadmap();
   const agendaHtml='<ul class="agenda-list">'+agendaItems+'</ul>';
 
   const total=scoped.length;
@@ -6578,7 +7022,7 @@ function buildStandaloneHtml(title, bodyContent){
   var css=":root{--bg:#070910;--s1:#0c0f18;--s2:#111520;--s3:#171c2a;--s4:#1d2336;--bd:#1f2840;--bd2:#2b3652;--a1:#5b9cf6;--a1d:rgba(91,156,246,.09);--a1b:rgba(91,156,246,.2);--a2:#a07cf5;--a2d:rgba(160,124,245,.09);--a2b:rgba(160,124,245,.2);--a3:#3ecf8e;--a3d:rgba(62,207,142,.08);--a3b:rgba(62,207,142,.2);--a4:#f5a741;--a4d:rgba(245,167,65,.08);--a4b:rgba(245,167,65,.2);--a5:#f56b6b;--a5d:rgba(245,107,107,.08);--a5b:rgba(245,107,107,.2);--tx:#dde4f5;--mu:#6b7a9c;--di:#384060;--mono:'Consolas','Cascadia Code','Menlo',monospace;--sans:'Segoe UI','Inter','Arial',sans-serif;--r:8px;--r2:5px;--fs-base:13px;--fs-sm:12px;--fs-xs:11px;--fs-lg:14px;--fs-xl:16px}*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(--fs-base);line-height:1.55;padding:28px 32px 80px;min-height:100vh}a{color:var(--a1);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap}.bd-done{background:var(--a3d);color:var(--a3)}.bd-blk{background:var(--a5d);color:var(--a5)}.bd-prog{background:var(--a1d);color:var(--a1)}.bd-rev{background:var(--a4d);color:var(--a4)}.bd-open{background:var(--s4);color:var(--mu)}.nstr{color:var(--di);font-style:italic;font-size:var(--fs-sm);padding:3px 0}.rpt-frame{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:18px;max-width:1200px;margin-left:auto;margin-right:auto}.rpt-bar{background:var(--s2);border-bottom:1px solid var(--bd);padding:9px 14px;display:flex;align-items:center;justify-content:space-between}.rbd-row{display:flex;gap:5px}.rbd{width:8px;height:8px;border-radius:50%}.rbd-r{background:#ff7b7b}.rbd-y{background:#ffb347}.rbd-g{background:#4dd89a}.rpt-bar-fn{font-family:var(--mono);font-size:var(--fs-xs);color:var(--mu)}.rpt-body{padding:22px 26px}.rpt-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px;margin-bottom:20px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;border-left:4px solid var(--a1)}.rpt-hdr h1{font-size:17px;font-weight:600;color:var(--tx)}.rpt-hdr .rsub{font-size:var(--fs-xs);color:var(--mu);margin-top:3px}.r-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:18px}.r-tab{padding:8px 15px;font-size:var(--fs-sm);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-tab:hover{color:var(--tx)}.r-tab.active{color:var(--a1);border-bottom-color:var(--a1)}.r-panel{display:none}.r-panel.active{display:block}.r-tabs-sticky{position:sticky;top:0;z-index:10;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-tabs-sticky .r-tab{padding:8px 14px}.r-subtabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:14px}.r-subtab{padding:6px 13px;font-size:var(--fs-xs);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-subtab:hover{color:var(--tx)}.r-subtab.active{color:var(--a2);border-bottom-color:var(--a2)}.r-sub-panel{display:none}.r-sub-panel.active{display:block}.r-subtabs-sticky{position:sticky;top:37px;z-index:9;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-subtabs-sticky .r-subtab{padding:6px 12px}.r-card{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:14px 18px;margin-bottom:10px}.r-card.l1{border-left:3px solid var(--a1)}.r-card.l2{border-left:3px solid var(--a2)}.r-card.l3{border-left:3px solid var(--a3)}.r-card.lw{border-left:3px solid var(--a4)}.r-card.lr{border-left:3px solid var(--a5)}.r-card h3{font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}.stats-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.stat{background:var(--s3);border:1px solid var(--bd);border-radius:5px;padding:10px 15px}.stat .sv{font-size:20px;font-weight:600;color:var(--a1)}.stat .sl{font-size:var(--fs-xs);color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.tw{overflow-x:auto;border-radius:5px;border:1px solid var(--bd);margin:8px 0}.rt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);background:var(--s2)}.rt thead th{background:var(--s3);color:var(--mu);padding:8px 11px;font-weight:600;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}.rt tbody td{padding:7px 11px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--tx)}.rt tbody tr:last-child td{border-bottom:none}.tk-c{font-family:var(--mono);font-size:var(--fs-xs);color:var(--a1);white-space:nowrap}.bluf-label{display:block;font-size:var(--fs-xs);font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.bluf-field{padding:4px 0;font-size:var(--fs-sm);line-height:1.6;color:var(--tx);min-height:20px}.bluf-field:empty::before{content:attr(data-placeholder);color:var(--di)}.conf-pre{background:#04060c;color:#9bbbd4;border:1px solid var(--bd);border-radius:5px;padding:12px 14px;font-family:var(--mono);font-size:var(--fs-xs);line-height:1.7;white-space:pre;overflow:auto;max-height:400px;margin-top:8px}.slide{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--a2);border-radius:8px;padding:16px 20px;margin-bottom:14px}.slide h2{font-size:var(--fs-base);font-weight:600;color:var(--a2);margin-bottom:10px}.slide h3{font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 5px}.agenda-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:3px}.agenda-list li{padding:6px 13px;border-left:2px solid var(--bd);font-size:var(--fs-sm);border-radius:0 5px 5px 0}.agenda-list li.has{border-left-color:var(--a3);color:var(--tx);background:var(--a3d)}.agenda-list li.nstr{border-left-color:var(--di);color:var(--mu);font-style:italic}.ptabs{margin-bottom:12px}.ptab{display:inline-block;padding:4px 12px;border-radius:var(--r2);font-size:var(--fs-sm);font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--s3);color:var(--mu);margin:0 4px 4px 0}.ptab.active{background:var(--a1d);color:var(--a1);border-color:var(--a1b)}.muted{color:var(--mu)}.mono{font-family:var(--mono)}";
   var inlineJS="function switchRtab(btn){\n  var rtabs=btn.parentElement;\n  var idx=Array.from(rtabs.children).indexOf(btn);\n  rtabs.querySelectorAll('.r-tab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=rtabs.parentElement;\n  cont.querySelectorAll(':scope > .r-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchRstab(btn){\n  var stabs=btn.parentElement;\n  var idx=Array.from(stabs.children).indexOf(btn);\n  stabs.querySelectorAll('.r-subtab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=stabs.parentElement;\n  cont.querySelectorAll(':scope > .r-sub-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchPtab(btn,proj){\n  var cont=btn.closest('.ptabs').parentElement;\n  cont.querySelectorAll('.ptab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  cont.querySelectorAll('[data-ptab-panel]').forEach(function(p){\n    p.style.display=p.dataset.ptabPanel===proj?'block':'none';\n  });\n}\nfunction filterDbg(inp,tableId){\n  var val=inp.value.toLowerCase().trim();\n  var tbody=document.querySelector('#'+tableId+' tbody');\n  if(!tbody) return;\n  tbody.querySelectorAll('tr').forEach(function(tr){\n    tr.style.display=(!val||tr.textContent.toLowerCase().includes(val))?'':'none';\n  });\n}\ndocument.addEventListener('click',function(e){\n  var a=e.target.closest('.agenda-list a');\n  if(a){e.preventDefault();var t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'});}\n});";
   return '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">\n'
-    + '<title>ReportSuite v8.35</title>\n'
+    + '<title>ReportSuite v8.36</title>\n'
     + '<style>'+css+'</style>\n'
     + '</head>\n<body style="margin:0;padding:0">\n'
     + bodyContent
@@ -6996,6 +7440,221 @@ function _pmrAddAgendaSlide(pres, ctx, data) {
   });
 }
 
+// Integrated Milestone Roadmap — tier rows × month columns, diamond milestones
+// with product letter + status color, Next Steps panel on the right, status
+// legend on the bottom. Header uses a neutral navy bar (no tier accent)
+// because this slide spans all tiers. All labels are Cambria (per the
+// BAMBOOTIGER style guidance) rather than the mono/Courier used elsewhere.
+function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
+  const { C, F, W, H, FOUO_H, HDR_Y, HDR_H, BAR_Y, BAR_H, BODY_Y, M, rect, text, addHeader, fit } = ctx;
+  const s = pres.addSlide();
+  s.background = { color: C.void };
+
+  const payload = sd.roadmap || {};
+  const slide = payload.slide || {};
+  const milestones = Array.isArray(payload.milestones) ? payload.milestones : [];
+  const title = slide.title || 'Integrated Milestone Roadmap';
+
+  // Header — neutral (no accent stripe), Cambria title. Reuses the same
+  // dimensions as addHeader for visual consistency with the rest of the deck.
+  rect(s, 0, HDR_Y, W, HDR_H, C.navy);
+  text(s, '(U) ' + title, { x:0.20, y:HDR_Y, w:W-0.4, h:HDR_H, valign:'middle', fontSize:22, bold:true, color:'FFFFFF', fontFace:'Cambria' });
+  rect(s, 0, BAR_Y, W, BAR_H, C.border);
+
+  // Layout geometry (inches)
+  const padL = M + 0.40;                       // left gutter for tier labels
+  const panelW = 2.40;                         // right-side Next Steps panel
+  const padR = M + panelW + 0.14;
+  const areaX = padL;
+  const areaY = BODY_Y + 0.40;                 // leave room for year + month row
+  const areaW = W - padL - padR;
+  const areaH = H - FOUO_H - areaY - 0.60;     // leave room for legend at bottom
+
+  // Compute month columns from the slide config
+  const months = (typeof pmrRoadmapMonthsForSlide === 'function')
+    ? pmrRoadmapMonthsForSlide(slide) : [];
+  if (!months.length) {
+    text(s, '(Roadmap has no valid month range — check Integrated Roadmap settings.)',
+      { x:areaX, y:areaY+0.2, w:areaW, h:0.5, fontSize:13, color:C.muted, fontFace:'Cambria' });
+    return;
+  }
+  const colW = areaW / months.length;
+
+  // Year label spanning the month header row
+  text(s, String(slide.year || ''), {
+    x: areaX, y: BODY_Y - 0.02, w: areaW, h: 0.24,
+    fontSize: 12, bold: true, color: C.muted, fontFace:'Cambria', align:'center'
+  });
+  // Month labels + vertical gridlines
+  months.forEach((m, i) => {
+    const cx = areaX + (colW * i);
+    rect(s, cx, areaY, 0.008, areaH, C.border);
+    text(s, m.label, {
+      x: cx, y: BODY_Y + 0.22, w: colW, h: 0.20,
+      fontSize: 10, bold: true, color: C.muted, fontFace:'Cambria', align:'center'
+    });
+  });
+  // Closing vertical gridline on the right edge
+  rect(s, areaX + areaW, areaY, 0.008, areaH, C.border);
+
+  // Tier rows with proportional heights
+  const tiers = (Array.isArray(slide.tiers) && slide.tiers.length) ? slide.tiers : ['T0','T1','T2','T3'];
+  const emph = slide.emphasizeTier || 'T1';
+  const totalWeight = tiers.reduce((acc, t) => acc + (t === emph ? 2.5 : 1), 0);
+  const tierY = {}, tierH = {};
+  let cursor = areaY;
+  tiers.forEach(t => {
+    const h = areaH * ((t === emph ? 2.5 : 1) / totalWeight);
+    tierY[t] = cursor;
+    tierH[t] = h;
+    cursor += h;
+    // Row background card + separator
+    rect(s, areaX, tierY[t], areaW, h, C.card);
+    rect(s, areaX, tierY[t] + h - 0.008, areaW, 0.008, C.border);
+    // Tier label in the left gutter
+    text(s, t, {
+      x: areaX - 0.40, y: tierY[t] + (h/2) - 0.14, w: 0.36, h: 0.28,
+      fontSize: 13, bold: true, color: C.text, fontFace:'Cambria', align:'right', valign:'middle'
+    });
+  });
+
+  // Group milestones per tier for lane packing
+  const byTier = {};
+  tiers.forEach(t => { byTier[t] = []; });
+  milestones.forEach(mile => {
+    if (!byTier[mile.tier]) return;
+    const mk = (mile.date || '').slice(0, 7);
+    const mi = months.findIndex(m => m.key === mk);
+    if (mi < 0) return;
+    const cx = areaX + (colW * mi) + (colW / 2);
+    byTier[mile.tier].push({ mile, cx });
+  });
+
+  // Status color palette (mirrors PMR_ROADMAP_STATUS in the editor).
+  const statusColor = {
+    complete:    C.blue2,
+    in_progress: C.green,
+    not_started: C.subtle,
+    blocked:     C.red
+  };
+
+  // Diamond rendering inside each tier row, with greedy lane packing.
+  const diamondSize = 0.22;   // inches (width/height of diamond bounding box)
+  const labelH = 0.20;
+  const labelW = 1.10;
+  const minGapX = diamondSize + 0.05;
+  tiers.forEach(t => {
+    const items = byTier[t] || [];
+    if (!items.length) return;
+    const packed = (typeof pmrRoadmapAssignLanes === 'function')
+      ? pmrRoadmapAssignLanes(items.map(it => ({ x: it.cx, width: diamondSize })), minGapX)
+      : { laneOf: items.map(() => 0), laneCount: 1 };
+    const laneCount = packed.laneCount;
+    // Each lane: diamond band (diamondSize) + label band (labelH) + a little gap
+    const laneUnit = diamondSize + labelH + 0.04;
+    const totalUsed = laneCount * laneUnit;
+    const startY = tierY[t] + Math.max(0.04, (tierH[t] - totalUsed) / 2);
+    items.forEach((it, idx) => {
+      const lane = packed.laneOf[idx];
+      const laneTop = startY + (lane * laneUnit);
+      const cy = laneTop + (diamondSize / 2);
+      const color = statusColor[it.mile.status] || statusColor.not_started;
+      const prodLetter = (it.mile.product === 'DX') ? 'D'
+                       : (it.mile.product === 'LX') ? 'L'
+                       : (it.mile.product === 'RC') ? 'R'
+                       : 'X';
+      // Diamond shape (uses pptxgenjs built-in diamond shape)
+      s.addShape(pres.ShapeType.diamond, {
+        x: it.cx - (diamondSize/2), y: cy - (diamondSize/2),
+        w: diamondSize, h: diamondSize,
+        fill: { color: color },
+        line: { color: C.text, width: 0.75 }
+      });
+      // Product letter centered inside the diamond
+      text(s, prodLetter, {
+        x: it.cx - (diamondSize/2), y: cy - 0.10,
+        w: diamondSize, h: 0.20,
+        fontSize: 10, bold: true, color: 'FFFFFF', fontFace:'Cambria',
+        align:'center', valign:'middle'
+      });
+      // Label below the diamond (truncated to fit)
+      const labelTxt = fit(it.mile.label || '', 28);
+      text(s, labelTxt, {
+        x: it.cx - (labelW/2), y: cy + (diamondSize/2) + 0.02,
+        w: labelW, h: labelH,
+        fontSize: 8, color: C.text, fontFace:'Cambria',
+        align:'center', valign:'top', wrap: true
+      });
+    });
+  });
+
+  // ── Next Steps panel (right side) ────────────────────────────────────
+  const panelX = areaX + areaW + 0.14;
+  const panelY = areaY;
+  rect(s, panelX, panelY, panelW, areaH, C.card);
+  rect(s, panelX, panelY, panelW, 0.24, C.navy);
+  text(s, 'NEXT STEPS', {
+    x: panelX + 0.08, y: panelY, w: panelW - 0.16, h: 0.24,
+    fontSize: 10, bold: true, color: 'FFFFFF', fontFace:'Cambria', valign:'middle'
+  });
+  const sorted = milestones.slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const rowY0 = panelY + 0.32;
+  const rowH = 0.28;
+  const maxRows = Math.floor((areaH - 0.40) / rowH);
+  sorted.slice(0, maxRows).forEach((mile, i) => {
+    const ry = rowY0 + (i * rowH);
+    const color = statusColor[mile.status] || statusColor.not_started;
+    // Status dot
+    s.addShape(pres.ShapeType.ellipse, {
+      x: panelX + 0.08, y: ry + 0.06, w: 0.10, h: 0.10,
+      fill: { color: color }, line: { color: color }
+    });
+    // Date
+    const d = (mile.date || '').slice(5); // MM-DD
+    text(s, d, {
+      x: panelX + 0.22, y: ry, w: 0.46, h: rowH,
+      fontSize: 9, bold: true, color: C.text, fontFace:'Cambria', valign:'middle'
+    });
+    // Tier tag
+    text(s, mile.tier || '', {
+      x: panelX + 0.68, y: ry, w: 0.26, h: rowH,
+      fontSize: 8, bold: true, color: C.muted, fontFace:'Cambria', valign:'middle'
+    });
+    // Label
+    const lbl = fit(mile.label || '', 32);
+    text(s, lbl, {
+      x: panelX + 0.94, y: ry, w: panelW - 1.02, h: rowH,
+      fontSize: 9, color: C.text, fontFace:'Cambria', valign:'middle'
+    });
+  });
+
+  // ── Legend strip (bottom) ────────────────────────────────────────────
+  const legendY = areaY + areaH + 0.18;
+  const legendItems = [
+    { c: statusColor.complete,    l: 'Completed'    },
+    { c: statusColor.in_progress, l: 'In Progress'  },
+    { c: statusColor.not_started, l: 'Not Started'  },
+    { c: statusColor.blocked,     l: 'Blocked'      }
+  ];
+  let lx = areaX;
+  legendItems.forEach(it => {
+    s.addShape(pres.ShapeType.ellipse, {
+      x: lx, y: legendY + 0.04, w: 0.12, h: 0.12,
+      fill: { color: it.c }, line: { color: it.c }
+    });
+    text(s, it.l, {
+      x: lx + 0.16, y: legendY, w: 1.10, h: 0.22,
+      fontSize: 9, color: C.text, fontFace:'Cambria', valign:'middle'
+    });
+    lx += 1.30;
+  });
+  // Product key on the right end of the legend
+  text(s, 'D=DataXplorer · L=LinkXplorer · R=Rollercoaster · X=Cross', {
+    x: areaX + 5.3, y: legendY, w: areaW - 5.3, h: 0.22,
+    fontSize: 8, color: C.muted, fontFace:'Cambria', valign:'middle', align:'right'
+  });
+}
+
 // Dispatcher: pick the layout-specific renderer
 function _pmrAddContentSlide(pres, ctx, sd) {
   switch (sd.layout) {
@@ -7003,6 +7662,7 @@ function _pmrAddContentSlide(pres, ctx, sd) {
     case 'project_split_3':          _pmrAddProjectSlide(pres, ctx, sd, ['DataXplorer','LinkXplorer','Rollercoaster']); break;
     case 'project_split_2':          _pmrAddProjectSlide(pres, ctx, sd, ['DataXplorer','Rollercoaster']); break;
     case 'mission_support_other':    _pmrAddMissionSupportSlide(pres, ctx, sd); break;
+    case 'integrated_roadmap':       _pmrAddIntegratedRoadmapSlide(pres, ctx, sd); break;
     default:                         _pmrAddSimpleListSlide(pres, ctx, sd);
   }
 }
@@ -7027,8 +7687,209 @@ function _pmrAddSimpleListSlide(pres, ctx, sd) {
   if (tx.length) text(s, fit(tx.join('  ·  '), 420), { x:x+0.18, y:tY+0.22, w:w-0.36, h:0.42, fontSize:9, color:C.muted, fontFace:F.mono, wrap:true });
 }
 
+// ── INTEGRATED MILESTONE ROADMAP — data layer ──────────────────────────────
+// Helpers that seed, parse, and normalize milestone data for the roadmap
+// slide. The roadmap lives in S.cfg.pmr_roadmap; seeding reads from
+// S.spin.issues (already normalized by normSpinCsvIssue). User edits made
+// through the editor are persisted via autoSaveCfg() and survive re-seeds.
+
+// "Tier 1: Priority 2: ..." → "T1". Falls back to '' when no match.
+function pmrRoadmapParseTier(title) {
+  if (!title) return '';
+  const m = title.match(/\bTier\s*([0-3])\b/i);
+  return m ? ('T' + m[1]) : '';
+}
+
+// Jira status → canonical roadmap status bucket.
+function pmrRoadmapMapStatus(status) {
+  const s = (status || '').toLowerCase().trim();
+  if (!s) return 'not_started';
+  if (['done','closed','resolved','complete','completed'].includes(s)) return 'complete';
+  if (s.includes('block')) return 'blocked';
+  if (s.includes('progress') || s.includes('in dev') || s.includes('review') || s.includes('test')) return 'in_progress';
+  return 'not_started';
+}
+
+// DX-123 / LX-12 / RCR-8 → 'DX' | 'LX' | 'RC' | 'X' (cross-product fallback)
+function pmrRoadmapProductLetter(key) {
+  const b = bucketKey(key || '');
+  if (b === 'DX') return 'DX';
+  if (b === 'LX') return 'LX';
+  if (b === 'RC') return 'RC';
+  return 'X';
+}
+
+// ISO date 'YYYY-MM-DD' → month key 'YYYY-MM'. Returns '' if malformed.
+function pmrRoadmapMonthKey(iso) {
+  if (!iso || typeof iso !== 'string') return '';
+  const m = iso.match(/^(\d{4})-(\d{2})/);
+  return m ? (m[1] + '-' + m[2]) : '';
+}
+
+// Read the current spin plan and produce a fresh candidate milestone list.
+// Merges into S.cfg.pmr_roadmap.milestones:
+//   • New ticketKeys are added (selected=true by default, slideIds=[primary])
+//   • Existing ticketKeys refresh their date/status/label/tier/product from
+//     spin, but their slideIds array is preserved (sticky deselection).
+//   • Manual entries (ticketKey='' / missing) are left untouched.
+// Returns { added, refreshed, manual } counts.
+function pmrRoadmapSeedFromSpin() {
+  const roadmap = S.cfg.pmr_roadmap;
+  if (!roadmap) return { added: 0, refreshed: 0, manual: 0, reason: 'no roadmap cfg' };
+
+  const spin = (S.spin && Array.isArray(S.spin.issues)) ? S.spin.issues : [];
+  const epics = spin.filter(i => {
+    const it = (i.issueType || '').toLowerCase();
+    // Include Epic + Program rows with a target end date (these are the
+    // milestone-worthy items in the BT_Roadmap export).
+    if (it !== 'epic' && it !== 'program') return false;
+    return !!i.targetEnd;
+  });
+
+  // Index existing milestones by ticketKey for sticky merge
+  const byKey = {};
+  (roadmap.milestones || []).forEach(m => {
+    if (m.ticketKey) byKey[m.ticketKey] = m;
+  });
+
+  const primarySlideId = (roadmap.slides && roadmap.slides[0]) ? roadmap.slides[0].id : 'overview';
+  let added = 0, refreshed = 0;
+
+  epics.forEach(ep => {
+    const existing = byKey[ep.key];
+    const labelText = (ep.title || ep.summary || ep.key).trim();
+    const fields = {
+      tier:       pmrRoadmapParseTier(labelText) || (existing && existing.tier) || 'T1',
+      product:    pmrRoadmapProductLetter(ep.key),
+      date:       ep.targetEnd,
+      status:     pmrRoadmapMapStatus(ep.status),
+      label:      labelText.length > 60 ? labelText.slice(0, 59) + '…' : labelText,
+      labelFull:  labelText,
+      ticketKey:  ep.key
+    };
+    if (existing) {
+      // Refresh spin-derived fields; preserve slideIds (sticky deselection)
+      // and preserve tier if the user overrode it (non-default value stays).
+      Object.assign(existing, fields);
+      refreshed++;
+    } else {
+      roadmap.milestones.push(Object.assign({
+        id: 'ms_' + ep.key,
+        slideIds: [primarySlideId]
+      }, fields));
+      added++;
+    }
+  });
+
+  const manual = (roadmap.milestones || []).filter(m => !m.ticketKey).length;
+  roadmap.seedVersion = (roadmap.seedVersion || 0) + 1;
+  if (typeof autoSaveCfg === 'function') autoSaveCfg();
+  return { added, refreshed, manual };
+}
+
+// Add a blank manual milestone (no ticketKey) to the current roadmap.
+// Used by the editor's "+ Manual" button.
+function pmrRoadmapAddManual() {
+  const roadmap = S.cfg.pmr_roadmap;
+  if (!roadmap) return null;
+  const primarySlideId = (roadmap.slides && roadmap.slides[0]) ? roadmap.slides[0].id : 'overview';
+  const id = 'ms_manual_' + Date.now();
+  const m = {
+    id, tier: 'T1', product: 'X',
+    date: '', status: 'not_started',
+    label: '(new milestone)', labelFull: '(new milestone)',
+    ticketKey: '',
+    slideIds: [primarySlideId]
+  };
+  roadmap.milestones.push(m);
+  if (typeof autoSaveCfg === 'function') autoSaveCfg();
+  return m;
+}
+
+// Toggle a milestone's inclusion on a particular slide. Empty slideIds = deselected.
+function pmrRoadmapToggleSelected(milestoneId, slideId) {
+  const roadmap = S.cfg.pmr_roadmap;
+  if (!roadmap) return;
+  const m = (roadmap.milestones || []).find(x => x.id === milestoneId);
+  if (!m) return;
+  if (!Array.isArray(m.slideIds)) m.slideIds = [];
+  const i = m.slideIds.indexOf(slideId);
+  if (i >= 0) m.slideIds.splice(i, 1); else m.slideIds.push(slideId);
+  if (typeof autoSaveCfg === 'function') autoSaveCfg();
+}
+
+// Remove a milestone entirely (manual deletes).
+function pmrRoadmapDeleteMilestone(milestoneId) {
+  const roadmap = S.cfg.pmr_roadmap;
+  if (!roadmap || !Array.isArray(roadmap.milestones)) return;
+  roadmap.milestones = roadmap.milestones.filter(m => m.id !== milestoneId);
+  if (typeof autoSaveCfg === 'function') autoSaveCfg();
+}
+
+// Compute the ordered month list for a given slide config.
+// Returns an array of { key:'YYYY-MM', label:'JAN', year:2026 } in render order.
+function pmrRoadmapMonthsForSlide(slide) {
+  const SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const out = [];
+  if (!slide || !slide.rangeStart || !slide.rangeEnd) return out;
+  const [sy, sm] = slide.rangeStart.split('-').map(Number);
+  const [ey, em] = slide.rangeEnd.split('-').map(Number);
+  let y = sy, m = sm;
+  // Guard against inverted ranges
+  for (let guard = 0; guard < 60; guard++) {
+    out.push({
+      key: y + '-' + String(m).padStart(2, '0'),
+      label: SHORT[m - 1] || '',
+      year: y
+    });
+    if (y === ey && m === em) break;
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return out;
+}
+
+// Greedy lane assignment for packing dense clusters within a tier row.
+// items: array of { x: number (pixels/pts along the row axis), width: number }
+// minGap: minimum horizontal gap between items sharing a lane
+// Returns: an array of lane indices (0, 1, 2, ...) aligned with the input.
+function pmrRoadmapAssignLanes(items, minGap) {
+  const lanes = []; // lanes[i] = rightmost x occupied in lane i
+  const laneOf = new Array(items.length);
+  const order = items.map((it, idx) => ({ idx, x: it.x, w: it.width || 0 }))
+                     .sort((a, b) => a.x - b.x);
+  order.forEach(o => {
+    const leftEdge = o.x - (o.w / 2);
+    let placed = -1;
+    for (let i = 0; i < lanes.length; i++) {
+      if (lanes[i] + minGap <= leftEdge) { placed = i; break; }
+    }
+    if (placed < 0) { placed = lanes.length; lanes.push(0); }
+    lanes[placed] = o.x + (o.w / 2);
+    laneOf[o.idx] = placed;
+  });
+  return { laneOf, laneCount: lanes.length || 1 };
+}
+
+// Filter milestones for a particular slide: include only if selected AND
+// the date falls inside the slide's month range.
+function pmrRoadmapMilestonesForSlide(slide) {
+  const roadmap = S.cfg.pmr_roadmap;
+  if (!roadmap || !slide) return [];
+  const months = pmrRoadmapMonthsForSlide(slide);
+  const keys = {};
+  months.forEach(m => { keys[m.key] = true; });
+  return (roadmap.milestones || []).filter(m => {
+    if (!Array.isArray(m.slideIds) || m.slideIds.indexOf(slide.id) < 0) return false;
+    const mk = pmrRoadmapMonthKey(m.date);
+    if (!mk || !keys[mk]) return false;
+    if (Array.isArray(slide.tiers) && slide.tiers.indexOf(m.tier) < 0) return false;
+    return true;
+  });
+}
+
 // ── PMR PPTX HELPERS (BAMBOOTIGER format) ──────────────────────────────────
-// Walk PMR slide DOM → [{header, layout, topNarrative, sections:[{label,narrative,tickets}], allTickets}]
+// Walk PMR slide DOM → [{header, layout, topNarrative, sections:[{label,narrative,tickets}], allTickets, roadmap?}]
 function _pmrExtractSlides(frame) {
   const out = [];
   frame.querySelectorAll('.slide').forEach(slide => {
@@ -7038,6 +7899,21 @@ function _pmrExtractSlides(frame) {
     if (/^agenda$/i.test(header)) return;
     const layout = slide.getAttribute('data-pmr-layout') || 'simple_list';
     const slugCtx = (slide.id || '').replace(/^pmr-slide-/, '');
+
+    // Integrated roadmap slides carry a JSON payload on a data-roadmap
+    // attribute instead of ticket/narrative sections. Short-circuit the rest
+    // of the extractor and push a roadmap-typed entry directly.
+    if (layout === 'integrated_roadmap') {
+      const wrap = slide.querySelector('[data-roadmap]');
+      let roadmap = null;
+      if (wrap) {
+        try { roadmap = JSON.parse(decodeURIComponent(wrap.getAttribute('data-roadmap') || '')); }
+        catch (e) { roadmap = null; }
+      }
+      out.push({ header, layout, topNarrative: '', sections: [], allTickets: [], roadmap });
+      return;
+    }
+
     let topNarrative = '';
     const topBluf = slide.querySelector('[data-pmr-bluf="' + slugCtx + '"]');
     if (topBluf) topNarrative = (topBluf.innerText || topBluf.textContent || '').trim();
@@ -8985,6 +9861,9 @@ function normSpinCsvIssue(row) {
   return {
     key,
     project: bucketKey(key),
+    // `title` is the canonical field (spin plan CSV uses the "Title" column).
+    // `summary` is kept as an alias for legacy spin-plan render code.
+    title:      (row['Title'] || row['Summary'] || '').trim(),
     summary:    (row['Title'] || row['Summary'] || '').trim(),
     status:     (row['Status'] || row['Issue status'] || row['Issue Status'] || '').trim(),
     issueType:  (row['Hierarchy'] || row['Issue Type'] || '').trim(),
