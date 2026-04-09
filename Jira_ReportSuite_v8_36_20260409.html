@@ -1894,27 +1894,33 @@ const S = {
     // Milestones are seeded from the spin plan (S.spin.issues) and then
     // curated per-PMR via the editor on the PMR config page. Selection is
     // per-slide so a milestone can appear on the overview and/or zoomed view.
-    pmr_roadmap: {
-      enabled: true,
-      // 1 or 2 slide definitions. The user can toggle between one overview
-      // slide and an overview + zoomed pair from the editor.
-      slides: [
-        {
-          id: 'overview',
-          title: 'Integrated Milestone Roadmap',
-          mode: 'months',            // 'months' | 'quarters'
-          year: 2026,
-          rangeStart: '2026-01',     // inclusive YYYY-MM
-          rangeEnd:   '2026-12',     // inclusive YYYY-MM
-          tiers: ['T0','T1','T2','T3'],
-          emphasizeTier: 'T1'        // row gets 2.5× weight
-        }
-      ],
-      // Per-ticketKey snapshot. Seeded from spin plan, survives re-seeds.
-      // Deselection (slideIds=[]) is sticky across re-seeds.
-      milestones: [],
-      seedVersion: 0
-    },
+    // Note: year + range are stamped at page-load from new Date(), so a fresh
+    // install in Jan 2027 auto-targets 2027. _migrateCfg() backfills the same
+    // way for configs saved before this feature existed.
+    pmr_roadmap: (function(){
+      const y = new Date().getFullYear();
+      return {
+        enabled: true,
+        // 1 or 2 slide definitions. The user can toggle between one overview
+        // slide and an overview + zoomed pair from the editor.
+        slides: [
+          {
+            id: 'overview',
+            title: 'Integrated Milestone Roadmap',
+            mode: 'months',            // 'months' | 'quarters'
+            year: y,
+            rangeStart: y + '-01',     // inclusive YYYY-MM
+            rangeEnd:   y + '-12',     // inclusive YYYY-MM
+            tiers: ['T0','T1','T2','T3'],
+            emphasizeTier: 'T1'        // row gets 2.5× weight
+          }
+        ],
+        // Per-ticketKey snapshot. Seeded from spin plan, survives re-seeds.
+        // Deselection (slideIds=[]) is sticky across re-seeds.
+        milestones: [],
+        seedVersion: 0
+      };
+    })(),
     // Leave empty so initState() populates from DEFAULT_SPRINT_CALENDAR (single source of truth).
     sprint_calendar: [],
     schedule_blurbs: ['TBD','TBD','TBD','TBD'],
@@ -3097,17 +3103,21 @@ function _migrateCfg(){
 
   // Backfill pmr_roadmap on configs saved before the Integrated Roadmap feature.
   // Keeps existing deselections / manual edits intact on re-loads.
+  // Year defaults come from the current date so a fresh install in a new
+  // calendar year auto-targets the right range.
+  const nowYear = new Date().getFullYear();
+  const defaultSlide = {
+    id: 'overview',
+    title: 'Integrated Milestone Roadmap',
+    mode: 'months', year: nowYear,
+    rangeStart: nowYear + '-01', rangeEnd: nowYear + '-12',
+    tiers: ['T0','T1','T2','T3'],
+    emphasizeTier: 'T1'
+  };
   if(!S.cfg.pmr_roadmap || typeof S.cfg.pmr_roadmap !== 'object'){
     S.cfg.pmr_roadmap = {
       enabled: true,
-      slides: [{
-        id: 'overview',
-        title: 'Integrated Milestone Roadmap',
-        mode: 'months', year: 2026,
-        rangeStart: '2026-01', rangeEnd: '2026-12',
-        tiers: ['T0','T1','T2','T3'],
-        emphasizeTier: 'T1'
-      }],
+      slides: [ Object.assign({}, defaultSlide) ],
       milestones: [],
       seedVersion: 0
     };
@@ -3116,15 +3126,15 @@ function _migrateCfg(){
     const r = S.cfg.pmr_roadmap;
     if(typeof r.enabled !== 'boolean') r.enabled = true;
     if(!Array.isArray(r.slides) || !r.slides.length){
-      r.slides = [{
-        id:'overview', title:'Integrated Milestone Roadmap',
-        mode:'months', year:2026,
-        rangeStart:'2026-01', rangeEnd:'2026-12',
-        tiers:['T0','T1','T2','T3'], emphasizeTier:'T1'
-      }];
+      r.slides = [ Object.assign({}, defaultSlide) ];
     }
     if(!Array.isArray(r.milestones)) r.milestones = [];
     if(typeof r.seedVersion !== 'number') r.seedVersion = 0;
+    // Normalize each milestone to have a _userEdited tracker for sticky
+    // field overrides (added after v8.36 shipped without it).
+    r.milestones.forEach(m => {
+      if(!m._userEdited || typeof m._userEdited !== 'object') m._userEdited = {};
+    });
   }
 }
 function cfgSetRole(idx, field, val){
@@ -3608,10 +3618,18 @@ const PMR_ROADMAP_PRODUCT = {
   X:  { letter:'×', color:'#5A6070', name:'Cross-product'}
 };
 
+// Editor-local UI state (search, in-range filter, status banner text).
+// Lives on the session state object, not in S.cfg — these are transient.
+function pmrRoadmapUiState(){
+  if (!S._pmrRoadmapUi) S._pmrRoadmapUi = { search:'', inRangeOnly:false, statusMsg:'', statusTs:0 };
+  return S._pmrRoadmapUi;
+}
+
 function renderPmrRoadmapEditor(){
   const el=document.getElementById('pmr-roadmap-editor'); if(!el) return;
   const roadmap=S.cfg.pmr_roadmap;
   if(!roadmap){ el.innerHTML='<div class="u-muted-xs">Roadmap config missing.</div>'; return; }
+  const ui = pmrRoadmapUiState();
 
   const hasSpin = !!(S.spin && Array.isArray(S.spin.issues) && S.spin.issues.length);
   const seedBtn = hasSpin
@@ -3628,7 +3646,14 @@ function renderPmrRoadmapEditor(){
     ? '<button class="btn btn-ghost btn-xs" style="margin-top:4px" onclick="pmrRoadmapUiAddSlide()"><span class="mi" style="font-size:13px;margin-right:2px">add</span>Add Zoomed Slide</button>'
     : '';
 
-  // Milestone table
+  // Status banner — ephemeral; auto-hides ~4s after the UI op that set it
+  const now = Date.now();
+  const showStatus = ui.statusMsg && (now - (ui.statusTs||0) < 4500);
+  const statusBanner = showStatus
+    ? '<div id="pmr-roadmap-status" style="margin:8px 0;padding:6px 10px;border-radius:4px;background:#E6F4FF;border:1px solid #99C8EB;color:#1A1E28;font-size:var(--fs-xs)">'+esc(ui.statusMsg)+'</div>'
+    : '';
+
+  // Milestone table (with search + in-range filters)
   const tableHtml = pmrRoadmapRenderMilestoneTable(roadmap);
 
   // Preview SVG (shows the first slide)
@@ -3638,9 +3663,13 @@ function renderPmrRoadmapEditor(){
 
   el.innerHTML = enabledChk
     + '<div style="margin-bottom:10px">'+slidesHtml+addSlideBtn+'</div>'
-    + '<div class="row" style="justify-content:space-between;align-items:center;margin:14px 0 6px">'
+    + statusBanner
+    + '<div class="row" style="justify-content:space-between;align-items:center;margin:14px 0 6px;gap:8px;flex-wrap:wrap">'
     +   '<div style="font-weight:600">Milestones <span class="u-muted-xs">('+(roadmap.milestones||[]).length+')</span></div>'
-    +   '<div class="row" style="gap:6px">'+seedBtn
+    +   '<div class="row" style="gap:6px;flex-wrap:wrap">'
+    +     '<input type="text" id="pmr-roadmap-search" placeholder="Search label or ticket…" value="'+esc(ui.search||'')+'" style="font-size:var(--fs-xs);padding:4px 8px;width:200px">'
+    +     '<label class="row" style="gap:4px;align-items:center;font-size:var(--fs-xs);color:var(--mu)"><input type="checkbox" id="pmr-roadmap-inrange" '+(ui.inRangeOnly?'checked':'')+'> In-range only</label>'
+    +     seedBtn
     +     '<button class="btn btn-ghost btn-xs" onclick="pmrRoadmapUiAddManual()"><span class="mi" style="font-size:13px;margin-right:2px">add</span>Manual</button>'
     +   '</div>'
     + '</div>'
@@ -3651,6 +3680,24 @@ function renderPmrRoadmapEditor(){
   // Wire listeners
   const enBx = document.getElementById('pmr-roadmap-enabled');
   if (enBx) enBx.addEventListener('change', function(){ roadmap.enabled = this.checked; autoSaveCfg(); });
+
+  // Filter controls — live re-render without autoSave (transient UI state)
+  const searchBox = document.getElementById('pmr-roadmap-search');
+  if (searchBox) {
+    searchBox.addEventListener('input', function(){
+      ui.search = this.value;
+      // Re-render just the table + count without nuking the search focus
+      pmrRoadmapRerenderTableOnly();
+    });
+  }
+  const inRangeBx = document.getElementById('pmr-roadmap-inrange');
+  if (inRangeBx) {
+    inRangeBx.addEventListener('change', function(){
+      ui.inRangeOnly = this.checked;
+      renderPmrRoadmapEditor();
+    });
+  }
+
   el.querySelectorAll('[data-slide-field]').forEach(function(inp){
     inp.addEventListener('change', function(){
       const si = +this.dataset.slideIdx;
@@ -3664,6 +3711,11 @@ function renderPmrRoadmapEditor(){
         if (!this.checked && ix>=0) slide.tiers.splice(ix,1);
       } else {
         slide[fld] = this.value;
+        // Keep the slide.year in sync with rangeStart so the header label is correct
+        if (fld === 'rangeStart') {
+          const m = String(this.value).match(/^(\d{4})/);
+          if (m) slide.year = parseInt(m[1], 10);
+        }
       }
       autoSaveCfg();
       renderPmrRoadmapEditor();
@@ -3681,6 +3733,9 @@ function renderPmrRoadmapEditor(){
       const m = (roadmap.milestones||[]).find(x=>x.id===mid); if(!m) return;
       m[fld] = this.value;
       if (fld === 'label') m.labelFull = this.value;
+      // Mark field as user-edited so re-seeds don't clobber it
+      if (!m._userEdited) m._userEdited = {};
+      m._userEdited[fld] = true;
       autoSaveCfg();
       renderPmrRoadmapEditor();
     });
@@ -3696,6 +3751,43 @@ function renderPmrRoadmapEditor(){
       const si = +this.dataset.slideRemove;
       roadmap.slides.splice(si, 1);
       autoSaveCfg();
+      renderPmrRoadmapEditor();
+    });
+  });
+}
+
+// Re-renders only the milestone table region, preserving input focus in the
+// search box. Used for live search-as-you-type.
+function pmrRoadmapRerenderTableOnly(){
+  const roadmap = S.cfg.pmr_roadmap; if(!roadmap) return;
+  const el = document.getElementById('pmr-roadmap-editor'); if(!el) return;
+  const wrap = el.querySelector('.pmr-roadmap-table-wrap');
+  if (!wrap) { renderPmrRoadmapEditor(); return; }
+  wrap.outerHTML = pmrRoadmapRenderMilestoneTable(roadmap);
+  // Rewire ms-toggle / ms-field / ms-delete listeners for the new DOM
+  const fresh = el.querySelector('.pmr-roadmap-table-wrap');
+  if (!fresh) return;
+  fresh.querySelectorAll('[data-ms-toggle]').forEach(function(bx){
+    bx.addEventListener('change', function(){
+      pmrRoadmapToggleSelected(this.dataset.msToggle, this.dataset.slideId);
+      renderPmrRoadmapEditor();
+    });
+  });
+  fresh.querySelectorAll('[data-ms-field]').forEach(function(inp){
+    inp.addEventListener('change', function(){
+      const mid = this.dataset.msId, fld = this.dataset.msField;
+      const m = (roadmap.milestones||[]).find(x=>x.id===mid); if(!m) return;
+      m[fld] = this.value;
+      if (fld === 'label') m.labelFull = this.value;
+      if (!m._userEdited) m._userEdited = {};
+      m._userEdited[fld] = true;
+      autoSaveCfg();
+      renderPmrRoadmapEditor();
+    });
+  });
+  fresh.querySelectorAll('[data-ms-delete]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      pmrRoadmapDeleteMilestone(this.dataset.msDelete);
       renderPmrRoadmapEditor();
     });
   });
@@ -3745,12 +3837,43 @@ function pmrRoadmapRenderSlideControls(slide, idx){
 }
 
 function pmrRoadmapRenderMilestoneTable(roadmap){
-  const ms = (roadmap.milestones||[]).slice().sort((a,b)=>{
+  const ui = pmrRoadmapUiState();
+  const allMs = (roadmap.milestones||[]).slice().sort((a,b)=>{
     if (a.tier !== b.tier) return (a.tier||'').localeCompare(b.tier||'');
     return (a.date||'').localeCompare(b.date||'');
   });
+  const total = allMs.length;
+
+  // Apply search + in-range filters
+  const needle = (ui.search||'').toLowerCase().trim();
+  // Build a set of in-range month keys across ALL slides, so "in-range only"
+  // keeps items that appear on any slide (not just the first).
+  const slideRangeKeys = {};
+  if (ui.inRangeOnly) {
+    (roadmap.slides||[]).forEach(slide => {
+      const months = pmrRoadmapMonthsForSlide(slide);
+      months.forEach(m => { slideRangeKeys[m.key] = true; });
+    });
+  }
+  const ms = allMs.filter(m => {
+    if (needle) {
+      const hay = ((m.label||'') + ' ' + (m.labelFull||'') + ' ' + (m.ticketKey||'')).toLowerCase();
+      if (hay.indexOf(needle) < 0) return false;
+    }
+    if (ui.inRangeOnly) {
+      const mk = pmrRoadmapMonthKey(m.date);
+      if (!mk || !slideRangeKeys[mk]) return false;
+    }
+    return true;
+  });
+
+  if (!total) {
+    return '<div class="pmr-roadmap-table-wrap"><div class="u-muted-xs" style="padding:8px;background:var(--bg2);border:1px dashed var(--bd);border-radius:4px">No milestones yet. Click <b>Re-seed from Spin Plan</b> to import from the loaded roadmap CSV, or <b>Manual</b> to add one by hand.</div></div>';
+  }
   if (!ms.length) {
-    return '<div class="u-muted-xs" style="padding:8px;background:var(--bg2);border:1px dashed var(--bd);border-radius:4px">No milestones yet. Click <b>Re-seed from Spin Plan</b> to import from the loaded roadmap CSV, or <b>Manual</b> to add one by hand.</div>';
+    return '<div class="pmr-roadmap-table-wrap"><div class="u-muted-xs" style="padding:8px;background:var(--bg2);border:1px dashed var(--bd);border-radius:4px">'
+      +(total+' milestone'+(total===1?'':'s')+' total, but none match the current filters.')
+      +'</div></div>';
   }
   const slideIds = (roadmap.slides||[]).map(s=>s.id);
   const slideHdrs = slideIds.map((id,i)=>'<th style="width:38px" title="'+esc((roadmap.slides[i]&&roadmap.slides[i].title)||id)+'">S'+(i+1)+'</th>').join('');
@@ -3759,7 +3882,10 @@ function pmrRoadmapRenderMilestoneTable(roadmap){
   const tierOpts = ['T0','T1','T2','T3'].map(t=>'<option value="'+t+'">'+t+'</option>').join('');
   const prodOpts = ['DX','LX','RC','X'].map(p=>'<option value="'+p+'">'+p+'</option>').join('');
 
+  const editedBadge = fld => '<span class="pmr-ms-edited" title="User-edited — re-seed won\'t overwrite" style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#B87800;margin-left:4px;vertical-align:middle"></span>';
+
   const rows = ms.map(m => {
+    const edited = m._userEdited || {};
     const toggles = slideIds.map(sid =>
       '<td style="text-align:center"><input type="checkbox" data-ms-toggle="'+esc(m.id)+'" data-slide-id="'+esc(sid)+'"'
       + ((m.slideIds||[]).indexOf(sid)>=0?' checked':'')+'></td>'
@@ -3770,61 +3896,92 @@ function pmrRoadmapRenderMilestoneTable(roadmap){
     const tk = m.ticketKey ? '<span class="tk-c">'+esc(m.ticketKey)+'</span>' : '<span class="u-muted-xs">manual</span>';
     return '<tr>'
       + toggles
-      + '<td><select data-ms-id="'+esc(m.id)+'" data-ms-field="tier" style="font-size:var(--fs-xs)">'+tierSel+'</select></td>'
-      + '<td><select data-ms-id="'+esc(m.id)+'" data-ms-field="product" style="font-size:var(--fs-xs)">'+prodSel+'</select></td>'
-      + '<td><input type="date" data-ms-id="'+esc(m.id)+'" data-ms-field="date" value="'+esc(m.date||'')+'" style="font-size:var(--fs-xs)"></td>'
+      + '<td><select data-ms-id="'+esc(m.id)+'" data-ms-field="tier" style="font-size:var(--fs-xs)">'+tierSel+'</select>'+(edited.tier?editedBadge('tier'):'')+'</td>'
+      + '<td><select data-ms-id="'+esc(m.id)+'" data-ms-field="product" style="font-size:var(--fs-xs)">'+prodSel+'</select>'+(edited.product?editedBadge('product'):'')+'</td>'
+      + '<td><input type="date" data-ms-id="'+esc(m.id)+'" data-ms-field="date" value="'+esc(m.date||'')+'" style="font-size:var(--fs-xs)">'+(edited.date?editedBadge('date'):'')+'</td>'
       + '<td style="font-size:var(--fs-xs);white-space:nowrap">'+tk+'</td>'
-      + '<td><input type="text" data-ms-id="'+esc(m.id)+'" data-ms-field="label" value="'+esc(m.label||'')+'" style="width:100%;font-size:var(--fs-xs)" title="'+esc(m.labelFull||m.label||'')+'"></td>'
-      + '<td><select data-ms-id="'+esc(m.id)+'" data-ms-field="status" style="font-size:var(--fs-xs)">'+statusSel+'</select></td>'
+      + '<td><input type="text" data-ms-id="'+esc(m.id)+'" data-ms-field="label" value="'+esc(m.label||'')+'" style="width:100%;font-size:var(--fs-xs)" title="'+esc(m.labelFull||m.label||'')+'">'+(edited.label?editedBadge('label'):'')+'</td>'
+      + '<td><select data-ms-id="'+esc(m.id)+'" data-ms-field="status" style="font-size:var(--fs-xs)">'+statusSel+'</select>'+(edited.status?editedBadge('status'):'')+'</td>'
       + '<td><button class="btn btn-red btn-xs" data-ms-delete="'+esc(m.id)+'">✕</button></td>'
       + '</tr>';
   }).join('');
 
-  return '<div class="tw" style="max-height:320px;overflow:auto"><table class="rt"><thead><tr>'
+  const counter = ms.length === total
+    ? ('<div class="u-muted-xs" style="margin-bottom:4px">'+total+' milestone'+(total===1?'':'s')+'</div>')
+    : ('<div class="u-muted-xs" style="margin-bottom:4px">'+ms.length+' of '+total+' milestones shown</div>');
+
+  return '<div class="pmr-roadmap-table-wrap">' + counter
+    + '<div class="tw" style="max-height:320px;overflow:auto"><table class="rt"><thead><tr>'
     + slideHdrs + '<th>Tier</th><th>Prd</th><th>Date</th><th>Ticket</th><th>Label</th><th>Status</th><th></th>'
-    + '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+    + '</tr></thead><tbody>'+rows+'</tbody></table></div></div>';
 }
 
-// Thin UI wrappers that toast the user after data operations and re-render.
+// Show an ephemeral status banner inside the editor. Auto-hides after ~4s.
+function pmrRoadmapSetStatus(msg){
+  const ui = pmrRoadmapUiState();
+  ui.statusMsg = msg || '';
+  ui.statusTs = Date.now();
+}
+
+// Thin UI wrappers that surface results via the inline banner and re-render.
 function pmrRoadmapUiReseed(){
   const r = pmrRoadmapSeedFromSpin();
-  if (r.reason) { alert('Re-seed failed: ' + r.reason); return; }
-  const msg = 'Re-seeded from spin plan: +'+r.added+' added · '+r.refreshed+' refreshed · '+r.manual+' manual';
-  // Light-touch status — reuse existing toast if present, else console
-  if (typeof toast === 'function') toast(msg);
-  else console.log(msg);
+  if (r.reason) {
+    pmrRoadmapSetStatus('Re-seed failed: ' + r.reason);
+    renderPmrRoadmapEditor();
+    return;
+  }
+  let msg = 'Re-seeded from spin plan: +'+r.added+' added · '+r.refreshed+' refreshed';
+  if (r.skipped) msg += ' · '+r.skipped+' sticky-preserved';
+  if (r.manual)  msg += ' · '+r.manual+' manual';
+  if (!r.totalCandidates) {
+    msg += '. No Epic/Program rows with Target end date found — check the spin plan CSV.';
+  }
+  pmrRoadmapSetStatus(msg);
   renderPmrRoadmapEditor();
 }
 function pmrRoadmapUiAddManual(){
   pmrRoadmapAddManual();
+  pmrRoadmapSetStatus('New manual milestone added. Fill in the label, date, tier and status.');
   renderPmrRoadmapEditor();
 }
 function pmrRoadmapUiAddSlide(){
   const roadmap = S.cfg.pmr_roadmap; if(!roadmap) return;
   if ((roadmap.slides||[]).length >= 2) return;
   const base = roadmap.slides[0] || {};
+  const y = (base.year || new Date().getFullYear());
+  // Default the zoomed slide to a Q2-ish window in the current year
   roadmap.slides.push({
     id: 'zoomed',
     title: 'Integrated Roadmap — Zoomed',
     mode: base.mode || 'months',
-    year: base.year || 2026,
-    rangeStart: base.rangeStart || '2026-03',
-    rangeEnd: '2026-07',
+    year: y,
+    rangeStart: base.rangeStart || (y + '-03'),
+    rangeEnd: y + '-07',
     tiers: (base.tiers||['T0','T1','T2','T3']).slice(),
     emphasizeTier: base.emphasizeTier || 'T1'
   });
   autoSaveCfg();
+  pmrRoadmapSetStatus('Zoomed slide added. Adjust its range in the slide controls above.');
   renderPmrRoadmapEditor();
 }
 
-// Inline SVG preview of a roadmap slide. Same geometry the PPTX helper uses,
-// translated to SVG units for live feedback in the editor.
+// Inline SVG preview of a roadmap slide. Shares the lane-packing and month
+// helpers with the PPTX renderer so they stay visually in sync.
+// Honors: cluster-badge overflow, year-break markers, and 2-line labels for
+// the emphasized tier.
 function pmrRoadmapRenderPreviewSvg(slide, pxW, pxH){
   const months = pmrRoadmapMonthsForSlide(slide);
-  if (!months.length) return '<div class="u-muted-xs">Invalid month range.</div>';
+  if (!months.length) {
+    return '<div class="u-muted-xs" style="padding:8px">Invalid or inverted month range — adjust the slide\'s From/To above.</div>';
+  }
   const mils = pmrRoadmapMilestonesForSlide(slide);
 
-  const padL = 60, padR = 180, padT = 42, padB = 34;
+  // If the range crosses a year boundary, reserve space for a year strip
+  const hasYearBreak = months.some((m, i) => i > 0 && m.yearBreak);
+  const yearStripH = hasYearBreak ? 14 : 0;
+
+  const padL = 60, padR = 180, padT = 42 + yearStripH, padB = 34;
   const innerW = pxW - padL - padR;
   const innerH = pxH - padT - padB;
   const tiers = (slide.tiers && slide.tiers.length ? slide.tiers : ['T0','T1','T2','T3']);
@@ -3860,11 +4017,32 @@ function pmrRoadmapRenderPreviewSvg(slide, pxW, pxH){
   // Header strip
   svg += '<rect x="0" y="0" width="'+pxW+'" height="32" fill="#1E2736"/>';
   svg += '<text x="12" y="21" fill="#FFFFFF" font-family="Cambria,Georgia,serif" font-weight="700" font-size="14">(U) '+esc(slide.title||'Integrated Milestone Roadmap')+'</text>';
-  svg += '<text x="'+(pxW-12)+'" y="21" fill="#FFFFFF" font-family="Cambria,Georgia,serif" font-weight="700" font-size="12" text-anchor="end">'+(slide.year||'')+'</text>';
+  // Year label (top right) — only meaningful when the range is single-year
+  if (!hasYearBreak) {
+    svg += '<text x="'+(pxW-12)+'" y="21" fill="#FFFFFF" font-family="Cambria,Georgia,serif" font-weight="700" font-size="12" text-anchor="end">'+(slide.year||months[0].year||'')+'</text>';
+  }
+
+  // Multi-year strip: shows contiguous year bands above the month labels
+  if (hasYearBreak) {
+    let bandStart = 0;
+    for (let i = 0; i <= months.length; i++) {
+      const atEnd = (i === months.length);
+      const breakHere = atEnd || (i > bandStart && months[i].year !== months[bandStart].year);
+      if (breakHere) {
+        const x0 = padL + (colW * bandStart);
+        const w  = colW * (i - bandStart);
+        svg += '<rect x="'+x0+'" y="'+(32+4)+'" width="'+w+'" height="'+(yearStripH-4)+'" fill="#EFECE6" stroke="#D4CFC8"/>';
+        svg += '<text x="'+(x0 + w/2)+'" y="'+(32 + yearStripH - 2)+'" fill="#1A1E28" font-family="Cambria,Georgia,serif" font-weight="700" font-size="9" text-anchor="middle">'+months[bandStart].year+'</text>';
+        bandStart = i;
+      }
+    }
+  }
+
   // Month header row
   months.forEach((m, i) => {
     const x = padL + (colW * i);
-    svg += '<line x1="'+(x)+'" y1="'+padT+'" x2="'+(x)+'" y2="'+(padT+innerH)+'" stroke="#D4CFC8" stroke-width="1"/>';
+    const isYearBreak = m.yearBreak;
+    svg += '<line x1="'+(x)+'" y1="'+padT+'" x2="'+(x)+'" y2="'+(padT+innerH)+'" stroke="'+(isYearBreak?'#1A1E28':'#D4CFC8')+'" stroke-width="'+(isYearBreak?'1.5':'1')+'"/>';
     svg += '<text x="'+(x+colW/2)+'" y="'+(padT-6)+'" fill="#5A6070" font-family="Cambria,Georgia,serif" font-weight="700" font-size="10" text-anchor="middle">'+m.label+'</text>';
   });
   svg += '<line x1="'+(padL+innerW)+'" y1="'+padT+'" x2="'+(padL+innerW)+'" y2="'+(padT+innerH)+'" stroke="#D4CFC8" stroke-width="1"/>';
@@ -3873,6 +4051,7 @@ function pmrRoadmapRenderPreviewSvg(slide, pxW, pxH){
   tiers.forEach(t => {
     const y0 = tierYs[t];
     const h = rowH[t];
+    const isEmph = (t === emph);
     // Row background
     svg += '<rect x="'+padL+'" y="'+y0+'" width="'+innerW+'" height="'+h+'" fill="#FFFFFF" stroke="#D4CFC8"/>';
     // Tier label
@@ -3880,21 +4059,40 @@ function pmrRoadmapRenderPreviewSvg(slide, pxW, pxH){
     // Lane packing within the row
     const items = byTier[t] || [];
     if (!items.length) return;
-    const packed = pmrRoadmapAssignLanes(items.map(it => ({ x: it.x, width: 70 })), 72);
+    // Compute max lanes that fit — diamondSize(18) + labelBand(isEmph?20:12) + pad(4)
+    const laneUnitPx = 18 + (isEmph ? 20 : 12) + 4;
+    const maxLanes = Math.max(1, Math.floor((h - 4) / laneUnitPx));
+    const packed = pmrRoadmapAssignLanes(
+      items.map(it => ({ x: it.x, width: 60 })), 64,
+      { maxLanes: maxLanes, minClusterGap: 30 }
+    );
     const laneCount = packed.laneCount;
-    const laneH = h / (laneCount + 1); // +1 leaves space for labels
+    const totalUsed = laneCount * laneUnitPx;
+    const startY = y0 + Math.max(2, (h - totalUsed) / 2);
     items.forEach((it, idx) => {
       const lane = packed.laneOf[idx];
-      const cy = y0 + laneH * (lane + 0.4);
+      if (lane < 0) return; // absorbed into a cluster
+      const laneTop = startY + (lane * laneUnitPx);
+      const cy = laneTop + 9; // center of 18px diamond
       const sz = 9;
       const st = PMR_ROADMAP_STATUS[it.m.status] || PMR_ROADMAP_STATUS.not_started;
       const prod = PMR_ROADMAP_PRODUCT[it.m.product] || PMR_ROADMAP_PRODUCT.X;
-      // Diamond
       svg += '<polygon points="'+it.x+','+(cy-sz)+' '+(it.x+sz)+','+cy+' '+it.x+','+(cy+sz)+' '+(it.x-sz)+','+cy+'" fill="'+st.color+'" stroke="#1A1E28" stroke-width="0.75"/>';
       svg += '<text x="'+it.x+'" y="'+(cy+3)+'" fill="#FFFFFF" font-family="Cambria,Georgia,serif" font-weight="700" font-size="9" text-anchor="middle">'+prod.letter+'</text>';
-      // Label below (truncated)
-      const lbl = (it.m.label||'').length > 18 ? (it.m.label.slice(0,17)+'…') : (it.m.label||'');
-      svg += '<text x="'+it.x+'" y="'+(cy+sz+10)+'" fill="#1A1E28" font-family="Cambria,Georgia,serif" font-size="8" text-anchor="middle">'+esc(lbl)+'</text>';
+      // Multi-line label for emphasized tier, single-line otherwise
+      const labMax = isEmph ? 16 : 14;
+      const labLines = pmrRoadmapTruncLabel(it.m.label || '', labMax, isEmph ? 2 : 1);
+      labLines.forEach((ln, li) => {
+        const ly = cy + sz + 8 + (li * 9);
+        svg += '<text x="'+it.x+'" y="'+ly+'" fill="#1A1E28" font-family="Cambria,Georgia,serif" font-size="8" text-anchor="middle">'+esc(ln)+'</text>';
+      });
+    });
+    // Cluster badges
+    (packed.clusters || []).forEach(cl => {
+      const laneTop = startY + (cl.laneIdx * laneUnitPx);
+      const cy = laneTop + 9;
+      svg += '<circle cx="'+cl.x+'" cy="'+cy+'" r="9" fill="#B87800" stroke="#1A1E28" stroke-width="0.75"/>';
+      svg += '<text x="'+cl.x+'" y="'+(cy+3)+'" fill="#FFFFFF" font-family="Cambria,Georgia,serif" font-weight="700" font-size="9" text-anchor="middle">+'+cl.count+'</text>';
     });
   });
 
@@ -3912,10 +4110,12 @@ function pmrRoadmapRenderPreviewSvg(slide, pxW, pxH){
     svg += '<circle cx="'+(panelX+8)+'" cy="'+(ly-3)+'" r="3" fill="'+st.color+'"/>';
     const dateLbl = (m.date||'').slice(5); // MM-DD
     svg += '<text x="'+(panelX+16)+'" y="'+ly+'" fill="#1A1E28" font-family="Cambria,Georgia,serif" font-size="9" font-weight="700">'+esc(dateLbl)+'</text>';
-    const lab = (m.label||'');
-    const labShort = lab.length > 22 ? (lab.slice(0,21)+'…') : lab;
+    const labShort = pmrRoadmapTruncLabel(m.label || '', 28, 1)[0] || '';
     svg += '<text x="'+(panelX+46)+'" y="'+ly+'" fill="#1A1E28" font-family="Cambria,Georgia,serif" font-size="9">'+esc(labShort)+'</text>';
   });
+  if (sorted.length > maxRows) {
+    svg += '<text x="'+(panelX+8)+'" y="'+(padT + innerH - 6)+'" fill="#5A6070" font-family="Cambria,Georgia,serif" font-size="8" font-style="italic">+'+(sorted.length - maxRows)+' more…</text>';
+  }
 
   // Legend strip at bottom
   const legY = padT + innerH + 14;
@@ -4664,36 +4864,57 @@ function runPMR(){
   const seenGroups=new Set();
   let agendaItems='', slidesHtml='';
 
-  // Integrated Milestone Roadmap — emitted once, immediately before the first
-  // T1 topic so it sits at the top of the T1 section of the deck. Gets agenda
-  // entries and slide HTML the same way ticket-driven topics do.
-  let roadmapEmitted=false;
-  const emitIntegratedRoadmap=()=>{
-    if(roadmapEmitted) return;
-    roadmapEmitted=true;
-    const rm=S.cfg.pmr_roadmap;
-    if(!rm||!rm.enabled||!Array.isArray(rm.slides)||!rm.slides.length) return;
-    rm.slides.forEach(slide=>{
-      const title=slide.title||'Integrated Milestone Roadmap';
-      const sid=slideSlug(title);
-      agendaItems+='<li class="has"><a href="#'+sid+'" style="color:inherit;text-decoration:none">'+esc(title)+'</a></li>';
-      // Snapshot the slide config + selected milestones. Encoded via
-      // encodeURIComponent so the JSON survives HTML attribute quoting.
-      const payload={ slide, milestones: pmrRoadmapMilestonesForSlide(slide) };
-      const encoded=encodeURIComponent(JSON.stringify(payload));
-      const previewSvg=(typeof pmrRoadmapRenderPreviewSvg==='function')
+  // ── Integrated Milestone Roadmap insertion planning ───────────────────
+  // Build the roadmap agenda + slide HTML up front. Then decide where to
+  // splice it in:
+  //   1. Before the first "T1" topic, detected by tier_rank in [1..4] OR
+  //      by the header matching /tier\s*1/i. Tolerates customized topic
+  //      lists where tier_rank isn't set.
+  //   2. If no T1 topic exists, prepend (right after agenda) so the slide
+  //      still has predictable leading placement.
+  //   3. If the feature is disabled or there are no slides, skip entirely.
+  const rm = S.cfg.pmr_roadmap;
+  const roadmapParts = { agendaHtml: '', slidesHtml: '' };
+  if (rm && rm.enabled && Array.isArray(rm.slides) && rm.slides.length) {
+    rm.slides.forEach(slide => {
+      const title = slide.title || 'Integrated Milestone Roadmap';
+      const sid = slideSlug(title);
+      roadmapParts.agendaHtml += '<li class="has"><a href="#'+sid+'" style="color:inherit;text-decoration:none">'+esc(title)+'</a></li>';
+      // Snapshot the slide config + selected milestones. URI-encoded so the
+      // JSON survives HTML attribute quoting.
+      const payload = { slide, milestones: pmrRoadmapMilestonesForSlide(slide) };
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      const previewSvg = (typeof pmrRoadmapRenderPreviewSvg === 'function')
         ? pmrRoadmapRenderPreviewSvg(slide, 1200, 520) : '';
-      slidesHtml+='<div class="slide" id="'+sid+'" data-pmr-layout="integrated_roadmap">'
-        +'<h2>(U) '+esc(title)+'</h2>'
-        +'<div class="pmr-roadmap-wrap" data-roadmap="'+encoded+'">'
-        +  previewSvg
-        +'</div></div>';
+      roadmapParts.slidesHtml += '<div class="slide" id="'+sid+'" data-pmr-layout="integrated_roadmap">'
+        + '<h2>(U) '+esc(title)+'</h2>'
+        + '<div class="pmr-roadmap-wrap" data-roadmap="'+encoded+'">'
+        +   previewSvg
+        + '</div></div>';
     });
+  }
+  const hasRoadmap = !!(roadmapParts.slidesHtml);
+
+  // Detect "first T1 topic" using tier_rank primarily and header regex as
+  // a fallback. Same predicate used whether the topic belongs to a group
+  // or is standalone.
+  const isT1Topic = (t) => {
+    if (!t) return false;
+    if (typeof t.tier_rank === 'number' && t.tier_rank >= 1 && t.tier_rank <= 4) return true;
+    return /\btier\s*1\b/i.test(t.header || '');
+  };
+
+  let roadmapEmitted = false;
+  const emitIntegratedRoadmap = () => {
+    if (roadmapEmitted || !hasRoadmap) return;
+    roadmapEmitted = true;
+    agendaItems += roadmapParts.agendaHtml;
+    slidesHtml += roadmapParts.slidesHtml;
   };
 
   S.topics.forEach(t=>{
     // First T1 topic seen → inject the roadmap slide(s) right before it
-    if(t.tier_rank>=1&&t.tier_rank<=4) emitIntegratedRoadmap();
+    if (isT1Topic(t)) emitIntegratedRoadmap();
     const gid=topicToGroupId[t.topic_id];
     if(gid){
       if(seenGroups.has(gid)) return;
@@ -4721,9 +4942,15 @@ function runPMR(){
       }
     }
   });
-  // Safety net: if no T1 topic was encountered (empty PMR), still emit the
-  // roadmap so the slide doesn't silently disappear.
-  emitIntegratedRoadmap();
+  // Safety net: if no T1 topic was encountered, the roadmap would otherwise
+  // be silently dropped. Prepend it to agenda + slides so it lands at the
+  // start of the deck rather than the end — leading placement matches user
+  // expectation when tier anchoring fails.
+  if (hasRoadmap && !roadmapEmitted) {
+    agendaItems = roadmapParts.agendaHtml + agendaItems;
+    slidesHtml  = roadmapParts.slidesHtml  + slidesHtml;
+    roadmapEmitted = true;
+  }
   const agendaHtml='<ul class="agenda-list">'+agendaItems+'</ul>';
 
   const total=scoped.length;
@@ -7440,6 +7667,25 @@ function _pmrAddAgendaSlide(pres, ctx, data) {
   });
 }
 
+// Diamond shape wrapper. pptxgenjs ships ShapeType.diamond in all recent
+// versions, but if it's ever missing we fall back to a 45°-rotated square
+// via the `rotate` option, which renders identically. This lets the roadmap
+// slide survive even on pptxgenjs builds that don't expose diamond.
+function _pmrDiamondShape(pres, s, x, y, w, h, fill, stroke, strokeW) {
+  const fillOpt   = { color: fill };
+  const lineOpt   = { color: stroke || '1A1E28', width: (strokeW == null ? 0.75 : strokeW) };
+  const diamondType = pres && pres.ShapeType && pres.ShapeType.diamond;
+  if (diamondType) {
+    s.addShape(diamondType, { x, y, w, h, fill: fillOpt, line: lineOpt });
+    return;
+  }
+  // Fallback: square rotated 45° around its center. pptxgenjs rotate takes
+  // degrees and spins around the shape's own midpoint.
+  s.addShape(pres.ShapeType.rect, {
+    x, y, w, h, fill: fillOpt, line: lineOpt, rotate: 45
+  });
+}
+
 // Integrated Milestone Roadmap — tier rows × month columns, diamond milestones
 // with product letter + status color, Next Steps panel on the right, status
 // legend on the bottom. Header uses a neutral navy bar (no tier accent)
@@ -7466,31 +7712,56 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
   const panelW = 2.40;                         // right-side Next Steps panel
   const padR = M + panelW + 0.14;
   const areaX = padL;
-  const areaY = BODY_Y + 0.40;                 // leave room for year + month row
-  const areaW = W - padL - padR;
-  const areaH = H - FOUO_H - areaY - 0.60;     // leave room for legend at bottom
 
   // Compute month columns from the slide config
   const months = (typeof pmrRoadmapMonthsForSlide === 'function')
     ? pmrRoadmapMonthsForSlide(slide) : [];
   if (!months.length) {
     text(s, '(Roadmap has no valid month range — check Integrated Roadmap settings.)',
-      { x:areaX, y:areaY+0.2, w:areaW, h:0.5, fontSize:13, color:C.muted, fontFace:'Cambria' });
+      { x:areaX, y:BODY_Y+0.2, w:W-padL-padR, h:0.5, fontSize:13, color:C.muted, fontFace:'Cambria' });
     return;
   }
+  // Year strip is extra header space when the range crosses a year boundary
+  const hasYearBreak = months.some((m, i) => i > 0 && m.yearBreak);
+  const yearStripH = hasYearBreak ? 0.18 : 0;
+  const areaY = BODY_Y + 0.40 + yearStripH;
+  const areaW = W - padL - padR;
+  const areaH = H - FOUO_H - areaY - 0.60;     // leave room for legend at bottom
   const colW = areaW / months.length;
 
-  // Year label spanning the month header row
-  text(s, String(slide.year || ''), {
-    x: areaX, y: BODY_Y - 0.02, w: areaW, h: 0.24,
-    fontSize: 12, bold: true, color: C.muted, fontFace:'Cambria', align:'center'
-  });
-  // Month labels + vertical gridlines
+  // Header year: single-year range shows one label top-center; multi-year
+  // range shows a contiguous band above the month strip.
+  if (!hasYearBreak) {
+    text(s, String(slide.year || months[0].year || ''), {
+      x: areaX, y: BODY_Y - 0.02, w: areaW, h: 0.24,
+      fontSize: 12, bold: true, color: C.muted, fontFace:'Cambria', align:'center'
+    });
+  } else {
+    // Walk year bands and draw a tag per contiguous stretch
+    let bandStart = 0;
+    for (let i = 0; i <= months.length; i++) {
+      const atEnd = (i === months.length);
+      const breakHere = atEnd || (i > bandStart && months[i].year !== months[bandStart].year);
+      if (breakHere) {
+        const bx = areaX + (colW * bandStart);
+        const bw = colW * (i - bandStart);
+        rect(s, bx, BODY_Y + 0.02, bw, yearStripH - 0.02, C.cardLt);
+        text(s, String(months[bandStart].year), {
+          x: bx, y: BODY_Y + 0.02, w: bw, h: yearStripH - 0.02,
+          fontSize: 10, bold: true, color: C.text, fontFace:'Cambria',
+          align:'center', valign:'middle'
+        });
+        bandStart = i;
+      }
+    }
+  }
+  // Month labels + vertical gridlines. Year-break lines get a heavier stroke.
   months.forEach((m, i) => {
     const cx = areaX + (colW * i);
-    rect(s, cx, areaY, 0.008, areaH, C.border);
+    const thickness = m.yearBreak ? 0.018 : 0.008;
+    rect(s, cx, areaY, thickness, areaH, m.yearBreak ? C.text : C.border);
     text(s, m.label, {
-      x: cx, y: BODY_Y + 0.22, w: colW, h: 0.20,
+      x: cx, y: BODY_Y + 0.22 + yearStripH, w: colW, h: 0.20,
       fontSize: 10, bold: true, color: C.muted, fontFace:'Cambria', align:'center'
     });
   });
@@ -7538,24 +7809,36 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
     blocked:     C.red
   };
 
-  // Diamond rendering inside each tier row, with greedy lane packing.
-  const diamondSize = 0.22;   // inches (width/height of diamond bounding box)
-  const labelH = 0.20;
-  const labelW = 1.10;
-  const minGapX = diamondSize + 0.05;
+  // Diamond + label dimensions (inches). Emphasized tiers get a taller label
+  // band so they can host 2 lines of Cambria at 8pt.
+  const diamondSize = 0.22;
+  const labelW      = 1.10;
+  const labelH1     = 0.20; // one line of label
+  const labelH2     = 0.36; // two lines (for emphasized tier)
+  const minGapX     = diamondSize + 0.05;
+  const minClusterGap = colW * 0.35;
+
   tiers.forEach(t => {
     const items = byTier[t] || [];
     if (!items.length) return;
-    const packed = (typeof pmrRoadmapAssignLanes === 'function')
-      ? pmrRoadmapAssignLanes(items.map(it => ({ x: it.cx, width: diamondSize })), minGapX)
-      : { laneOf: items.map(() => 0), laneCount: 1 };
-    const laneCount = packed.laneCount;
-    // Each lane: diamond band (diamondSize) + label band (labelH) + a little gap
+    const isEmph = (t === emph);
+    const labelH = isEmph ? labelH2 : labelH1;
     const laneUnit = diamondSize + labelH + 0.04;
+    // Cap lanes to what actually fits vertically, leaving at least 0.04" pad
+    const maxLanes = Math.max(1, Math.floor((tierH[t] - 0.04) / laneUnit));
+    const packed = (typeof pmrRoadmapAssignLanes === 'function')
+      ? pmrRoadmapAssignLanes(
+          items.map(it => ({ x: it.cx, width: diamondSize })),
+          minGapX,
+          { maxLanes: maxLanes, minClusterGap: minClusterGap }
+        )
+      : { laneOf: items.map(() => 0), laneCount: 1, clusters: [] };
+    const laneCount = packed.laneCount;
     const totalUsed = laneCount * laneUnit;
     const startY = tierY[t] + Math.max(0.04, (tierH[t] - totalUsed) / 2);
     items.forEach((it, idx) => {
       const lane = packed.laneOf[idx];
+      if (lane < 0) return; // absorbed into a cluster badge
       const laneTop = startY + (lane * laneUnit);
       const cy = laneTop + (diamondSize / 2);
       const color = statusColor[it.mile.status] || statusColor.not_started;
@@ -7563,13 +7846,11 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
                        : (it.mile.product === 'LX') ? 'L'
                        : (it.mile.product === 'RC') ? 'R'
                        : 'X';
-      // Diamond shape (uses pptxgenjs built-in diamond shape)
-      s.addShape(pres.ShapeType.diamond, {
-        x: it.cx - (diamondSize/2), y: cy - (diamondSize/2),
-        w: diamondSize, h: diamondSize,
-        fill: { color: color },
-        line: { color: C.text, width: 0.75 }
-      });
+      _pmrDiamondShape(pres, s,
+        it.cx - (diamondSize/2), cy - (diamondSize/2),
+        diamondSize, diamondSize,
+        color, C.text, 0.75
+      );
       // Product letter centered inside the diamond
       text(s, prodLetter, {
         x: it.cx - (diamondSize/2), y: cy - 0.10,
@@ -7577,13 +7858,32 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
         fontSize: 10, bold: true, color: 'FFFFFF', fontFace:'Cambria',
         align:'center', valign:'middle'
       });
-      // Label below the diamond (truncated to fit)
-      const labelTxt = fit(it.mile.label || '', 28);
-      text(s, labelTxt, {
+      // Label below the diamond — word-aware, 2 lines for emphasized tier
+      const lines = (typeof pmrRoadmapTruncLabel === 'function')
+        ? pmrRoadmapTruncLabel(it.mile.label || '', isEmph ? 20 : 18, isEmph ? 2 : 1)
+        : [fit(it.mile.label || '', isEmph ? 38 : 20)];
+      text(s, lines.join('\n'), {
         x: it.cx - (labelW/2), y: cy + (diamondSize/2) + 0.02,
         w: labelW, h: labelH,
         fontSize: 8, color: C.text, fontFace:'Cambria',
         align:'center', valign:'top', wrap: true
+      });
+    });
+    // Cluster badges for overflow items (dense months in short rows)
+    (packed.clusters || []).forEach(cl => {
+      const laneTop = startY + (cl.laneIdx * laneUnit);
+      const cy = laneTop + (diamondSize / 2);
+      const badgeSize = diamondSize * 1.1;
+      s.addShape(pres.ShapeType.ellipse, {
+        x: cl.x - (badgeSize/2), y: cy - (badgeSize/2),
+        w: badgeSize, h: badgeSize,
+        fill: { color: C.gold }, line: { color: C.text, width: 0.75 }
+      });
+      text(s, '+' + cl.count, {
+        x: cl.x - (badgeSize/2), y: cy - 0.10,
+        w: badgeSize, h: 0.20,
+        fontSize: 9, bold: true, color: 'FFFFFF', fontFace:'Cambria',
+        align:'center', valign:'middle'
       });
     });
   });
@@ -7620,13 +7920,21 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
       x: panelX + 0.68, y: ry, w: 0.26, h: rowH,
       fontSize: 8, bold: true, color: C.muted, fontFace:'Cambria', valign:'middle'
     });
-    // Label
-    const lbl = fit(mile.label || '', 32);
-    text(s, lbl, {
+    // Label — word-aware single-line truncation
+    const lblLines = (typeof pmrRoadmapTruncLabel === 'function')
+      ? pmrRoadmapTruncLabel(mile.label || '', 28, 1)
+      : [fit(mile.label || '', 32)];
+    text(s, lblLines[0] || '', {
       x: panelX + 0.94, y: ry, w: panelW - 1.02, h: rowH,
       fontSize: 9, color: C.text, fontFace:'Cambria', valign:'middle'
     });
   });
+  if (sorted.length > maxRows) {
+    text(s, '+' + (sorted.length - maxRows) + ' more…', {
+      x: panelX + 0.08, y: panelY + areaH - 0.24, w: panelW - 0.16, h: 0.20,
+      fontSize: 8, italic: true, color: C.muted, fontFace:'Cambria', valign:'middle'
+    });
+  }
 
   // ── Legend strip (bottom) ────────────────────────────────────────────
   const legendY = areaY + areaH + 0.18;
@@ -7694,19 +8002,62 @@ function _pmrAddSimpleListSlide(pres, ctx, sd) {
 // through the editor are persisted via autoSaveCfg() and survive re-seeds.
 
 // "Tier 1: Priority 2: ..." → "T1". Falls back to '' when no match.
+// Accepts Roman numerals and plain numbers, and handles "T1"/"Tier I" variants.
 function pmrRoadmapParseTier(title) {
   if (!title) return '';
-  const m = title.match(/\bTier\s*([0-3])\b/i);
-  return m ? ('T' + m[1]) : '';
+  // "T1", "T 1" shorthand
+  let m = title.match(/\bT\s*([0-3])\b/i);
+  if (m) return 'T' + m[1];
+  // "Tier 1", "Tier-1", "Tier: 1"
+  m = title.match(/\bTier[\s:\-–]*([0-3])\b/i);
+  if (m) return 'T' + m[1];
+  // "Tier I"/"Tier II"/"Tier III" Roman numerals
+  m = title.match(/\bTier\s*(I{1,3})\b/i);
+  if (m) {
+    const r = m[1].toUpperCase();
+    return r === 'I' ? 'T1' : r === 'II' ? 'T2' : 'T3';
+  }
+  return '';
 }
 
-// Jira status → canonical roadmap status bucket.
+// Walk the spin plan parent chain to find a tier marker when the epic's own
+// title doesn't contain one. Used by the seeder. Walks up to `maxDepth`
+// levels (default 5) which is well above any realistic Strategy → Program →
+// Epic depth.
+function pmrRoadmapParseTierDeep(issue, spinIndex, maxDepth) {
+  if (!issue) return '';
+  const own = pmrRoadmapParseTier(issue.title || issue.summary || '');
+  if (own) return own;
+  if (!spinIndex || !issue.parentKey) return '';
+  let cur = spinIndex[issue.parentKey];
+  let depth = 0;
+  const limit = (typeof maxDepth === 'number') ? maxDepth : 5;
+  while (cur && depth < limit) {
+    const t = pmrRoadmapParseTier(cur.title || cur.summary || '');
+    if (t) return t;
+    cur = cur.parentKey ? spinIndex[cur.parentKey] : null;
+    depth++;
+  }
+  return '';
+}
+
+// Jira status → canonical roadmap status bucket. Handles common variations
+// seen across Jira deployments (backlog/todo/new/ready, in progress/in
+// development/in review/in test/staging/awaiting, done/closed/resolved,
+// blocked/impediment/on hold, cancelled/abandoned).
 function pmrRoadmapMapStatus(status) {
   const s = (status || '').toLowerCase().trim();
   if (!s) return 'not_started';
-  if (['done','closed','resolved','complete','completed'].includes(s)) return 'complete';
-  if (s.includes('block')) return 'blocked';
-  if (s.includes('progress') || s.includes('in dev') || s.includes('review') || s.includes('test')) return 'in_progress';
+  // Completed family
+  if (/\b(done|closed|resolved|complete|completed|shipped|released|delivered|accepted|verified)\b/.test(s)) return 'complete';
+  // Cancelled / abandoned — treated as complete so they exit the active view
+  if (/\b(cancell?ed|abandoned|wontfix|obsolete|rejected|duplicate)\b/.test(s)) return 'complete';
+  // Blocked family
+  if (/\b(block|impediment|on[\s\-]*hold|stuck|waiting\s+on|depend)/.test(s)) return 'blocked';
+  // In-progress family (includes review/test/staging/awaiting deploy)
+  if (/\b(progress|in\s+dev|develop|implement|review|code\s*review|peer\s*review|in\s+test|testing|qa|staging|integration|awaiting|ready\s+for|verify|verification)\b/.test(s)) return 'in_progress';
+  // Not-started family (explicit)
+  if (/\b(backlog|to[\s\-]?do|todo|open|new|planned|proposed|candidate|icebox|draft)\b/.test(s)) return 'not_started';
   return 'not_started';
 }
 
@@ -7726,24 +8077,110 @@ function pmrRoadmapMonthKey(iso) {
   return m ? (m[1] + '-' + m[2]) : '';
 }
 
+// Word-aware truncation that returns an array of lines (for multi-line
+// labels). Breaks on whitespace, falls back to mid-word truncation if a
+// single word is longer than maxCharsPerLine. Guarantees no more than
+// `maxLines` entries; final line is suffixed with an ellipsis if truncated.
+function pmrRoadmapTruncLabel(str, maxCharsPerLine, maxLines) {
+  const s = (str || '').trim();
+  if (!s) return [''];
+  const cpl = Math.max(4, maxCharsPerLine || 22);
+  const ml  = Math.max(1, maxLines || 1);
+  // Single-line fast path
+  if (ml === 1) {
+    if (s.length <= cpl) return [s];
+    // Try to break on last space within cpl
+    const cut = s.lastIndexOf(' ', cpl - 1);
+    const head = (cut > cpl * 0.5) ? s.slice(0, cut) : s.slice(0, cpl - 1);
+    return [head.replace(/\s+$/,'') + '…'];
+  }
+  // Multi-line: greedy word wrap
+  const words = s.split(/\s+/);
+  const lines = [];
+  let cur = '';
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    const next = cur ? cur + ' ' + w : w;
+    if (next.length <= cpl) {
+      cur = next;
+      continue;
+    }
+    // Current word doesn't fit — flush cur
+    if (cur) lines.push(cur);
+    if (lines.length >= ml) break;
+    // If the single word itself is longer than cpl, hard-split it
+    if (w.length > cpl) {
+      cur = w.slice(0, cpl - 1) + '…';
+      lines.push(cur);
+      cur = '';
+      if (lines.length >= ml) break;
+    } else {
+      cur = w;
+    }
+  }
+  if (cur && lines.length < ml) lines.push(cur);
+  // If we ran out of lines mid-text, mark the last line as truncated
+  if (lines.length === ml) {
+    const consumed = lines.join(' ').replace(/…$/,'').length + (lines.length - 1);
+    if (consumed < s.length - 1) {
+      const last = lines[ml - 1];
+      if (!/…$/.test(last)) {
+        lines[ml - 1] = (last.length >= cpl - 1 ? last.slice(0, cpl - 1) : last) + '…';
+      }
+    }
+  }
+  return lines.length ? lines : [''];
+}
+
 // Read the current spin plan and produce a fresh candidate milestone list.
 // Merges into S.cfg.pmr_roadmap.milestones:
 //   • New ticketKeys are added (selected=true by default, slideIds=[primary])
-//   • Existing ticketKeys refresh their date/status/label/tier/product from
-//     spin, but their slideIds array is preserved (sticky deselection).
+//   • Existing ticketKeys refresh spin-derived fields, BUT any field that
+//     the user has manually edited (tracked in m._userEdited) is skipped,
+//     so manual corrections survive re-seeds.
+//   • slideIds (selection) is always preserved — deselection is sticky.
 //   • Manual entries (ticketKey='' / missing) are left untouched.
-// Returns { added, refreshed, manual } counts.
+//
+// Returns a diagnostic object:
+//   { added, refreshed, skipped, manual, totalCandidates, typeCounts,
+//     statusCounts, tierCounts, sample:[…first 3 mapped rows…], reason? }
+// The UI displays added/refreshed; the rest is printed to the console for
+// debugging seeding issues without a round-trip to the developer.
 function pmrRoadmapSeedFromSpin() {
   const roadmap = S.cfg.pmr_roadmap;
-  if (!roadmap) return { added: 0, refreshed: 0, manual: 0, reason: 'no roadmap cfg' };
+  if (!roadmap) {
+    return { added:0, refreshed:0, skipped:0, manual:0, totalCandidates:0,
+             typeCounts:{}, statusCounts:{}, tierCounts:{}, sample:[],
+             reason: 'no roadmap cfg' };
+  }
 
   const spin = (S.spin && Array.isArray(S.spin.issues)) ? S.spin.issues : [];
-  const epics = spin.filter(i => {
-    const it = (i.issueType || '').toLowerCase();
-    // Include Epic + Program rows with a target end date (these are the
-    // milestone-worthy items in the BT_Roadmap export).
-    if (it !== 'epic' && it !== 'program') return false;
-    return !!i.targetEnd;
+  if (!spin.length) {
+    return { added:0, refreshed:0, skipped:0, manual:0, totalCandidates:0,
+             typeCounts:{}, statusCounts:{}, tierCounts:{}, sample:[],
+             reason: 'no spin plan loaded — upload a roadmap CSV on the Files page first' };
+  }
+
+  // Build an index for parent-chain tier lookup
+  const spinIndex = {};
+  spin.forEach(i => { if (i && i.key) spinIndex[i.key] = i; });
+
+  // Lenient filter: accept any row whose issueType matches epic/program
+  // (case-insensitive, partial-match) and has a target end date. Rows with
+  // missing issueType fall through to the "skipped" bucket for diagnostics.
+  const typeCounts = {};
+  const skippedReasons = { no_type:0, wrong_type:0, no_date:0 };
+  const candidates = [];
+  spin.forEach(i => {
+    const raw = (i.issueType || '').trim();
+    const t = raw.toLowerCase();
+    typeCounts[raw || '(blank)'] = (typeCounts[raw || '(blank)'] || 0) + 1;
+    if (!t) { skippedReasons.no_type++; return; }
+    const isEpic = /\b(epic|epics|feature|initiative)\b/.test(t);
+    const isProgram = /\b(program|programs|programme)\b/.test(t);
+    if (!isEpic && !isProgram) { skippedReasons.wrong_type++; return; }
+    if (!i.targetEnd) { skippedReasons.no_date++; return; }
+    candidates.push(i);
   });
 
   // Index existing milestones by ticketKey for sticky merge
@@ -7753,29 +8190,46 @@ function pmrRoadmapSeedFromSpin() {
   });
 
   const primarySlideId = (roadmap.slides && roadmap.slides[0]) ? roadmap.slides[0].id : 'overview';
-  let added = 0, refreshed = 0;
+  let added = 0, refreshed = 0, skippedSticky = 0;
+  const tierCounts = {}, statusCounts = {};
+  const sample = [];
 
-  epics.forEach(ep => {
+  candidates.forEach(ep => {
     const existing = byKey[ep.key];
     const labelText = (ep.title || ep.summary || ep.key).trim();
     const fields = {
-      tier:       pmrRoadmapParseTier(labelText) || (existing && existing.tier) || 'T1',
-      product:    pmrRoadmapProductLetter(ep.key),
-      date:       ep.targetEnd,
-      status:     pmrRoadmapMapStatus(ep.status),
-      label:      labelText.length > 60 ? labelText.slice(0, 59) + '…' : labelText,
-      labelFull:  labelText,
-      ticketKey:  ep.key
+      tier:      pmrRoadmapParseTierDeep(ep, spinIndex, 5)
+                   || (existing && existing.tier) || 'T1',
+      product:   pmrRoadmapProductLetter(ep.key),
+      date:      ep.targetEnd,
+      status:    pmrRoadmapMapStatus(ep.status),
+      label:     labelText.length > 60 ? labelText.slice(0, 59) + '…' : labelText,
+      labelFull: labelText,
+      ticketKey: ep.key
     };
+    tierCounts[fields.tier] = (tierCounts[fields.tier] || 0) + 1;
+    statusCounts[fields.status] = (statusCounts[fields.status] || 0) + 1;
+    if (sample.length < 3) {
+      sample.push({ key:ep.key, title:labelText, tier:fields.tier,
+                    status:fields.status, date:fields.date,
+                    rawStatus:ep.status, rawType:ep.issueType });
+    }
     if (existing) {
-      // Refresh spin-derived fields; preserve slideIds (sticky deselection)
-      // and preserve tier if the user overrode it (non-default value stays).
-      Object.assign(existing, fields);
+      // Preserve any field the user has explicitly edited
+      const edited = existing._userEdited || {};
+      let anySkipped = false;
+      Object.keys(fields).forEach(k => {
+        if (k === 'ticketKey') { existing[k] = fields[k]; return; }
+        if (edited[k]) { anySkipped = true; return; }
+        existing[k] = fields[k];
+      });
+      if (anySkipped) skippedSticky++;
       refreshed++;
     } else {
       roadmap.milestones.push(Object.assign({
         id: 'ms_' + ep.key,
-        slideIds: [primarySlideId]
+        slideIds: [primarySlideId],
+        _userEdited: {}
       }, fields));
       added++;
     }
@@ -7784,11 +8238,23 @@ function pmrRoadmapSeedFromSpin() {
   const manual = (roadmap.milestones || []).filter(m => !m.ticketKey).length;
   roadmap.seedVersion = (roadmap.seedVersion || 0) + 1;
   if (typeof autoSaveCfg === 'function') autoSaveCfg();
-  return { added, refreshed, manual };
+
+  const diag = {
+    added, refreshed, skipped: skippedSticky, manual,
+    totalCandidates: candidates.length,
+    totalSpinRows: spin.length,
+    skippedReasons, typeCounts, statusCounts, tierCounts, sample
+  };
+  // Console diagnostics — surfaces issueType/status distribution so the user
+  // can see exactly what mapped to what without opening the debugger.
+  try { console.log('[pmrRoadmapSeedFromSpin]', diag); } catch(_) {}
+  return diag;
 }
 
 // Add a blank manual milestone (no ticketKey) to the current roadmap.
-// Used by the editor's "+ Manual" button.
+// Used by the editor's "+ Manual" button. Manual entries start with every
+// field flagged as user-edited so re-seeds never touch them (they can't
+// match a ticketKey anyway, but this keeps the contract explicit).
 function pmrRoadmapAddManual() {
   const roadmap = S.cfg.pmr_roadmap;
   if (!roadmap) return null;
@@ -7799,7 +8265,8 @@ function pmrRoadmapAddManual() {
     date: '', status: 'not_started',
     label: '(new milestone)', labelFull: '(new milestone)',
     ticketKey: '',
-    slideIds: [primarySlideId]
+    slideIds: [primarySlideId],
+    _userEdited: { tier:true, product:true, date:true, status:true, label:true }
   };
   roadmap.milestones.push(m);
   if (typeof autoSaveCfg === 'function') autoSaveCfg();
@@ -7827,20 +8294,28 @@ function pmrRoadmapDeleteMilestone(milestoneId) {
 }
 
 // Compute the ordered month list for a given slide config.
-// Returns an array of { key:'YYYY-MM', label:'JAN', year:2026 } in render order.
+// Returns an array of { key:'YYYY-MM', label:'JAN', year:2026, yearBreak:bool }
+// where yearBreak is true on the first entry of any year after the first.
+// Also validates the range — returns [] if the range is inverted or invalid.
 function pmrRoadmapMonthsForSlide(slide) {
   const SHORT = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   const out = [];
   if (!slide || !slide.rangeStart || !slide.rangeEnd) return out;
-  const [sy, sm] = slide.rangeStart.split('-').map(Number);
-  const [ey, em] = slide.rangeEnd.split('-').map(Number);
+  const sm0 = String(slide.rangeStart).split('-').map(Number);
+  const em0 = String(slide.rangeEnd).split('-').map(Number);
+  if (sm0.length < 2 || em0.length < 2) return out;
+  const [sy, sm] = sm0, [ey, em] = em0;
+  if (!sy || !sm || !ey || !em) return out;
+  // Reject inverted ranges outright — caller can show an error
+  if (ey < sy || (ey === sy && em < sm)) return out;
   let y = sy, m = sm;
-  // Guard against inverted ranges
+  let firstYear = sy;
   for (let guard = 0; guard < 60; guard++) {
     out.push({
       key: y + '-' + String(m).padStart(2, '0'),
       label: SHORT[m - 1] || '',
-      year: y
+      year: y,
+      yearBreak: (y !== firstYear && m === 1)
     });
     if (y === ey && m === em) break;
     m++;
@@ -7850,25 +8325,68 @@ function pmrRoadmapMonthsForSlide(slide) {
 }
 
 // Greedy lane assignment for packing dense clusters within a tier row.
-// items: array of { x: number (pixels/pts along the row axis), width: number }
+// items: array of { x: number (coord along the row axis), width: number }
 // minGap: minimum horizontal gap between items sharing a lane
-// Returns: an array of lane indices (0, 1, 2, ...) aligned with the input.
-function pmrRoadmapAssignLanes(items, minGap) {
+// opts (optional):
+//   maxLanes:   cap on visible lanes. Items that would spill into higher
+//               lanes are collapsed into cluster badges on the last lane.
+//   minClusterGap: horizontal distance used to merge overflow items into
+//               a single cluster anchor. Defaults to minGap * 2.
+// Returns: { laneOf: number[], laneCount: number, clusters: Array<{x, count, laneIdx, members:number[]}> }
+// - laneOf[i] may be -1 for items that were absorbed into a cluster badge.
+function pmrRoadmapAssignLanes(items, minGap, opts) {
+  const options = opts || {};
+  const maxLanes = (typeof options.maxLanes === 'number' && options.maxLanes > 0)
+    ? options.maxLanes : Infinity;
+  const clusterGap = (typeof options.minClusterGap === 'number')
+    ? options.minClusterGap : (minGap * 2);
+
   const lanes = []; // lanes[i] = rightmost x occupied in lane i
   const laneOf = new Array(items.length);
   const order = items.map((it, idx) => ({ idx, x: it.x, w: it.width || 0 }))
                      .sort((a, b) => a.x - b.x);
+  const overflow = []; // items that didn't fit within maxLanes
   order.forEach(o => {
     const leftEdge = o.x - (o.w / 2);
     let placed = -1;
     for (let i = 0; i < lanes.length; i++) {
       if (lanes[i] + minGap <= leftEdge) { placed = i; break; }
     }
-    if (placed < 0) { placed = lanes.length; lanes.push(0); }
+    if (placed < 0) {
+      if (lanes.length < maxLanes) { placed = lanes.length; lanes.push(0); }
+      else { overflow.push(o); laneOf[o.idx] = -1; return; }
+    }
     lanes[placed] = o.x + (o.w / 2);
     laneOf[o.idx] = placed;
   });
-  return { laneOf, laneCount: lanes.length || 1 };
+
+  // Collapse overflow items into cluster badges. Each badge sits on the last
+  // lane and absorbs nearby overflow items within `clusterGap`. The cluster
+  // x-position is the average of its members.
+  const clusters = [];
+  if (overflow.length) {
+    const lastLane = Math.max(0, lanes.length - 1);
+    overflow.sort((a, b) => a.x - b.x);
+    let i = 0;
+    while (i < overflow.length) {
+      let j = i + 1;
+      const members = [overflow[i].idx];
+      let sumX = overflow[i].x;
+      while (j < overflow.length && (overflow[j].x - overflow[j - 1].x) <= clusterGap) {
+        members.push(overflow[j].idx);
+        sumX += overflow[j].x;
+        j++;
+      }
+      clusters.push({
+        x: sumX / members.length,
+        count: members.length,
+        laneIdx: lastLane,
+        members
+      });
+      i = j;
+    }
+  }
+  return { laneOf, laneCount: lanes.length || 1, clusters };
 }
 
 // Filter milestones for a particular slide: include only if selected AND
@@ -12928,6 +13446,163 @@ function runTests() {
       var got = sprintToSpin(tests[i][0]);
       if (got !== tests[i][1]) return tests[i][0] + ' → ' + got + ' (expected ' + tests[i][1] + ')';
     }
+    return true;
+  });
+
+  // ── 9b. INTEGRATED ROADMAP HELPERS ───────────────────────
+  group('Integrated Roadmap Helpers');
+
+  t('pmrRoadmapParseTier reads Arabic + Roman + T-prefix variants', function() {
+    var cases = [
+      ['Tier 1: Priority 2: HCI Migration',  'T1'],
+      ['Tier 2 — Mission Support',           'T2'],
+      ['tier-3: TechSIGINT',                 'T3'],
+      ['T0 Surge Support',                   'T0'],
+      ['Tier III — Research',                'T3'],
+      ['Tier II',                            'T2'],
+      ['No tier here',                       ''],
+      ['',                                   ''],
+      [null,                                 ''],
+    ];
+    for (var i = 0; i < cases.length; i++) {
+      var got = pmrRoadmapParseTier(cases[i][0]);
+      if (got !== cases[i][1]) return JSON.stringify(cases[i][0]) + ' → ' + got + ' (expected ' + cases[i][1] + ')';
+    }
+    return true;
+  });
+
+  t('pmrRoadmapParseTierDeep walks parent chain', function() {
+    var index = {
+      'PROG-1': { key:'PROG-1', title:'Tier 2 Program: Mission Support', parentKey:'' },
+      'EP-10':  { key:'EP-10',  title:'Data refresh',                    parentKey:'PROG-1' },
+      'EP-11':  { key:'EP-11',  title:'Tier 1 — HCI work',                parentKey:'' },
+    };
+    // Own title wins when present
+    var got1 = pmrRoadmapParseTierDeep(index['EP-11'], index, 5);
+    if (got1 !== 'T1') return 'own title: got ' + got1;
+    // Fallback via parent
+    var got2 = pmrRoadmapParseTierDeep(index['EP-10'], index, 5);
+    if (got2 !== 'T2') return 'parent walk: got ' + got2;
+    // No match returns ''
+    var orphan = { key:'X-1', title:'Nothing here', parentKey:'' };
+    var got3 = pmrRoadmapParseTierDeep(orphan, index, 5);
+    if (got3 !== '') return 'orphan: got ' + got3;
+    return true;
+  });
+
+  t('pmrRoadmapMapStatus handles common statuses', function() {
+    var cases = [
+      ['Done',                'complete'],
+      ['Closed',              'complete'],
+      ['Resolved',            'complete'],
+      ['Cancelled',           'complete'],
+      ['Won\'t Fix',          'complete'],
+      ['In Progress',         'in_progress'],
+      ['In Dev',              'in_progress'],
+      ['In Review',           'in_progress'],
+      ['Awaiting Deployment', 'in_progress'],
+      ['Staging',             'in_progress'],
+      ['Blocked',             'blocked'],
+      ['On Hold',             'blocked'],
+      ['Impediment',          'blocked'],
+      ['Backlog',             'not_started'],
+      ['To Do',               'not_started'],
+      ['New',                 'not_started'],
+      ['',                    'not_started'],
+      [null,                  'not_started'],
+      ['Some weird status',   'not_started'],
+    ];
+    for (var i = 0; i < cases.length; i++) {
+      var got = pmrRoadmapMapStatus(cases[i][0]);
+      if (got !== cases[i][1]) return JSON.stringify(cases[i][0]) + ' → ' + got + ' (expected ' + cases[i][1] + ')';
+    }
+    return true;
+  });
+
+  t('pmrRoadmapProductLetter maps project prefixes', function() {
+    if (pmrRoadmapProductLetter('DX-123') !== 'DX') return 'DX failed';
+    if (pmrRoadmapProductLetter('LX-9')   !== 'LX') return 'LX failed';
+    if (pmrRoadmapProductLetter('RCR-42') !== 'RC') return 'RCR failed';
+    if (pmrRoadmapProductLetter('XYZ-1')  !== 'X')  return 'XYZ failed';
+    if (pmrRoadmapProductLetter('')       !== 'X')  return 'empty failed';
+    return true;
+  });
+
+  t('pmrRoadmapMonthKey normalizes YYYY-MM-DD', function() {
+    if (pmrRoadmapMonthKey('2026-05-15') !== '2026-05') return '2026-05-15 failed';
+    if (pmrRoadmapMonthKey('2027-12-01') !== '2027-12') return '2027-12-01 failed';
+    if (pmrRoadmapMonthKey('') !== '')                  return 'empty failed';
+    if (pmrRoadmapMonthKey('bad') !== '')               return 'bad failed';
+    return true;
+  });
+
+  t('pmrRoadmapMonthsForSlide single-year range', function() {
+    var months = pmrRoadmapMonthsForSlide({ rangeStart:'2026-03', rangeEnd:'2026-07' });
+    if (months.length !== 5) return 'length: ' + months.length;
+    if (months[0].key !== '2026-03' || months[4].key !== '2026-07') return 'bounds wrong';
+    if (months.some(function(m){ return m.yearBreak; })) return 'unexpected yearBreak in single-year range';
+    return true;
+  });
+
+  t('pmrRoadmapMonthsForSlide multi-year range marks yearBreak', function() {
+    var months = pmrRoadmapMonthsForSlide({ rangeStart:'2026-11', rangeEnd:'2027-02' });
+    if (months.length !== 4) return 'length: ' + months.length;
+    if (months[0].yearBreak) return 'first month should not be yearBreak';
+    if (!months[2].yearBreak) return 'expected yearBreak at 2027-01';
+    if (months[2].key !== '2027-01') return 'yearBreak key: ' + months[2].key;
+    return true;
+  });
+
+  t('pmrRoadmapMonthsForSlide rejects inverted ranges', function() {
+    var months = pmrRoadmapMonthsForSlide({ rangeStart:'2026-12', rangeEnd:'2026-01' });
+    if (months.length !== 0) return 'expected empty, got length ' + months.length;
+    return true;
+  });
+
+  t('pmrRoadmapAssignLanes packs non-overlapping into one lane', function() {
+    var items = [{x:10,width:4},{x:50,width:4},{x:100,width:4}];
+    var r = pmrRoadmapAssignLanes(items, 6);
+    if (r.laneCount !== 1) return 'laneCount: ' + r.laneCount;
+    if (r.laneOf.some(function(l){ return l !== 0; })) return 'wrong lane assignment';
+    return true;
+  });
+
+  t('pmrRoadmapAssignLanes spreads collisions across lanes', function() {
+    var items = [{x:10,width:10},{x:12,width:10},{x:14,width:10}];
+    var r = pmrRoadmapAssignLanes(items, 2);
+    if (r.laneCount !== 3) return 'expected 3 lanes, got ' + r.laneCount;
+    return true;
+  });
+
+  t('pmrRoadmapAssignLanes collapses overflow into clusters', function() {
+    var items = [{x:10,width:4},{x:11,width:4},{x:12,width:4},{x:13,width:4}];
+    var r = pmrRoadmapAssignLanes(items, 3, { maxLanes: 2, minClusterGap: 10 });
+    if (r.laneCount !== 2) return 'laneCount: ' + r.laneCount;
+    if (!r.clusters || !r.clusters.length) return 'expected at least one cluster';
+    var clustered = r.laneOf.filter(function(l){ return l < 0; }).length;
+    if (clustered < 2) return 'expected ≥2 items in clusters, got ' + clustered;
+    return true;
+  });
+
+  t('pmrRoadmapTruncLabel single-line word-aware', function() {
+    var lines = pmrRoadmapTruncLabel('HCI Migration cutover plan', 18, 1);
+    if (lines.length !== 1) return 'expected 1 line, got ' + lines.length;
+    if (lines[0].length > 18) return 'too long: ' + lines[0];
+    if (!/…$/.test(lines[0])) return 'missing ellipsis';
+    return true;
+  });
+
+  t('pmrRoadmapTruncLabel two-line greedy wrap', function() {
+    var lines = pmrRoadmapTruncLabel('HCI Migration Production Rollout Phase 3', 14, 2);
+    if (lines.length > 2) return 'too many lines';
+    if (!lines.every(function(l){ return l.length <= 14; })) return 'line too long: ' + lines.join(' | ');
+    return true;
+  });
+
+  t('pmrRoadmapTruncLabel short string passes through', function() {
+    var lines = pmrRoadmapTruncLabel('Short', 20, 2);
+    if (lines.length !== 1) return 'expected 1 line';
+    if (lines[0] !== 'Short') return 'got: ' + lines[0];
     return true;
   });
 
