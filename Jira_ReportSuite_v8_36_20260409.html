@@ -4703,6 +4703,19 @@ function runEOS(){
     // ── Prioritization / Upcoming (interactive section per project)
     rp += buildEOSPrioritizationHtml(proj, cur, fut);
 
+    // ── Additional sections: Deployments, User Engagement, Demonstrations
+    // Each has a contenteditable text area. If empty, Confluence output
+    // shows italicized "NSTR for this period." Auto-saved via the EOS
+    // frame-level input listener (debounced).
+    const addlSections = ['Deployments', 'User Engagement and New Requirements', 'Demonstrations'];
+    addlSections.forEach(label => {
+      const slug = `eos-addl-${proj.toLowerCase()}-${label.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`;
+      rp += `<div class="r-card l2" style="margin-top:10px">
+        <h3 style="text-transform:none;font-size:var(--fs-sm);color:var(--a1)">(U) ${esc(label)}</h3>
+        <div class="bluf-field eos-addl-field" id="${slug}" contenteditable="true" data-placeholder="NSTR for this period." data-eos-addl="${esc(label)}" data-eos-proj="${esc(proj)}" style="min-height:36px;font-style:italic;color:var(--di)"></div>
+      </div>`;
+    });
+
     // ── Confluence — build an initial snapshot; the text is regenerated live
     // from the DOM in openEOSConfluencePicker / refreshEOSConfluenceTab so
     // user-typed summaries are always included.
@@ -4845,6 +4858,21 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
     }
     lines.push('');
   }
+
+  // Additional sections: Deployments, User Engagement, Demonstrations
+  const addlSections = ['Deployments', 'User Engagement and New Requirements', 'Demonstrations'];
+  addlSections.forEach(label => {
+    const slug = `eos-addl-${proj.toLowerCase()}-${label.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`;
+    const el = document.getElementById(slug);
+    const txt = (el && el.innerText.trim()) || '';
+    lines.push(`* (U) ${label}`);
+    if (txt) {
+      txt.split('\n').filter(Boolean).forEach(line => lines.push(`** ${line}`));
+    } else {
+      lines.push('** _NSTR for this period._');
+    }
+  });
+  lines.push('');
 
   return lines.join('\n').trim();
 }
