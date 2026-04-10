@@ -2116,6 +2116,7 @@ const APP_ICONS = {
   sprint:         'task_alt',
   pmr:            'bar_chart',
   spin:           'account_tree',
+  velocity:       'analytics',
   // General settings
   config:         'settings',
   appearance:     'contrast',
@@ -9301,6 +9302,12 @@ const WIZARDS = {
     steps: ['Files', 'Report'],
     panels: ['wiz-spin-upload', 'wiz-spin-report'],
   },
+  velocity: {
+    name: 'Sprint Velocity',
+    icon: mi(APP_ICONS.velocity),
+    steps: ['Files', 'Report'],
+    panels: ['wiz-velocity-upload', 'wiz-velocity-report'],
+  },
 };
 
 let _activeWizard = null;
@@ -9323,7 +9330,7 @@ function startWizard(type) {
   renderWizardContent(type, _activeStep);
   if (filesReady && isTwoStep && type !== 'batch') {
     setTimeout(function() {
-      const runners = {sprint:runSprint, spin:runSpin};
+      const runners = {sprint:runSprint, spin:runSpin, velocity:(typeof runVelocity==='function'?runVelocity:null)};
       const runner = runners[type];
       if (runner) runner();
     }, 0);
@@ -9939,7 +9946,7 @@ ${warn}
 
   // ── LAST STEP: Report (step 1 for 2-step wizards, step 2 for 3-step) ──────────
   if (step === WIZARDS[type].steps.length - 1 && step >= 1) {
-    const outputId = {weekly:'weekly-output',eos:'eos-output',pmr:'pmr-output',sprint:'sprint-output',spin:'spin-output'};
+    const outputId = {weekly:'weekly-output',eos:'eos-output',pmr:'pmr-output',sprint:'sprint-output',spin:'spin-output',velocity:'velocity-output'};
     return `
 <div id="${outputId[type]}"></div>
 ${type === 'sprint' ? `
@@ -9963,7 +9970,7 @@ ${type === 'sprint' ? `
 }
 
 function runReportAndAdvance(type) {
-  const runners = {weekly: runWeekly, eos: runEOS, pmr: runPMR, sprint: runSprint, spin: runSpin};
+  const runners = {weekly: runWeekly, eos: runEOS, pmr: runPMR, sprint: runSprint, spin: runSpin, velocity: (typeof runVelocity==='function'?runVelocity:null)};
   const runner = runners[type];
   if (!runner) return;
 
@@ -13852,6 +13859,11 @@ mountTestHarness();
 
 
 </script>
+
+<!-- Sprint Velocity tool card is injected dynamically by
+     velocity-report.js if and only if that file loads successfully
+     from the same folder. Remove the file and the card disappears. -->
+<script src="velocity-report.js"></script>
 
 </body>
 </html>
