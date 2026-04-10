@@ -4639,6 +4639,7 @@ function runEOS(){
   const base=S.cfg.jira_url||'';
 
   S.eosConfluenceTexts={};
+  S.eosConfParams={};   // stored so Confluence text can be regenerated at copy time
   let tabBtns='', tabPanels='';
   let activeIdx=0, renderedCount=0;
 
@@ -4699,7 +4700,10 @@ function runEOS(){
       rp+=`</div>`;
     });
 
-    // ── Confluence
+    // ── Confluence — build an initial snapshot; the text is regenerated live
+    // from the DOM in openEOSConfluencePicker / refreshEOSConfluenceTab so
+    // user-typed summaries are always included.
+    S.eosConfParams[proj]={meta,proj,topics,results,blocked,projTickets,cur,fut,spfx};
     const confText=buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut,spfx);
     S.eosConfluenceTexts[proj]=confText;
     const confId=`conf-${proj.toLowerCase()}`;
@@ -4718,7 +4722,7 @@ function runEOS(){
     tabPanels+=`<div class="r-panel${isFirst?' active':''}">
       <div class="r-subtabs r-subtabs-sticky">
         <button class="r-subtab active" onclick="switchRstab(this)">Report</button>
-        <button class="r-subtab" onclick="switchRstab(this)">Confluence</button>
+        <button class="r-subtab" onclick="refreshEOSConfluenceTexts();switchRstab(this)">Confluence</button>
         <button class="r-subtab" onclick="switchRstab(this)">Unmatched (${unmatched.length})</button>
         <button class="r-subtab" onclick="switchRstab(this)">Debug</button>
       </div>
@@ -4756,16 +4760,51 @@ function runEOS(){
   S.reportHtml.eos=html;
   autoSaveDraft('eos');
   checkDraftAndRestore('eos');
+  // Auto-save whenever the user edits a BLUF / summary contenteditable field,
+  // so typed text survives page reloads and wizard navigation. Debounced to
+  // avoid hammering localStorage on every keystroke.
+  const eosFrame = document.getElementById('rptf1');
+  if (eosFrame) {
+    let eosSaveTimer = null;
+    eosFrame.addEventListener('input', function(e) {
+      if (!e.target || !e.target.isContentEditable) return;
+      if (eosSaveTimer) clearTimeout(eosSaveTimer);
+      eosSaveTimer = setTimeout(function(){ autoSaveDraft('eos'); }, 800);
+    });
+  }
   const _edg=document.getElementById('eos-dl-group'); if(_edg) _edg.style.display='flex';
 }
 
 function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut,spfx){
   const count=spn=>projTickets.filter(t=>sprintMatches(t,spn)).length;
-  const tlines=tickets=>tickets.length?tickets.sort((a,b)=>a.issue_key.localeCompare(b.issue_key)).map(t=>`* {jira:${t.issue_key}}`).join('\n'):'_NSTR for this period_';
-  let lines=[`h1. ${meta.report_title}`,'','h2. (U) Sprint Tickets',
+  // Group tickets by epic then sort by issue key within each group
+  const tlines=tickets=>{
+    if(!tickets.length) return '_NSTR for this period_';
+    const byEpic={};
+    tickets.forEach(t=>{
+      const en=t.epic_name||'(No Epic)';
+      if(!byEpic[en]) byEpic[en]=[];
+      byEpic[en].push(t);
+    });
+    const groups=Object.keys(byEpic).sort();
+    const lines=[];
+    groups.forEach(en=>{
+      const sorted=byEpic[en].sort((a,b)=>a.issue_key.localeCompare(b.issue_key));
+      if(groups.length>1) lines.push(`*${en}*`);
+      sorted.forEach(t=>lines.push(`* {jira:${t.issue_key}}`));
+    });
+    return lines.join('\n');
+  };
+  let lines=[`h1. ${meta.report_title}`,''];
+  // Project-level BLUF (reads the current DOM so user-typed text is included)
+  const blufId=`bluf-eos-${proj.toLowerCase()}`;
+  const blufEl=document.getElementById(blufId);
+  const blufTxt=(blufEl&&blufEl.innerText.trim())||'';
+  if(blufTxt) lines.push(`(U) BLUF: ${blufTxt}`,'');
+  lines.push('h2. (U) Sprint Tickets',
     `|${spfx} ${cur}| ${count(cur)}|`,`|${spfx} ${fut}| ${count(fut)}|`,'',
     `h2. (U) Story Points Available for MTLs to add: ${meta.mtl_points}`,'',
-    'h2. (U) Blocked Work', tlines(blocked),''];
+    'h2. (U) Blocked Work', tlines(blocked),'');
   topics.forEach((topic,tidx)=>{
     const curr=results[topic.header].current;
     const futt=results[topic.header].future;
@@ -4779,6 +4818,19 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
     if(futt.length) lines.push('h3. (U) Future Sprint Tickets',tlines(futt),'');
   });
   return lines.join('\n').trim();
+}
+
+// Regenerate all EOS Confluence texts from the current DOM. Called before
+// copying or when switching to the Confluence tab so user-typed BLUF /
+// summary fields are always up to date.
+function refreshEOSConfluenceTexts(){
+  const params = S.eosConfParams || {};
+  Object.entries(params).forEach(([proj, p]) => {
+    S.eosConfluenceTexts[proj] = buildEOSConfluence(p.meta, p.proj, p.topics, p.results, p.blocked, p.projTickets, p.cur, p.fut, p.spfx);
+    // Also refresh the Confluence tab <pre> if it's in the DOM
+    const pre = document.getElementById('conf-'+proj.toLowerCase());
+    if(pre) pre.textContent = S.eosConfluenceTexts[proj];
+  });
 }
 
 // ============================================================
@@ -5432,11 +5484,25 @@ function buildRptBar(opts) {
 // base param kept for call-site backward compat but unused — jiraLink() reads S.cfg.jira_url directly
 function ticketList(tickets, base){ // eslint-disable-line no-unused-vars
   if(!tickets.length) return '<div class="nstr">NSTR for this period.</div>';
-  const sorted=[...tickets].sort((a,b)=>a.issue_key.localeCompare(b.issue_key));
-  return `<ul class="tl">${sorted.map(t=>{
-    const link=jiraLink(t.issue_key,'tk');
-    return `<li>${link}<span class="ts">${esc(t.summary)}</span></li>`;
-  }).join('')}</ul>`;
+  // Group by epic, then sort tickets within each group by issue key
+  const byEpic={};
+  tickets.forEach(t=>{
+    const en=t.epic_name||'(No Epic)';
+    if(!byEpic[en]) byEpic[en]=[];
+    byEpic[en].push(t);
+  });
+  const epicNames=Object.keys(byEpic).sort();
+  const showEpicHeaders=epicNames.length>1||(epicNames.length===1&&epicNames[0]!=='(No Epic)');
+  let html='';
+  epicNames.forEach(en=>{
+    const sorted=byEpic[en].sort((a,b)=>a.issue_key.localeCompare(b.issue_key));
+    if(showEpicHeaders) html+=`<div class="tl-epic" style="font-size:var(--fs-xs);font-weight:600;color:var(--a2);margin:8px 0 2px;padding-left:2px">${esc(en)}</div>`;
+    html+=`<ul class="tl">${sorted.map(t=>{
+      const link=jiraLink(t.issue_key,'tk');
+      return `<li>${link}<span class="ts">${esc(t.summary)}</span></li>`;
+    }).join('')}</ul>`;
+  });
+  return html;
 }
 // base param unused — see ticketList note above
 // Sort contract: callers are responsible for pre-sorting tickets before passing in.
@@ -6176,6 +6242,8 @@ function openConfluencePicker(opts) {
 }
 
 function openEOSConfluencePicker() {
+  // Regenerate from the live DOM so user-typed summaries are included
+  refreshEOSConfluenceTexts();
   const texts = S.eosConfluenceTexts || {};
   const available = Object.keys(texts);
   if (!available.length) { alert('Run the EOS report first.'); return; }
