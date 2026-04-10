@@ -4700,6 +4700,9 @@ function runEOS(){
       rp+=`</div>`;
     });
 
+    // ── Prioritization / Upcoming (interactive section per project)
+    rp += buildEOSPrioritizationHtml(proj, cur, fut);
+
     // ── Confluence — build an initial snapshot; the text is regenerated live
     // from the DOM in openEOSConfluencePicker / refreshEOSConfluenceTab so
     // user-typed summaries are always included.
@@ -4772,6 +4775,8 @@ function runEOS(){
       eosSaveTimer = setTimeout(function(){ autoSaveDraft('eos'); }, 800);
     });
   }
+  // Wire prioritization interactive controls for each rendered project
+  Object.keys(S.eosConfParams).forEach(proj => wireEOSPrioritizationListeners(proj));
   const _edg=document.getElementById('eos-dl-group'); if(_edg) _edg.style.display='flex';
 }
 
@@ -4817,6 +4822,30 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
     if(curr.length) lines.push('h3. (U) Current Sprint Tickets',tlines(curr),'');
     if(futt.length) lines.push('h3. (U) Future Sprint Tickets',tlines(futt),'');
   });
+
+  // Prioritization / Upcoming section
+  const pst = (S._eosPrioritization && S._eosPrioritization[proj]) || null;
+  if (pst) {
+    lines.push('', 'h2. (U) Prioritization / Upcoming');
+    if (pst.mode === 'jql' && pst.jql) {
+      // Emit a Jira Issues macro that Confluence will execute
+      lines.push(`{jiraissues:url=${pst.jql}}`);
+      lines.push(`{noformat}${pst.jql}{noformat}`);
+    } else {
+      const prioTickets = _eosPrioFilterTickets(proj, cur, fut);
+      if (prioTickets.length) {
+        const modeLabel = pst.mode === 'epic'
+          ? 'Backlog tickets from selected epics'
+          : 'Tickets created in the last ' + (pst.days || 14) + ' days';
+        lines.push(`_(${modeLabel})_`, '');
+        lines.push(tlines(prioTickets));
+      } else {
+        lines.push('_No prioritization items selected._');
+      }
+    }
+    lines.push('');
+  }
+
   return lines.join('\n').trim();
 }
 
@@ -4830,6 +4859,216 @@ function refreshEOSConfluenceTexts(){
     // Also refresh the Confluence tab <pre> if it's in the DOM
     const pre = document.getElementById('conf-'+proj.toLowerCase());
     if(pre) pre.textContent = S.eosConfluenceTexts[proj];
+  });
+}
+
+// ── EOS Prioritization / Upcoming section ──────────────────────────────
+// Per-project interactive section at the bottom of each EOS Report tab.
+// Three modes:
+//   1. By Epic — filter loaded CSV for backlog tickets in specific epics
+//   2. Recently Created — tickets created within the last N days
+//   3. Custom JQL — user-typed JQL string (not executed; included in
+//      Confluence output so the Jira macro can run it there)
+// State lives on S._eosPrioritization[proj]; results come from S.allTickets.
+
+function _eosPrioState(proj) {
+  if (!S._eosPrioritization) S._eosPrioritization = {};
+  if (!S._eosPrioritization[proj]) {
+    S._eosPrioritization[proj] = {
+      mode: 'epic',        // 'epic' | 'created' | 'jql'
+      epicKeys: [],        // selected epic_link values
+      days: 14,            // "created in the last N days"
+      jql: '',             // raw JQL text
+      includeInSprint: false // if true, also show tickets already in cur/fut sprint
+    };
+  }
+  return S._eosPrioritization[proj];
+}
+
+// Collect unique epics for a project from the loaded tickets.
+function _eosPrioAvailableEpics(proj) {
+  const seen = {};
+  (S.allTickets || []).forEach(t => {
+    if (t.project_bucket !== proj) return;
+    if (!t.epic_link) return;
+    if (!seen[t.epic_link]) seen[t.epic_link] = t.epic_name || t.epic_link;
+  });
+  // Also pull from S.epicMap for any epics that match the project prefix
+  const prefixes = { DX:'DX-', LX:'LX-', RC:'RCR-' };
+  const pfx = prefixes[proj] || (proj + '-');
+  Object.entries(S.epicMap || {}).forEach(([k, name]) => {
+    if (k.startsWith(pfx) && !seen[k]) seen[k] = name;
+  });
+  return Object.entries(seen)
+    .map(([key, name]) => ({ key, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Filter tickets for the prioritization results based on current mode.
+function _eosPrioFilterTickets(proj, cur, fut) {
+  const st = _eosPrioState(proj);
+  const all = (S.allTickets || []).filter(t => t.project_bucket === proj);
+  // Exclude tickets in the current/future sprint unless the user opts in
+  const pool = st.includeInSprint ? all : all.filter(t => !sprintMatches(t, cur) && !sprintMatches(t, fut));
+  // Exclude done/closed tickets
+  const open = pool.filter(t => !['done','closed','resolved'].includes((t.status||'').toLowerCase()));
+
+  if (st.mode === 'epic') {
+    if (!st.epicKeys.length) return [];
+    const keySet = new Set(st.epicKeys);
+    return open.filter(t => keySet.has(t.epic_link));
+  }
+  if (st.mode === 'created') {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - (st.days || 14));
+    return open.filter(t => t.created_dt && t.created_dt >= cutoff);
+  }
+  // 'jql' mode — no CSV filtering; the JQL is for Confluence
+  return [];
+}
+
+// Render the prioritization section HTML for a single project.
+function buildEOSPrioritizationHtml(proj, cur, fut) {
+  const st = _eosPrioState(proj);
+  const pl = proj.toLowerCase();
+  const epics = _eosPrioAvailableEpics(proj);
+  const results = _eosPrioFilterTickets(proj, cur, fut);
+
+  // Mode pills
+  const modes = [
+    { id:'epic',    label:'By Epic' },
+    { id:'created', label:'Recently Created' },
+    { id:'jql',     label:'Custom JQL' }
+  ];
+  const pills = modes.map(m =>
+    `<button class="r-subtab eos-prio-mode${st.mode===m.id?' active':''}" data-prio-proj="${esc(proj)}" data-prio-mode="${m.id}" style="font-size:var(--fs-xs)">${m.label}</button>`
+  ).join('');
+
+  // Controls per mode
+  let controls = '';
+  if (st.mode === 'epic') {
+    const opts = epics.map(e => {
+      const sel = st.epicKeys.includes(e.key) ? ' selected' : '';
+      return `<option value="${esc(e.key)}"${sel}>${esc(e.name)} (${esc(e.key)})</option>`;
+    }).join('');
+    controls = `<div style="margin:8px 0">
+      <label style="font-size:var(--fs-xs);color:var(--mu)">Select epics to show backlog tickets for:</label>
+      <select id="eos-prio-epics-${pl}" multiple size="${Math.min(6, Math.max(3, epics.length))}" style="width:100%;font-size:var(--fs-xs);margin-top:4px" data-prio-proj="${esc(proj)}" data-prio-field="epicKeys">${opts}</select>
+      <div class="u-muted-xs" style="margin-top:2px">${epics.length} epic${epics.length !== 1 ? 's' : ''} available · Hold Ctrl/Cmd to select multiple</div>
+    </div>`;
+  } else if (st.mode === 'created') {
+    controls = `<div style="margin:8px 0" class="row" style="gap:8px;align-items:center">
+      <label style="font-size:var(--fs-xs);color:var(--mu)">Tickets created in the last</label>
+      <input type="number" id="eos-prio-days-${pl}" value="${st.days}" min="1" max="365" style="width:60px;font-size:var(--fs-xs)" data-prio-proj="${esc(proj)}" data-prio-field="days">
+      <span style="font-size:var(--fs-xs);color:var(--mu)">days</span>
+    </div>`;
+  } else {
+    // JQL
+    controls = `<div style="margin:8px 0">
+      <label style="font-size:var(--fs-xs);color:var(--mu)">Paste JQL below. This text is included in the Confluence output — Confluence's Jira macro will execute it.</label>
+      <textarea id="eos-prio-jql-${pl}" rows="3" style="width:100%;font-size:var(--fs-xs);font-family:var(--mono);margin-top:4px;resize:vertical" data-prio-proj="${esc(proj)}" data-prio-field="jql" placeholder="project = ${proj === 'RC' ? 'RCR' : proj} AND created >= -14d ORDER BY created DESC">${esc(st.jql)}</textarea>
+    </div>`;
+  }
+
+  // Include-in-sprint toggle
+  const inSprintChk = st.mode !== 'jql'
+    ? `<label class="row" style="gap:4px;align-items:center;font-size:var(--fs-xs);color:var(--mu);margin:4px 0"><input type="checkbox" data-prio-proj="${esc(proj)}" data-prio-field="includeInSprint" ${st.includeInSprint?'checked':''}> Include tickets already in ${esc(cur)} / ${esc(fut)}</label>`
+    : '';
+
+  // Results table
+  let resultsHtml = '';
+  if (st.mode === 'jql') {
+    resultsHtml = st.jql
+      ? `<div class="u-muted-xs" style="padding:6px;background:var(--s2);border:1px solid var(--bd);border-radius:4px;margin-top:8px"><span class="mi" style="font-size:13px;vertical-align:middle;margin-right:4px">info</span>JQL will be executed by Confluence when pasted — no preview available here.</div>`
+      : '';
+  } else if (results.length) {
+    // Sort by epic then issue key (same pattern as ticketList)
+    const sorted = [...results].sort((a, b) => {
+      const ea = (a.epic_name || '').toLowerCase(), eb = (b.epic_name || '').toLowerCase();
+      if (ea !== eb) return ea.localeCompare(eb);
+      return a.issue_key.localeCompare(b.issue_key);
+    });
+    const rows = sorted.map(t =>
+      `<tr><td style="white-space:nowrap">${jiraLink(t.issue_key)}</td><td style="font-size:var(--fs-xs)">${esc(t.epic_name)}</td><td>${esc(t.summary)}</td><td style="white-space:nowrap">${statusBadge(t.status)}</td><td style="text-align:right">${t.story_points}</td></tr>`
+    ).join('');
+    resultsHtml = `<div class="tw" style="max-height:300px;overflow:auto;margin-top:8px"><table class="rt"><thead><tr><th>Key</th><th>Epic</th><th>Summary</th><th>Status</th><th>Pts</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    resultsHtml += `<div class="u-muted-xs" style="margin-top:4px">${results.length} ticket${results.length !== 1 ? 's' : ''} · ${results.reduce((s, t) => s + (t.story_points || 0), 0)} pts</div>`;
+  } else if (st.mode === 'epic' && !st.epicKeys.length) {
+    resultsHtml = '<div class="u-muted-xs" style="padding:6px">Select one or more epics above.</div>';
+  } else {
+    resultsHtml = '<div class="u-muted-xs" style="padding:6px">No matching tickets found.</div>';
+  }
+
+  return `<div class="r-card l2" id="eos-prio-${pl}" data-prio-proj="${esc(proj)}" data-prio-cur="${esc(cur)}" data-prio-fut="${esc(fut)}">
+    <h3 style="text-transform:none;font-size:var(--fs-sm);color:var(--a4)">Prioritization / Upcoming</h3>
+    <div class="r-subtabs" style="margin-bottom:6px">${pills}</div>
+    ${controls}
+    ${inSprintChk}
+    <div id="eos-prio-results-${pl}">${resultsHtml}</div>
+  </div>`;
+}
+
+// Re-render just the prioritization section for a project without nuking
+// the rest of the EOS report. Reads cur/fut from data attributes.
+function refreshEOSPrioritization(proj) {
+  const pl = proj.toLowerCase();
+  const wrap = document.getElementById('eos-prio-' + pl);
+  if (!wrap) return;
+  const cur = wrap.dataset.prioCur || '';
+  const fut = wrap.dataset.prioFut || '';
+  const fresh = buildEOSPrioritizationHtml(proj, cur, fut);
+  wrap.outerHTML = fresh;
+  wireEOSPrioritizationListeners(proj);
+}
+
+// Wire interactive listeners for the prioritization controls.
+function wireEOSPrioritizationListeners(proj) {
+  const pl = proj.toLowerCase();
+  const wrap = document.getElementById('eos-prio-' + pl);
+  if (!wrap) return;
+  const st = _eosPrioState(proj);
+
+  // Mode pills
+  wrap.querySelectorAll('.eos-prio-mode').forEach(btn => {
+    btn.addEventListener('click', function() {
+      st.mode = this.dataset.prioMode;
+      refreshEOSPrioritization(proj);
+    });
+  });
+
+  // Epic multi-select
+  const epicSel = document.getElementById('eos-prio-epics-' + pl);
+  if (epicSel) {
+    epicSel.addEventListener('change', function() {
+      st.epicKeys = Array.from(this.selectedOptions).map(o => o.value);
+      refreshEOSPrioritization(proj);
+    });
+  }
+
+  // Days input
+  const daysIn = document.getElementById('eos-prio-days-' + pl);
+  if (daysIn) {
+    daysIn.addEventListener('change', function() {
+      st.days = parseInt(this.value, 10) || 14;
+      refreshEOSPrioritization(proj);
+    });
+  }
+
+  // JQL textarea
+  const jqlIn = document.getElementById('eos-prio-jql-' + pl);
+  if (jqlIn) {
+    jqlIn.addEventListener('input', function() {
+      st.jql = this.value;
+      // Don't re-render on every keystroke — just store the value
+    });
+  }
+
+  // Include-in-sprint checkbox
+  wrap.querySelectorAll('[data-prio-field="includeInSprint"]').forEach(chk => {
+    chk.addEventListener('change', function() {
+      st.includeInSprint = this.checked;
+      refreshEOSPrioritization(proj);
+    });
   });
 }
 
