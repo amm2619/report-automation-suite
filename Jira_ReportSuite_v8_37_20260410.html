@@ -88,9 +88,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(
 .field-row:last-child{border-bottom:none}
 .fl{font-size:var(--fs-sm);font-weight:500;color:var(--tx);padding-top:6px}
 .fl small{display:block;font-size:var(--fs-xs);color:var(--mu);font-weight:400;margin-top:2px}
-input[type=text],input[type=date],select,textarea{background:var(--s3);border:1px solid var(--bd2);color:var(--tx);font-family:var(--sans);font-size:var(--fs-base);padding:5px 9px;border-radius:var(--r2);outline:none;transition:border-color .12s;width:100%}
-input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{border-color:var(--a1);box-shadow:0 0 0 2px var(--a1b)}
+input[type=text],input[type=date],input[type=number],select,textarea{background:var(--s3);border:1px solid var(--bd2);color:var(--tx);font-family:var(--sans);font-size:var(--fs-base);padding:5px 9px;border-radius:var(--r2);outline:none;transition:border-color .12s;width:100%}
+input[type=text]:focus,input[type=date]:focus,input[type=number]:focus,select:focus,textarea:focus{border-color:var(--a1);box-shadow:0 0 0 2px var(--a1b)}
 select option{background:var(--s3);color:var(--tx)}
+select[multiple]{background:var(--s2);scrollbar-color:var(--bd2) var(--s2)}
+select[multiple] option{padding:4px 8px}
+select[multiple] option:checked{background:var(--a1d);color:var(--a1)}
 textarea{resize:vertical;min-height:56px;font-family:var(--mono);font-size:var(--fs-sm);line-height:1.6}
 input[type=checkbox]{width:14px;height:14px;accent-color:var(--a1);cursor:pointer;flex-shrink:0}
 
