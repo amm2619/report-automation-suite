@@ -4838,7 +4838,7 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
   });
 
   // Prioritization / Upcoming section
-  const pst = (S._eosPrioritization && S._eosPrioritization[proj]) || null;
+  const pst = (S.cfg.eos_prioritization && S.cfg.eos_prioritization[proj]) || null;
   if (pst) {
     lines.push('', 'h2. (U) Prioritization / Upcoming');
     if (pst.mode === 'jql' && pst.jql) {
@@ -4898,12 +4898,13 @@ function refreshEOSConfluenceTexts(){
 //   2. Recently Created — tickets created within the last N days
 //   3. Custom JQL — user-typed JQL string (not executed; included in
 //      Confluence output so the Jira macro can run it there)
-// State lives on S._eosPrioritization[proj]; results come from S.allTickets.
+// State lives on S.cfg.eos_prioritization[proj] so it persists to
+// localStorage via autoSaveCfg(). Results come from S.allTickets.
 
 function _eosPrioState(proj) {
-  if (!S._eosPrioritization) S._eosPrioritization = {};
-  if (!S._eosPrioritization[proj]) {
-    S._eosPrioritization[proj] = {
+  if (!S.cfg.eos_prioritization) S.cfg.eos_prioritization = {};
+  if (!S.cfg.eos_prioritization[proj]) {
+    S.cfg.eos_prioritization[proj] = {
       mode: 'epic',        // 'epic' | 'created' | 'jql'
       epicKeys: [],        // selected epic_link values
       days: 14,            // "created in the last N days"
@@ -4911,7 +4912,7 @@ function _eosPrioState(proj) {
       includeInSprint: false // if true, also show tickets already in cur/fut sprint
     };
   }
-  return S._eosPrioritization[proj];
+  return S.cfg.eos_prioritization[proj];
 }
 
 // Collect unique epics for a project from the loaded tickets.
@@ -5061,6 +5062,7 @@ function wireEOSPrioritizationListeners(proj) {
   wrap.querySelectorAll('.eos-prio-mode').forEach(btn => {
     btn.addEventListener('click', function() {
       st.mode = this.dataset.prioMode;
+      autoSaveCfg();
       refreshEOSPrioritization(proj);
     });
   });
@@ -5070,6 +5072,7 @@ function wireEOSPrioritizationListeners(proj) {
   if (epicSel) {
     epicSel.addEventListener('change', function() {
       st.epicKeys = Array.from(this.selectedOptions).map(o => o.value);
+      autoSaveCfg();
       refreshEOSPrioritization(proj);
     });
   }
@@ -5079,16 +5082,19 @@ function wireEOSPrioritizationListeners(proj) {
   if (daysIn) {
     daysIn.addEventListener('change', function() {
       st.days = parseInt(this.value, 10) || 14;
+      autoSaveCfg();
       refreshEOSPrioritization(proj);
     });
   }
 
-  // JQL textarea
+  // JQL textarea — debounced save so localStorage isn't hammered on each keystroke
   const jqlIn = document.getElementById('eos-prio-jql-' + pl);
   if (jqlIn) {
+    let jqlTimer = null;
     jqlIn.addEventListener('input', function() {
       st.jql = this.value;
-      // Don't re-render on every keystroke — just store the value
+      if (jqlTimer) clearTimeout(jqlTimer);
+      jqlTimer = setTimeout(function(){ autoSaveCfg(); }, 800);
     });
   }
 
@@ -5096,6 +5102,7 @@ function wireEOSPrioritizationListeners(proj) {
   wrap.querySelectorAll('[data-prio-field="includeInSprint"]').forEach(chk => {
     chk.addEventListener('change', function() {
       st.includeInSprint = this.checked;
+      autoSaveCfg();
       refreshEOSPrioritization(proj);
     });
   });
