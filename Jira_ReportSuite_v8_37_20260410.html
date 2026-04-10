@@ -4840,24 +4840,27 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
   // Prioritization / Upcoming section
   const pst = (S.cfg.eos_prioritization && S.cfg.eos_prioritization[proj]) || null;
   if (pst) {
-    lines.push('', 'h2. (U) Prioritization / Upcoming');
-    if (pst.mode === 'jql' && pst.jql) {
-      // Emit a Jira Issues macro that Confluence will execute
-      lines.push(`{jiraissues:url=${pst.jql}}`);
-      lines.push(`{noformat}${pst.jql}{noformat}`);
-    } else {
-      const prioTickets = _eosPrioFilterTickets(proj, cur, fut);
-      if (prioTickets.length) {
+    // Only emit the section if there's actual content — skip entirely when
+    // the user hasn't selected epics, no tickets match, and no JQL is typed.
+    const prioTickets = (pst.mode !== 'jql') ? _eosPrioFilterTickets(proj, cur, fut) : [];
+    const hasJql = pst.mode === 'jql' && pst.jql && pst.jql.trim();
+    const hasTickets = prioTickets.length > 0;
+
+    if (hasJql || hasTickets) {
+      lines.push('', 'h2. (U) Prioritization / Upcoming');
+      if (hasJql) {
+        // Emit a Jira Issues macro that Confluence will render as a live table
+        const jql = pst.jql.trim();
+        lines.push(`{jira:jqlQuery=${jql}|columns=key,summary,type,status,assignee,priority|maximumIssues=20}`);
+      } else {
         const modeLabel = pst.mode === 'epic'
           ? 'Backlog tickets from selected epics'
           : 'Tickets created in the last ' + (pst.days || 14) + ' days';
         lines.push(`_(${modeLabel})_`, '');
         lines.push(tlines(prioTickets));
-      } else {
-        lines.push('_No prioritization items selected._');
       }
+      lines.push('');
     }
-    lines.push('');
   }
 
   // Additional sections: Deployments, User Engagement, Demonstrations
