@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sprint Velocity Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="container">
+      <h1>Sprint Velocity Tracker</h1>
+      <p class="subtitle">Software Development Program</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="program-summary" id="programSummary">
+      <h2>Program Overview</h2>
+      <div class="summary-cards" id="summaryCards"></div>
+    </section>
+
+    <section class="project-section">
+      <div class="tab-bar" id="projectTabs" role="tablist"></div>
+
+      <div class="project-panel" id="projectPanel">
+        <div class="panel-header">
+          <div>
+            <h2 id="projectName">Project</h2>
+            <p class="project-meta" id="projectMeta"></p>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi">
+              <span class="kpi-label">Average Velocity</span>
+              <span class="kpi-value" id="kpiAvg">0</span>
+            </div>
+            <div class="kpi">
+              <span class="kpi-label">Last 3 Avg</span>
+              <span class="kpi-value" id="kpiRecent">0</span>
+            </div>
+            <div class="kpi">
+              <span class="kpi-label">Completion Rate</span>
+              <span class="kpi-value" id="kpiCompletion">0%</span>
+            </div>
+            <div class="kpi">
+              <span class="kpi-label">Sprints Tracked</span>
+              <span class="kpi-value" id="kpiCount">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-wrap">
+          <h3>Committed vs Completed</h3>
+          <div class="chart" id="chart"></div>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch committed"></span>Committed</span>
+            <span class="legend-item"><span class="swatch completed"></span>Completed</span>
+            <span class="legend-item"><span class="swatch line"></span>Velocity trend</span>
+          </div>
+        </div>
+
+        <div class="form-wrap">
+          <h3 id="formTitle">Add Sprint</h3>
+          <form id="sprintForm" class="sprint-form">
+            <input type="hidden" id="sprintId" />
+            <label>
+              Sprint Name
+              <input type="text" id="sprintName" placeholder="Sprint 1" required />
+            </label>
+            <label>
+              Start Date
+              <input type="date" id="startDate" required />
+            </label>
+            <label>
+              End Date
+              <input type="date" id="endDate" required />
+            </label>
+            <label>
+              Committed Points
+              <input type="number" id="committed" min="0" step="1" required />
+            </label>
+            <label>
+              Completed Points
+              <input type="number" id="completed" min="0" step="1" required />
+            </label>
+            <div class="form-actions">
+              <button type="submit" class="btn primary" id="submitBtn">Add Sprint</button>
+              <button type="button" class="btn ghost" id="cancelBtn" hidden>Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="sprint-table-wrap">
+          <h3>Sprint History</h3>
+          <table class="sprint-table">
+            <thead>
+              <tr>
+                <th>Sprint</th>
+                <th>Dates</th>
+                <th>Committed</th>
+                <th>Completed</th>
+                <th>Completion</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="sprintTableBody"></tbody>
+          </table>
+          <p class="empty-state" id="emptyState" hidden>No sprints recorded yet. Add your first sprint above.</p>
+        </div>
+
+        <div class="danger-zone">
+          <button type="button" class="btn danger" id="resetProjectBtn">Reset Project Data</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="container">
+      <small>Data is stored locally in your browser.</small>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
