@@ -4715,7 +4715,7 @@ function runEOS(){
       const slug = `eos-addl-${proj.toLowerCase()}-${label.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`;
       rp += `<div class="r-card l2" style="margin-top:10px">
         <h3 style="text-transform:none;font-size:var(--fs-sm);color:var(--a1)">(U) ${esc(label)}</h3>
-        <div class="bluf-field eos-addl-field" id="${slug}" contenteditable="true" data-placeholder="NSTR for this period." data-eos-addl="${esc(label)}" data-eos-proj="${esc(proj)}" style="min-height:36px;font-style:italic;color:var(--di)"></div>
+        <div class="bluf-field" id="${slug}" contenteditable="true" data-placeholder="NSTR for this period." data-eos-addl="${esc(label)}" data-eos-proj="${esc(proj)}"></div>
       </div>`;
     });
 
@@ -4864,13 +4864,17 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
   }
 
   // Additional sections: Deployments, User Engagement, Demonstrations
+  // Use childNodes.length to detect real content — innerText picks up the
+  // CSS ::before placeholder text on empty contenteditable divs, which
+  // would leak "NSTR for this period." as if the user typed it.
   const addlSections = ['Deployments', 'User Engagement and New Requirements', 'Demonstrations'];
   addlSections.forEach(label => {
     const slug = `eos-addl-${proj.toLowerCase()}-${label.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`;
     const el = document.getElementById(slug);
-    const txt = (el && el.innerText.trim()) || '';
+    const hasContent = el && el.childNodes.length > 0 && (el.textContent || '').trim().length > 0;
     lines.push(`* (U) ${label}`);
-    if (txt) {
+    if (hasContent) {
+      const txt = (el.innerText || el.textContent || '').trim();
       txt.split('\n').filter(Boolean).forEach(line => lines.push(`** ${line}`));
     } else {
       lines.push('** _NSTR for this period._');
