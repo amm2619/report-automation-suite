@@ -4795,23 +4795,21 @@ function runEOS(){
 
 function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut,spfx){
   const count=spn=>projTickets.filter(t=>sprintMatches(t,spn)).length;
-  // Group tickets by epic then sort by issue key within each group
+  // Flat ticket list sorted by epic then issue key (no visible epic headers)
   const tlines=tickets=>{
     if(!tickets.length) return '_NSTR for this period_';
-    const byEpic={};
-    tickets.forEach(t=>{
-      const en=t.epic_name||'(No Epic)';
-      if(!byEpic[en]) byEpic[en]=[];
-      byEpic[en].push(t);
+    const sorted=[...tickets].sort((a,b)=>{
+      const ea=(a.epic_name||'').toLowerCase(), eb=(b.epic_name||'').toLowerCase();
+      if(ea!==eb) return ea.localeCompare(eb);
+      return a.issue_key.localeCompare(b.issue_key);
     });
-    const groups=Object.keys(byEpic).sort();
-    const lines=[];
-    groups.forEach(en=>{
-      const sorted=byEpic[en].sort((a,b)=>a.issue_key.localeCompare(b.issue_key));
-      if(groups.length>1) lines.push(`*${en}*`);
-      sorted.forEach(t=>lines.push(`* {jira:${t.issue_key}}`));
-    });
-    return lines.join('\n');
+    return sorted.map(t=>`* {jira:${t.issue_key}}`).join('\n');
+  };
+  // Build JQL links for the sprint ticket counts
+  const jiraBase = (S.cfg.jira_url || '').replace(/\/+$/, '');
+  const sprintJql = spn => {
+    const jql = encodeURIComponent(`Sprint="${spfx} ${spn}"`);
+    return jiraBase ? `[${count(spn)}|${jiraBase}/issues/?jql=${jql}]` : String(count(spn));
   };
   let lines=[`h1. ${meta.report_title}`,''];
   // Project-level BLUF (reads the current DOM so user-typed text is included)
@@ -4820,7 +4818,7 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
   const blufTxt=(blufEl&&blufEl.innerText.trim())||'';
   if(blufTxt) lines.push(`(U) BLUF: ${blufTxt}`,'');
   lines.push('h2. (U) Sprint Tickets',
-    `|${spfx} ${cur}| ${count(cur)}|`,`|${spfx} ${fut}| ${count(fut)}|`,'',
+    `|${spfx} ${cur}| ${sprintJql(cur)}|`,`|${spfx} ${fut}| ${sprintJql(fut)}|`,'',
     `h2. (U) Story Points Available for MTLs to add: ${meta.mtl_points}`,'',
     'h2. (U) Blocked Work', tlines(blocked),'');
   topics.forEach((topic,tidx)=>{
