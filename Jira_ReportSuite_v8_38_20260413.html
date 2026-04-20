@@ -4798,7 +4798,10 @@ function runEOS(){
 
 function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut,spfx){
   const count=spn=>projTickets.filter(t=>sprintMatches(t,spn)).length;
-  // Flat ticket list sorted by epic then issue key (no visible epic headers)
+  // Emit a live Jira Issues macro (renders as a table in Confluence) rather
+  // than a bullet list of single-issue macros. Columns mirror the Prio
+  // section for consistency. Tickets are sorted by epic then key for a
+  // deterministic JQL, with ORDER BY key ASC applied in Confluence.
   const tlines=tickets=>{
     if(!tickets.length) return '_NSTR for this period_';
     const sorted=[...tickets].sort((a,b)=>{
@@ -4806,7 +4809,8 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
       if(ea!==eb) return ea.localeCompare(eb);
       return a.issue_key.localeCompare(b.issue_key);
     });
-    return sorted.map(t=>`* {jira:${t.issue_key}}`).join('\n');
+    const keys=sorted.map(t=>t.issue_key).join(',');
+    return `{jira:jqlQuery=key in (${keys}) ORDER BY key ASC|columns=key,summary,type,status,assignee,priority|maximumIssues=${sorted.length}}`;
   };
   // Build JQL links for the sprint ticket counts
   const jiraBase = (S.cfg.jira_url || '').replace(/\/+$/, '');
