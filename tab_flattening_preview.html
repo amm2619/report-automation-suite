@@ -72,6 +72,28 @@ h1{font-size:20px;font-weight:600;margin:0 0 4px}
 .optB-seg button:hover{color:var(--tx)}
 .optB-seg button.active{background:var(--a1d);color:var(--a1)}
 
+/* ================= option C: project badge + views + segment ================= */
+.optC-bar{
+  position:sticky;top:0;z-index:10;background:var(--s2);border-bottom:1px solid var(--bd);
+  display:flex;align-items:stretch;padding:0 22px;gap:0;
+}
+.optC-badge{
+  display:flex;align-items:center;justify-content:center;
+  font:800 var(--fs-lg)/1 var(--mono);letter-spacing:1px;
+  padding:0 16px;margin-right:12px;
+  background:var(--a1d);color:var(--a1);border-right:2px solid var(--a1b);
+  min-width:52px;
+}
+.optC-badge-lx{background:var(--a2d);color:var(--a2);border-right-color:var(--a2b)}
+.optC-badge-rc{background:rgba(77,216,154,.09);color:var(--a3);border-right-color:rgba(77,216,154,.22)}
+.optC-views{flex:1;display:flex;gap:4px;overflow-x:auto;align-items:stretch}
+.optC-views button{
+  background:transparent;border:0;border-bottom:2px solid transparent;color:var(--mu);
+  font:600 var(--fs-sm)/1 var(--sans);padding:8px 14px;cursor:pointer;white-space:nowrap;
+}
+.optC-views button:hover{color:var(--tx)}
+.optC-views button.active{color:var(--a1);border-bottom-color:var(--a1)}
+
 /* ================= sample body content ================= */
 .body-inner{padding:18px 22px 40px}
 .rpt-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:12px 16px;margin-bottom:16px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);border-left:4px solid var(--a2)}
@@ -207,6 +229,113 @@ h1{font-size:20px;font-weight:600;margin:0 0 4px}
       <div class="r-card"><h3>(U) Topic A</h3><div class="muted">Views are the primary axis (what users actually switch between most). Project lives as a compact segmented control on the right of the same row.</div></div>
       <div class="r-card"><h3>(U) Topic B</h3><div class="muted">Switching view preserves project selection, and vice versa — matches how people actually compare one tab across projects.</div></div>
       <div class="r-card"><h3>(U) Topic C</h3><div class="muted">Total chrome drops from ~75px to ~38px. On a 900px laptop that's ~4% of the viewport back.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- =================================================================== -->
+<!-- OPTION C — project badge + view tabs + segment switcher -->
+<!-- =================================================================== -->
+<div class="variant">
+  <div class="variant-hdr">
+    <h2>Option C — bold project badge on the left</h2>
+    <span class="note">chrome ≈ 38px · immediately clear which project</span>
+  </div>
+  <div class="variant-body">
+    <span class="chrome-tag">~38px with project anchor</span>
+    <div class="optC-bar">
+      <div class="optC-badge">DX</div>
+      <div class="optC-views">
+        <button class="active">Report</button>
+        <button>Confluence</button>
+        <button>Unmatched (3)</button>
+        <button>Debug</button>
+      </div>
+      <div class="optB-seg" role="tablist" aria-label="Project">
+        <button class="active">DX</button>
+        <button>LX</button>
+        <button>RC</button>
+      </div>
+    </div>
+    <div class="body-inner">
+      <div class="rpt-hdr"><div><h1>End of Sprint Review</h1><div class="rsub">Current: PI25.2 S3 &nbsp;/&nbsp; Future: PI25.2 S4</div></div><span class="badge">EOS · 3 projects</span></div>
+      <div class="stats-row">
+        <div class="stat"><div class="sv">12</div><div class="sl">DX PI25.2 S3</div></div>
+        <div class="stat"><div class="sv">4</div><div class="sl">DX PI25.2 S4</div></div>
+        <div class="stat"><div class="sv">2</div><div class="sl">Blocked</div></div>
+        <div class="stat"><div class="sv">1</div><div class="sl">Unmatched</div></div>
+      </div>
+      <div class="r-card"><h3>(U) Topic A</h3><div class="muted">Bold project badge at the left edge makes it immediately obvious which project context you're in — no scanning needed.</div></div>
+      <div class="r-card"><h3>(U) Topic B</h3><div class="muted">Badge updates reactively when you switch projects via the segmented control on the right.</div></div>
+      <div class="r-card"><h3>(U) Topic C</h3><div class="muted">Same height as Option B (~38px) but the bold block provides an anchor that's visible even while scrolling.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Also show LX variant for comparison -->
+<div class="variant">
+  <div class="variant-hdr">
+    <h2>Option C — showing "LX" selected</h2>
+    <span class="note">badge color shifts per project</span>
+  </div>
+  <div class="variant-body">
+    <div class="optC-bar">
+      <div class="optC-badge optC-badge-lx">LX</div>
+      <div class="optC-views">
+        <button class="active">Report</button>
+        <button>Confluence</button>
+        <button>Unmatched (1)</button>
+        <button>Debug</button>
+      </div>
+      <div class="optB-seg" role="tablist" aria-label="Project">
+        <button>DX</button>
+        <button class="active">LX</button>
+        <button>RC</button>
+      </div>
+    </div>
+    <div class="body-inner">
+      <div class="rpt-hdr"><div><h1>End of Sprint Review</h1><div class="rsub">Current: PI25.2 S3 &nbsp;/&nbsp; Future: PI25.2 S4</div></div><span class="badge">EOS · 3 projects</span></div>
+      <div class="stats-row">
+        <div class="stat"><div class="sv">8</div><div class="sl">LX PI25.2 S3</div></div>
+        <div class="stat"><div class="sv">2</div><div class="sl">LX PI25.2 S4</div></div>
+        <div class="stat"><div class="sv">0</div><div class="sl">Blocked</div></div>
+        <div class="stat"><div class="sv">1</div><div class="sl">Unmatched</div></div>
+      </div>
+      <div class="r-card"><h3>(U) Topic A</h3><div class="muted">The badge tints to a different color per project so switching is visually unmistakable even in peripheral vision.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- RC variant -->
+<div class="variant">
+  <div class="variant-hdr">
+    <h2>Option C — showing "RC" selected</h2>
+    <span class="note">green tint for RC</span>
+  </div>
+  <div class="variant-body">
+    <div class="optC-bar">
+      <div class="optC-badge optC-badge-rc">RC</div>
+      <div class="optC-views">
+        <button class="active">Report</button>
+        <button>Confluence</button>
+        <button>Unmatched (0)</button>
+        <button>Debug</button>
+      </div>
+      <div class="optB-seg" role="tablist" aria-label="Project">
+        <button>DX</button>
+        <button>LX</button>
+        <button class="active">RC</button>
+      </div>
+    </div>
+    <div class="body-inner">
+      <div class="rpt-hdr"><div><h1>End of Sprint Review</h1><div class="rsub">Current: PI25.2 S3 &nbsp;/&nbsp; Future: PI25.2 S4</div></div><span class="badge">EOS · 3 projects</span></div>
+      <div class="stats-row">
+        <div class="stat"><div class="sv">5</div><div class="sl">RC PI25.2 S3</div></div>
+        <div class="stat"><div class="sv">1</div><div class="sl">RC PI25.2 S4</div></div>
+        <div class="stat"><div class="sv">1</div><div class="sl">Blocked</div></div>
+        <div class="stat"><div class="sv">0</div><div class="sl">Unmatched</div></div>
+      </div>
+      <div class="r-card"><h3>(U) Topic A</h3><div class="muted">Each project gets its own color identity — DX: blue, LX: purple, RC: green.</div></div>
     </div>
   </div>
 </div>
