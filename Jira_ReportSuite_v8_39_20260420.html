@@ -4851,19 +4851,37 @@ function runEOS(){
 
 function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut,spfx){
   const count=spn=>projTickets.filter(t=>sprintMatches(t,spn)).length;
-  // Emit a live Jira Issues macro (renders as a table in Confluence) rather
-  // than a bullet list of single-issue macros. Columns mirror the Prio
-  // section for consistency. Tickets are sorted by epic then key for a
-  // deterministic JQL, with ORDER BY key ASC applied in Confluence.
-  const tlines=tickets=>{
-    if(!tickets.length) return '_NSTR for this period_';
-    const sorted=[...tickets].sort((a,b)=>{
-      const ea=(a.epic_name||'').toLowerCase(), eb=(b.epic_name||'').toLowerCase();
-      if(ea!==eb) return ea.localeCompare(eb);
-      return a.issue_key.localeCompare(b.issue_key);
-    });
-    const keys=sorted.map(t=>t.issue_key).join(',');
-    return `{jira:jqlQuery=key in (${keys}) ORDER BY key ASC|columns=key,summary,type,status,assignee,priority|maximumIssues=${sorted.length}}`;
+  // Emit live Jira Issues macros (rendered as tables in Confluence) so the
+  // page stays up to date as new tickets land. Three forms:
+  //   tableFromEpics — topic sections: filter by "Epic Link" + sprint so new
+  //     tickets added to those epics in that sprint appear automatically.
+  //   tableFromBlocked — status=Blocked in either sprint.
+  //   tableFromKeys — key-only fallback for time-based sections (Prio 'created').
+  const COLS = 'key,summary,type,status,assignee,priority';
+  const ORDER = 'ORDER BY "Epic Link" ASC, Rank DESC';
+  const tableFromKeys = tickets => {
+    if (!tickets.length) return '_NSTR for this period_';
+    const keys = [...tickets].map(t=>t.issue_key).sort().join(',');
+    return `{jira:jqlQuery=key in (${keys}) ${ORDER}|columns=${COLS}|maximumIssues=${tickets.length}}`;
+  };
+  const tableFromEpics = (tickets, sprintName) => {
+    if (!tickets.length) return '_NSTR for this period_';
+    const epics = [...new Set(tickets.map(t => t.epic_link).filter(Boolean))];
+    const orphans = tickets.filter(t => !t.epic_link).map(t => t.issue_key);
+    const sprint = `"${spfx} ${sprintName}"`;
+    let clause;
+    if (epics.length && orphans.length) {
+      clause = `("Epic Link" in (${epics.join(',')}) OR key in (${orphans.join(',')})) AND Sprint=${sprint}`;
+    } else if (epics.length) {
+      clause = `"Epic Link" in (${epics.join(',')}) AND Sprint=${sprint}`;
+    } else {
+      clause = `key in (${orphans.join(',')})`;
+    }
+    return `{jira:jqlQuery=${clause} ${ORDER}|columns=${COLS}|maximumIssues=50}`;
+  };
+  const tableFromBlocked = () => {
+    if (!blocked.length) return '_NSTR for this period_';
+    return `{jira:jqlQuery=status=Blocked AND Sprint in ("${spfx} ${cur}","${spfx} ${fut}") ${ORDER}|columns=${COLS}|maximumIssues=50}`;
   };
   // Build JQL links for the sprint ticket counts
   const jiraBase = (S.cfg.jira_url || '').replace(/\/+$/, '');
@@ -4880,7 +4898,7 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
   lines.push('h2. (U) Sprint Tickets',
     `|${spfx} ${cur}| ${sprintJql(cur)}|`,`|${spfx} ${fut}| ${sprintJql(fut)}|`,'',
     `h2. (U) Story Points Available for MTLs to add: ${meta.mtl_points}`,'',
-    'h2. (U) Blocked Work', tlines(blocked),'');
+    'h2. (U) Blocked Work', tableFromBlocked(),'');
   topics.forEach((topic,tidx)=>{
     const curr=results[topic.header].current;
     const futt=results[topic.header].future;
@@ -4890,8 +4908,8 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
     const summaryEl=document.getElementById(topicSlug);
     const summaryTxt=(summaryEl&&summaryEl.innerText.trim())||'TBD';
     lines.push(`(U) Summary: ${summaryTxt}`,'');
-    if(curr.length) lines.push('h3. (U) Current Sprint Tickets',tlines(curr),'');
-    if(futt.length) lines.push('h3. (U) Future Sprint Tickets',tlines(futt),'');
+    if(curr.length) lines.push('h3. (U) Current Sprint Tickets',tableFromEpics(curr,cur),'');
+    if(futt.length) lines.push('h3. (U) Future Sprint Tickets',tableFromEpics(futt,fut),'');
   });
 
   // Prioritization / Upcoming section
@@ -4908,13 +4926,26 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
       if (hasJql) {
         // Emit a Jira Issues macro that Confluence will render as a live table
         const jql = pst.jql.trim();
-        lines.push(`{jira:jqlQuery=${jql}|columns=key,summary,type,status,assignee,priority|maximumIssues=20}`);
+        lines.push(`{jira:jqlQuery=${jql}|columns=${COLS}|maximumIssues=20}`);
+      } else if (pst.mode === 'epic') {
+        // Live query by selected epics — new backlog tickets added to these
+        // epics will appear automatically. Exclude done and (unless opted in)
+        // the current/future sprint tickets, mirroring _eosPrioFilterTickets.
+        const epicKeys = (pst.epicKeys || []).filter(Boolean);
+        if (epicKeys.length) {
+          const sprintExcl = pst.includeInSprint
+            ? ''
+            : ` AND Sprint not in ("${spfx} ${cur}","${spfx} ${fut}")`;
+          const clause = `"Epic Link" in (${epicKeys.join(',')}) AND status not in (Done,Closed,Resolved)${sprintExcl}`;
+          lines.push('_(Backlog tickets from selected epics)_','');
+          lines.push(`{jira:jqlQuery=${clause} ${ORDER}|columns=${COLS}|maximumIssues=20}`);
+        } else {
+          lines.push(tableFromKeys(prioTickets));
+        }
       } else {
-        const modeLabel = pst.mode === 'epic'
-          ? 'Backlog tickets from selected epics'
-          : 'Tickets created in the last ' + (pst.days || 14) + ' days';
-        lines.push(`_(${modeLabel})_`, '');
-        lines.push(tlines(prioTickets));
+        // 'created' mode — time-based snapshot, key-based.
+        lines.push(`_(Tickets created in the last ${pst.days || 14} days)_`,'');
+        lines.push(tableFromKeys(prioTickets));
       }
       lines.push('');
     }
