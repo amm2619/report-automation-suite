@@ -4960,12 +4960,16 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
     const slug = `eos-addl-${proj.toLowerCase()}-${label.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`;
     const el = document.getElementById(slug);
     const hasContent = el && el.childNodes.length > 0 && (el.textContent || '').trim().length > 0;
-    lines.push(`* (U) ${label}`);
+    lines.push(`h3. (U) ${label}`, '');
     if (hasContent) {
       const txt = (el.innerText || el.textContent || '').trim();
-      txt.split('\n').filter(Boolean).forEach(line => lines.push(`** ${line}`));
+      const items = txt.split('\n').filter(Boolean);
+      items.forEach((line, i) => {
+        lines.push(`* (U) ${line}`);
+        if (i < items.length - 1) lines.push('');
+      });
     } else {
-      lines.push('** _NSTR for this period._');
+      lines.push('* (U) _NSTR for this period._');
     }
   });
   lines.push('');
