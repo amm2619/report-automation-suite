@@ -4903,7 +4903,7 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
     const curr=results[topic.header].current;
     const futt=results[topic.header].future;
     lines.push(`h2. (U) ${topic.header}`);
-    if(!curr.length&&!futt.length){ lines.push('_NSTR for this period_',''); return; }
+    if(!curr.length&&!futt.length){ lines.push('* (U) Summary: _NSTR for this period_',''); return; }
     const topicSlug=`bluf-eos-${proj.toLowerCase()}-${tidx}`;
     const summaryEl=document.getElementById(topicSlug);
     const summaryTxt=(summaryEl&&summaryEl.innerText.trim())||'TBD';
