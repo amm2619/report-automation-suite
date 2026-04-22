@@ -4960,7 +4960,7 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
     const slug = `eos-addl-${proj.toLowerCase()}-${label.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`;
     const el = document.getElementById(slug);
     const hasContent = el && el.childNodes.length > 0 && (el.textContent || '').trim().length > 0;
-    lines.push(`h3. (U) ${label}`, '');
+    lines.push('', `h3. (U) ${label}`, '');
     if (hasContent) {
       const txt = (el.innerText || el.textContent || '').trim();
       const items = txt.split('\n').filter(Boolean);
