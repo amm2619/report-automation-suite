@@ -250,6 +250,22 @@ function _pmrDiamondShape(pres, s, x, y, w, h, fill, stroke, strokeW) {
   });
 }
 
+// Octagon (stop sign) shape for blocked milestones. pptxgenjs has
+// ShapeType.octagon in most versions; falls back to a circle.
+function _pmrOctagonShape(pres, s, x, y, w, h, fill, stroke, strokeW) {
+  const fillOpt = { color: fill };
+  const lineOpt = { color: stroke || '1A1E28', width: (strokeW == null ? 0.75 : strokeW) };
+  const octType = pres && pres.ShapeType && pres.ShapeType.octagon;
+  if (octType) {
+    s.addShape(octType, { x, y, w, h, fill: fillOpt, line: lineOpt });
+    return;
+  }
+  // Fallback: circle (closest simple shape)
+  s.addShape(pres.ShapeType.ellipse, {
+    x, y, w, h, fill: fillOpt, line: lineOpt
+  });
+}
+
 // Integrated Milestone Roadmap — tier rows × month columns, diamond milestones
 // with product letter + status color, Next Steps panel on the right, status
 // legend on the bottom. Header uses a neutral navy bar (no tier accent)
@@ -410,11 +426,20 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
                        : (it.mile.product === 'LX') ? 'L'
                        : (it.mile.product === 'RC') ? 'R'
                        : 'X';
-      _pmrDiamondShape(pres, s,
-        it.cx - (diamondSize/2), cy - (diamondSize/2),
-        diamondSize, diamondSize,
-        color, C.text, 0.75
-      );
+      // Blocked milestones render as an octagon (stop sign shape)
+      if (it.mile.status === 'blocked') {
+        _pmrOctagonShape(pres, s,
+          it.cx - (diamondSize/2), cy - (diamondSize/2),
+          diamondSize, diamondSize,
+          color, C.text, 0.75
+        );
+      } else {
+        _pmrDiamondShape(pres, s,
+          it.cx - (diamondSize/2), cy - (diamondSize/2),
+          diamondSize, diamondSize,
+          color, C.text, 0.75
+        );
+      }
       // Product letter centered inside the diamond
       text(s, prodLetter, {
         x: it.cx - (diamondSize/2), y: cy - 0.10,
@@ -503,17 +528,18 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
   // ── Legend strip (bottom) ────────────────────────────────────────────
   const legendY = areaY + areaH + 0.18;
   const legendItems = [
-    { c: statusColor.complete,    l: 'Completed'    },
-    { c: statusColor.in_progress, l: 'In Progress'  },
-    { c: statusColor.not_started, l: 'Not Started'  },
-    { c: statusColor.blocked,     l: 'Blocked'      }
+    { c: statusColor.complete,    l: 'Completed',   shape: 'diamond' },
+    { c: statusColor.in_progress, l: 'In Progress', shape: 'diamond' },
+    { c: statusColor.not_started, l: 'Not Started', shape: 'diamond' },
+    { c: statusColor.blocked,     l: 'Blocked',     shape: 'octagon' }
   ];
   let lx = areaX;
   legendItems.forEach(it => {
-    s.addShape(pres.ShapeType.ellipse, {
-      x: lx, y: legendY + 0.04, w: 0.12, h: 0.12,
-      fill: { color: it.c }, line: { color: it.c }
-    });
+    if (it.shape === 'octagon') {
+      _pmrOctagonShape(pres, s, lx, legendY + 0.04, 0.12, 0.12, it.c, it.c, 0);
+    } else {
+      _pmrDiamondShape(pres, s, lx, legendY + 0.02, 0.14, 0.14, it.c, it.c, 0);
+    }
     text(s, it.l, {
       x: lx + 0.16, y: legendY, w: 1.10, h: 0.22,
       fontSize: 9, color: C.text, fontFace:'Cambria', valign:'middle'

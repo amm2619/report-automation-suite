@@ -808,7 +808,18 @@ function pmrRoadmapRenderPreviewSvg(slide, pxW, pxH){
       const sz = 9;
       const st = PMR_ROADMAP_STATUS[it.m.status] || PMR_ROADMAP_STATUS.not_started;
       const prod = PMR_ROADMAP_PRODUCT[it.m.product] || PMR_ROADMAP_PRODUCT.X;
-      svg += '<polygon points="'+it.x+','+(cy-sz)+' '+(it.x+sz)+','+cy+' '+it.x+','+(cy+sz)+' '+(it.x-sz)+','+cy+'" fill="'+st.color+'" stroke="#1A1E28" stroke-width="0.75"/>';
+      // Blocked milestones render as an octagon (stop sign), others as diamond
+      if (it.m.status === 'blocked') {
+        // SVG octagon: 8 points inscribed in a circle of radius sz
+        const octPts = [];
+        for (let a = 0; a < 8; a++) {
+          const angle = (Math.PI / 8) + (a * Math.PI / 4);
+          octPts.push((it.x + sz * Math.cos(angle)).toFixed(1) + ',' + (cy + sz * Math.sin(angle)).toFixed(1));
+        }
+        svg += '<polygon points="'+octPts.join(' ')+'" fill="'+st.color+'" stroke="#1A1E28" stroke-width="0.75"/>';
+      } else {
+        svg += '<polygon points="'+it.x+','+(cy-sz)+' '+(it.x+sz)+','+cy+' '+it.x+','+(cy+sz)+' '+(it.x-sz)+','+cy+'" fill="'+st.color+'" stroke="#1A1E28" stroke-width="0.75"/>';
+      }
       svg += '<text x="'+it.x+'" y="'+(cy+3)+'" fill="#FFFFFF" font-family="Cambria,Georgia,serif" font-weight="700" font-size="9" text-anchor="middle">'+prod.letter+'</text>';
       // Multi-line label for emphasized tier, single-line otherwise
       const labMax = isEmph ? 16 : 14;
