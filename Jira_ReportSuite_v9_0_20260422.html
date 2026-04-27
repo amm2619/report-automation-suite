@@ -1342,6 +1342,17 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
             </div>
             <div class="stn-body" id="eos-proj-fields"></div>
           </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">AI Summary Prompt</span></div>
+            <div class="stn-hint">When enabled, each topic section in the EOS report gets a copy button that bundles this prompt with the ticket list — ready to paste into an AI tool for summary generation.</div>
+            <div class="stn-body" style="padding:12px 16px">
+              <label class="row" style="gap:6px;align-items:center;margin-bottom:10px">
+                <input type="checkbox" id="cfg-eos-ai-enabled" onchange="S.cfg.eos_ai_prompt_enabled=this.checked;autoSaveCfg()">
+                <span>Show AI prompt copy button on EOS topic sections</span>
+              </label>
+              <textarea id="cfg-eos-ai-prompt" rows="6" style="width:100%;font-size:var(--fs-xs);font-family:var(--mono);resize:vertical" onchange="S.cfg.eos_ai_prompt=this.value;autoSaveCfg()" placeholder="Enter your AI prompt template..."></textarea>
+            </div>
+          </div>
         </div>
 
         <!-- == PMR == -->
@@ -1900,6 +1911,8 @@ const S = {
       LX: { report_title: '(U) LinkXplorer End of Sprint Report', mtl_points: '5-10' },
       RC: { report_title: '(U) RC End of Sprint Report', mtl_points: '5-10' }
     },
+    eos_ai_prompt_enabled: true,
+    eos_ai_prompt: 'You are summarizing Jira tickets for a government contract sprint review briefing. Create a summary that is easy to read out loud. Use a single paragraph, less than 300 words. Do not include ticket numbers. Combine similar tasks into cohesive statements. Every sentence must start with the portion marking (U).\n\nFor completed work, start with: "(U) During this sprint, the team..."\nFor planned work, start with: "(U) For the next sprint, the team plans to..."',
     pmr_title: '(U) Xplorer Suite PMR',
     pmr_groups: [
       { group_id: 'dx_modernization', header: 'Tier 1: Priority 2: Tool Modernization: DX', topic_ids: ['dx4','dx_improvements'] },
@@ -3229,6 +3242,10 @@ function populateConfigFields(){
   setVal('cfg-num-report',   S.cfg.num_report||'');
   setVal('cfg-num-stories',  S.cfg.num_stories||'');
   setVal('cfg-num-incident', S.cfg.num_incident||'');
+  // EOS AI prompt
+  const aiEn = document.getElementById('cfg-eos-ai-enabled');
+  if (aiEn) aiEn.checked = S.cfg.eos_ai_prompt_enabled !== false;
+  setVal('cfg-eos-ai-prompt', S.cfg.eos_ai_prompt || '');
   // Roles
   const roles=S.cfg.roles||[];
   setVal('cfg-po-name', roles[0]?.name||''); setVal('cfg-po-id', roles[0]?.id||'');
@@ -4695,6 +4712,7 @@ function runEOS(){
 
   S.eosConfluenceTexts={};
   S.eosConfParams={};   // stored so Confluence text can be regenerated at copy time
+  S._eosTopicResults={}; // stored so AI prompt can look up tickets per topic
   let segBtns='', projGroups='';
   let renderedCount=0;
   const projColors={DX:'a1',LX:'a2',RC:'a3',RCR:'a3'};
@@ -4746,7 +4764,10 @@ function runEOS(){
       const curr=results[topic.header].current;
       const futt=results[topic.header].future;
       const topicSlug=`bluf-eos-${proj.toLowerCase()}-${tidx}`;
-      rp+=`<div class="r-card l2"><h3 style="text-transform:none;font-size:var(--fs-sm);color:var(--a2)">(U) ${esc(topic.header)}</h3>`;
+      const aiBtn = (S.cfg.eos_ai_prompt_enabled !== false && (curr.length || futt.length))
+        ? `<button class="btn btn-ghost btn-xs" style="margin-left:auto;flex-shrink:0" onclick="copyEosAiPrompt('${esc(proj)}',${tidx})" title="Copy AI prompt + tickets to clipboard"><span class="mi" style="font-size:13px;margin-right:2px">auto_awesome</span>AI</button>`
+        : '';
+      rp+=`<div class="r-card l2"><div style="display:flex;align-items:center;gap:6px"><h3 style="text-transform:none;font-size:var(--fs-sm);color:var(--a2);margin:0">(U) ${esc(topic.header)}</h3>${aiBtn}</div>`;
       if(!curr.length&&!futt.length){ rp+=`<div class="nstr">NSTR for this period.</div>`; }
       else {
         rp+=`<div style="margin-bottom:10px"><div class="bluf-label">Summary</div><div class="bluf-field" id="${topicSlug}" contenteditable="true" data-placeholder="Enter topic summary..."></div></div>`;
@@ -4775,6 +4796,7 @@ function runEOS(){
     // ── Confluence — build an initial snapshot; the text is regenerated live
     // from the DOM in openEOSConfluencePicker / refreshEOSConfluenceTab so
     // user-typed summaries are always included.
+    S._eosTopicResults[proj]={topics,results,cur,fut};
     S.eosConfParams[proj]={meta,proj,topics,results,blocked,projTickets,cur,fut,spfx};
     const confText=buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut,spfx);
     S.eosConfluenceTexts[proj]=confText;
@@ -4990,6 +5012,47 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
 // Regenerate all EOS Confluence texts from the current DOM. Called before
 // copying or when switching to the Confluence tab so user-typed BLUF /
 // summary fields are always up to date.
+// Copy the AI prompt + ticket list for a specific EOS topic to clipboard.
+// Called from the AI button on each topic section.
+async function copyEosAiPrompt(proj, tidx) {
+  const data = S._eosTopicResults && S._eosTopicResults[proj];
+  if (!data) { alert('Run the EOS report first.'); return; }
+  const topic = data.topics[tidx];
+  if (!topic) return;
+  const res = data.results[topic.header];
+  if (!res) return;
+  const prompt = S.cfg.eos_ai_prompt || '';
+  const lines = [`Topic: ${topic.header}`, ''];
+  if (res.current.length) {
+    lines.push(`Current Sprint (${data.cur}) — completed work:`);
+    res.current.forEach(t => lines.push(`- ${t.issue_key}: ${t.summary} [${t.status}]`));
+    lines.push('');
+  }
+  if (res.future.length) {
+    lines.push(`Future Sprint (${data.fut}) — planned work:`);
+    res.future.forEach(t => lines.push(`- ${t.issue_key}: ${t.summary} [${t.status}]`));
+    lines.push('');
+  }
+  const text = prompt + '\n\n' + lines.join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    // Brief visual feedback on the button
+    const btn = event && event.target.closest('button');
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<span class="mi" style="font-size:13px;margin-right:2px">check</span>Copied';
+      setTimeout(() => { btn.innerHTML = orig; }, 1500);
+    }
+  } catch(e) {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+}
+
 function refreshEOSConfluenceTexts(){
   const params = S.eosConfParams || {};
   Object.entries(params).forEach(([proj, p]) => {
