@@ -491,31 +491,20 @@ function pmrSwitchLayout(layoutKey, newLayout) {
 // Ticket list with a move-to dropdown for feature_improvement_bug slides.
 function pmrTicketListWithMove(tickets, base, currentSection) {
   if (!tickets.length) return '<div class="nstr">NSTR</div>';
-  // Group by epic, then sort tickets within each group by issue key
-  const byEpic = {};
-  tickets.forEach(t => {
-    const en = t.epic_name || '(No Epic)';
-    if (!byEpic[en]) byEpic[en] = [];
-    byEpic[en].push(t);
+  const sorted = [...tickets].sort((a,b) => {
+    const ea = (a.epic_name||'').toLowerCase(), eb = (b.epic_name||'').toLowerCase();
+    if (ea !== eb) return ea.localeCompare(eb);
+    return a.issue_key.localeCompare(b.issue_key);
   });
-  const epicNames = Object.keys(byEpic).sort();
   const sections = ['improvements','features','bugs'];
   const labels = {improvements:'Improv', features:'Feature', bugs:'Bug'};
-  let html = '';
-  epicNames.forEach(en => {
-    const sorted = byEpic[en].sort((a,b) => a.issue_key.localeCompare(b.issue_key));
-    if (epicNames.length > 1 || en !== '(No Epic)') {
-      html += `<div style="font-size:var(--fs-xs);font-weight:600;color:var(--mu);margin:6px 0 2px;padding-left:2px">${esc(en)}</div>`;
-    }
-    html += `<ul class="tl">${sorted.map(t => {
-      const link = jiraLink(t.issue_key, 'tk');
-      const opts = sections.filter(s => s !== currentSection)
-        .map(s => `<option value="${s}">${labels[s]}</option>`).join('');
-      const sel = `<select class="pmr-move-sel" style="font-size:9px;padding:1px 3px;background:var(--s3);border:1px solid var(--bd);color:var(--mu);border-radius:3px;cursor:pointer;margin-left:auto;flex-shrink:0;width:auto;min-width:0" onchange="pmrMoveTicket('${esc(t.issue_key)}',this.value)" title="Move to different section"><option value="">▸</option>${opts}</select>`;
-      return `<li style="display:flex;align-items:center;gap:4px">${link}<span class="ts" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(t.summary)}</span>${sel}</li>`;
-    }).join('')}</ul>`;
-  });
-  return html;
+  return `<ul class="tl">${sorted.map(t => {
+    const link = jiraLink(t.issue_key, 'tk');
+    const opts = sections.filter(s => s !== currentSection)
+      .map(s => `<option value="${s}">${labels[s]}</option>`).join('');
+    const sel = `<select class="pmr-move-sel" onchange="pmrMoveTicket('${esc(t.issue_key)}',this.value)" title="Move to different section"><option value="">▸</option>${opts}</select>`;
+    return `<li class="pmr-tl-row">${link}<span class="ts">${esc(t.summary)}</span>${sel}</li>`;
+  }).join('')}</ul>`;
 }
 
 // Move a ticket to a different section (features/improvements/bugs) and re-run PMR.
