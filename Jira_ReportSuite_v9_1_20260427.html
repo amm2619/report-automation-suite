@@ -9928,6 +9928,34 @@ function startWizard(type) {
   const isTwoStep = wiz.steps.length === 2;
   const needsEpics = type !== 'sprint' && type !== 'spin';
   const filesReady = hasIssues && (!needsEpics || hasEpics);
+
+  // ── Auto-rerun: if files are loaded and a draft with saved params exists,
+  // skip the wizard entirely and jump straight to the report. The user's
+  // previous param selections (date range, sprints, PMR month) are restored
+  // from the draft. This makes re-running a report a single click.
+  if (filesReady && type !== 'batch') {
+    const draft = (typeof loadDraftFromStorage === 'function') ? loadDraftFromStorage(type) : null;
+    if (draft && draft.wizParams && Object.keys(draft.wizParams).length) {
+      // Restore saved params
+      S._wizParams = JSON.parse(JSON.stringify(draft.wizParams));
+      S._pendingDraft[type] = draft;
+      S.currentPage = type;
+      document.getElementById('wiz-title').innerHTML = wiz.icon + '&nbsp;&nbsp;' + esc(wiz.name);
+      const lastStep = wiz.steps.length - 1;
+      _activeStep = lastStep;
+      renderWizardSteps(wiz.steps, lastStep);
+      renderWizardContent(type, lastStep);
+      document.getElementById('home').classList.add('hidden');
+      document.getElementById('wizard').classList.add('active');
+      // Run the report
+      const runners = {weekly:runWeekly, eos:runEOS, pmr:runPMR, sprint:runSprint, spin:runSpin, velocity:(typeof runVelocity==='function'?runVelocity:null)};
+      const runner = runners[type];
+      if (runner) setTimeout(function(){ runner(); }, 0);
+      return;
+    }
+  }
+
+  // Normal flow: show the wizard
   // Skip upload step if all required files already loaded (not for batch which has no upload)
   _activeStep = (filesReady && !isTwoStep && type !== 'batch') ? 1 : 0;
   S.currentPage = type;
