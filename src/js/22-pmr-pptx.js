@@ -33,8 +33,7 @@ function _pmrAddFibSlide(pres, ctx, sd) {
   const { C, F, W, H, FOUO_H, BODY_Y, M, rect, text, addHeader, fit } = ctx;
   const s = pres.addSlide();
   s.background = { color: C.void };
-  addHeader(s, '(U//FOUO) ' + sd.header, C.cyan);
-  // Top-level narrative strip (if any)
+  addHeader(s, '(U) ' + sd.header, C.cyan);
   let topY = BODY_Y;
   if (sd.topNarrative) {
     rect(s, M, topY, W - M*2, 0.50, C.cardLt);
@@ -49,6 +48,7 @@ function _pmrAddFibSlide(pres, ctx, sd) {
     else if (l.indexOf('improvement') >= 0) sec.improvements = x;
     else if (l.indexOf('bug') >= 0) sec.bugs = x;
   });
+  // Improvements on the left (full height), New Features + Bug Fixes stacked right
   const leftW = 6.6;
   const rightX = M + leftW + 0.15;
   const rightW = W - rightX - M;
@@ -56,18 +56,14 @@ function _pmrAddFibSlide(pres, ctx, sd) {
   const rightH = (bodyH - 0.15) / 2;
   function card(x, y, w, h, label, color, section) {
     rect(s, x, y, w, h, C.card);
+    s.addShape(pres.ShapeType.rect, { x, y, w, h, fill:{type:'noFill'}, line:{color:C.border, width:0.75} });
     rect(s, x, y, w, 0.048, color);
     text(s, label, { x:x+0.14, y:y+0.06, w:w-0.28, h:0.22, fontSize:11, bold:true, color:color, fontFace:F.mono });
     const narr = section && section.narrative ? section.narrative : '(no narrative)';
-    text(s, narr, { x:x+0.14, y:y+0.34, w:w-0.28, h:h-0.90, fontSize:13, color:C.text, valign:'top', wrap:true });
-    const cnt = section ? section.tickets.length : 0;
-    const tY = y + h - 0.42;
-    rect(s, x+0.14, tY, w-0.28, 0.012, C.divider);
-    text(s, cnt + ' ticket' + (cnt===1?'':'s'), { x:x+0.14, y:tY+0.04, w:w-0.28, h:0.18, fontSize:9, bold:true, color:C.muted, fontFace:F.mono });
-    if (cnt) text(s, fit(section.tickets.join(' · '), 130), { x:x+0.14, y:tY+0.20, w:w-0.28, h:0.18, fontSize:8, color:C.muted, fontFace:F.mono });
+    text(s, narr, { x:x+0.14, y:y+0.34, w:w-0.28, h:h-0.50, fontSize:13, color:C.text, valign:'top', wrap:true });
   }
-  card(M, topY, leftW, bodyH, 'NEW FEATURES', C.green, sec.features);
-  card(rightX, topY, rightW, rightH, 'IMPROVEMENTS', C.blue2, sec.improvements);
+  card(M, topY, leftW, bodyH, 'IMPROVEMENTS', C.blue2, sec.improvements);
+  card(rightX, topY, rightW, rightH, 'NEW FEATURES', C.green, sec.features);
   card(rightX, topY + rightH + 0.15, rightW, rightH, 'BUG FIXES / BLOCKERS', C.red, sec.bugs);
 }
 
@@ -108,21 +104,16 @@ function _pmrAddProjectSlide(pres, ctx, sd, projects) {
     rect(s, M, rY, 0.06, rowH, m.info.color);
     text(s, m.info.code, { x:M, y:rY + rowH*0.08, w:tagW, h:rowH*0.58, align:'center', fontSize:26, bold:true, color:m.info.color });
     text(s, m.name, { x:M+0.05, y:rY + rowH*0.65, w:tagW-0.10, h:rowH*0.30, align:'center', fontSize:10, color:m.info.color });
-    // Narrative card
+    // Narrative card with border
     rect(s, narrX, rY, narrW, rowH, C.card);
+    s.addShape(pres.ShapeType.rect, { x:narrX, y:rY, w:narrW, h:rowH, fill:{type:'noFill'}, line:{color:C.border, width:0.75} });
     rect(s, narrX, rY, narrW, 0.03, m.info.color);
     const narr = m.section ? (m.section.narrative || '(no narrative)') : 'NSTR';
-    text(s, narr, { x:narrX+0.14, y:rY+0.10, w:narrW-0.28, h:rowH*0.62, fontSize:13, color:C.text, valign:'top', wrap:true });
-    // Ticket footer
-    const cnt = m.section ? m.section.tickets.length : 0;
-    const tY = rY + rowH - 0.34;
-    rect(s, narrX+0.14, tY, narrW-0.28, 0.012, C.divider);
-    const tixLine = cnt + ' ticket' + (cnt===1?'':'s') + (cnt ? '  ·  ' + fit(m.section.tickets.join(' · '), 150) : '');
-    text(s, tixLine, { x:narrX+0.14, y:tY+0.04, w:narrW-0.28, h:0.22, fontSize:9, color:C.muted, fontFace:F.mono });
+    text(s, narr, { x:narrX+0.14, y:rY+0.10, w:narrW-0.28, h:rowH*0.85, fontSize:13, color:C.text, valign:'top', wrap:true });
   });
 }
 
-// Mission support / other — two-column card layout with purple + gold accents
+// Mission support / other — top/bottom stacked layout with purple + gold accents
 function _pmrAddMissionSupportSlide(pres, ctx, sd) {
   const { C, F, W, H, FOUO_H, BODY_Y, M, rect, text, addHeader, fit } = ctx;
   const s = pres.addSlide();
@@ -134,7 +125,6 @@ function _pmrAddMissionSupportSlide(pres, ctx, sd) {
     if (l.indexOf('mission support') >= 0) sec.ms = x;
     else sec.other = x;
   });
-  // Top-level narrative strip (if any)
   let topY = BODY_Y;
   if (sd.topNarrative) {
     rect(s, M, topY, W - M*2, 0.50, C.cardLt);
@@ -142,23 +132,20 @@ function _pmrAddMissionSupportSlide(pres, ctx, sd) {
     text(s, sd.topNarrative, { x:M+0.14, y:topY+0.05, w:W-M*2-0.22, h:0.40, fontSize:11, color:C.text, valign:'top', wrap:true });
     topY += 0.60;
   }
-  const gap = 0.2;
-  const cardW = (W - M*2 - gap) / 2;
-  const cardH = H - FOUO_H - topY - 0.1;
-  function card(x, label, color, section) {
-    rect(s, x, topY, cardW, cardH, C.card);
-    rect(s, x, topY, cardW, 0.048, color);
-    text(s, label, { x:x+0.14, y:topY+0.06, w:cardW-0.28, h:0.22, fontSize:11, bold:true, color:color, fontFace:F.mono });
+  const gap = 0.18;
+  const cardW = W - M*2;
+  const totalH = H - FOUO_H - topY - 0.1;
+  const cardH = (totalH - gap) / 2;
+  function card(y, label, color, section) {
+    rect(s, M, y, cardW, cardH, C.card);
+    s.addShape(pres.ShapeType.rect, { x:M, y, w:cardW, h:cardH, fill:{type:'noFill'}, line:{color:C.border, width:0.75} });
+    rect(s, M, y, cardW, 0.048, color);
+    text(s, label, { x:M+0.14, y:y+0.06, w:cardW-0.28, h:0.22, fontSize:11, bold:true, color:color, fontFace:F.mono });
     const narr = section ? (section.narrative || '(no narrative)') : 'NSTR';
-    text(s, narr, { x:x+0.14, y:topY+0.34, w:cardW-0.28, h:cardH*0.62, fontSize:13, color:C.text, valign:'top', wrap:true });
-    const cnt = section ? section.tickets.length : 0;
-    const tY = topY + cardH - 0.70;
-    rect(s, x+0.14, tY-0.04, cardW-0.28, 0.012, C.divider);
-    text(s, 'TICKETS  (' + cnt + ')', { x:x+0.14, y:tY, w:cardW-0.28, h:0.20, fontSize:9, bold:true, color:C.muted, fontFace:F.mono });
-    if (cnt) text(s, fit(section.tickets.join('  ·  '), 260), { x:x+0.14, y:tY+0.22, w:cardW-0.28, h:0.42, fontSize:9, color:C.muted, fontFace:F.mono, wrap:true });
+    text(s, narr, { x:M+0.14, y:y+0.34, w:cardW-0.28, h:cardH-0.50, fontSize:13, color:C.text, valign:'top', wrap:true });
   }
-  card(M, 'MISSION SUPPORT', C.purple, sec.ms);
-  card(M + cardW + gap, 'OTHER', C.gold, sec.other);
+  card(topY, 'MISSION SUPPORT', C.purple, sec.ms);
+  card(topY + cardH + gap, 'OTHER', C.gold, sec.other);
 }
 
 // Title slide — mirrors BAMBOOTIGER slide 1 (split-panel hero + info chips)
@@ -560,16 +547,11 @@ function _pmrAddSimpleListSlide(pres, ctx, sd) {
   addHeader(s, '(U) ' + sd.header, C.cyan);
   const x = M, y = BODY_Y, w = W - M*2, h = H - FOUO_H - y - 0.1;
   rect(s, x, y, w, h, C.card);
+  s.addShape(pres.ShapeType.rect, { x, y, w, h, fill:{type:'noFill'}, line:{color:C.border, width:0.75} });
   rect(s, x, y, w, 0.048, C.cyan);
   text(s, 'NARRATIVE', { x:x+0.18, y:y+0.06, w:w-0.36, h:0.22, fontSize:11, bold:true, color:C.cyan, fontFace:F.mono });
   const narr = sd.topNarrative || (sd.sections[0] && sd.sections[0].narrative) || '(no narrative provided)';
-  text(s, narr, { x:x+0.18, y:y+0.34, w:w-0.36, h:h*0.62, fontSize:13, color:C.text, valign:'top', wrap:true });
-  // Ticket footer
-  const tx = sd.allTickets;
-  const tY = y + h - 0.70;
-  rect(s, x+0.18, tY-0.04, w-0.36, 0.018, C.divider);
-  text(s, 'TICKETS  (' + tx.length + ')', { x:x+0.18, y:tY, w:w-0.36, h:0.20, fontSize:9, bold:true, color:C.muted, fontFace:F.mono });
-  if (tx.length) text(s, fit(tx.join('  ·  '), 420), { x:x+0.18, y:tY+0.22, w:w-0.36, h:0.42, fontSize:9, color:C.muted, fontFace:F.mono, wrap:true });
+  text(s, narr, { x:x+0.18, y:y+0.34, w:w-0.36, h:h*0.85, fontSize:13, color:C.text, valign:'top', wrap:true });
 }
 
 // ── INTEGRATED MILESTONE ROADMAP — data layer ──────────────────────────────

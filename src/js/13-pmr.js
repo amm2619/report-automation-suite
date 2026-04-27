@@ -191,16 +191,7 @@ function runPMR(){
   const allUnmapped = [...unmatched, ...unmappedEpic];
   const umHtml = buildPmrUnmatchedPanel(unmatched, unmappedEpic);
 
-  // Roadmap editor — gets its own tab
   const roadmapEnabled = S.cfg.pmr_roadmap && S.cfg.pmr_roadmap.enabled;
-  const roadmapTabHtml = `<div style="padding:4px 0">
-    <div class="row" style="gap:6px;margin-bottom:10px">
-      <button class="btn btn-ghost btn-xs" onclick="exportPmrRoadmap()" title="Download roadmap milestones as JSON"><span class="mi" style="font-size:13px;margin-right:2px">download</span>Export Roadmap</button>
-      <button class="btn btn-ghost btn-xs" onclick="document.getElementById('pmr-roadmap-import-file').click()" title="Import roadmap milestones from JSON"><span class="mi" style="font-size:13px;margin-right:2px">upload</span>Import Roadmap</button>
-      <input type="file" id="pmr-roadmap-import-file" accept=".json" style="display:none" onchange="importPmrRoadmap(this)">
-    </div>
-    <div id="pmr-roadmap-editor-inline"></div>
-  </div>`;
 
   const html=`
   <div class="rpt-frame" id="rptf2">
@@ -218,12 +209,10 @@ function runPMR(){
       </div>
       <div class="r-tabs r-tabs-sticky">
         <button class="r-tab active" onclick="switchRtab(this)">Report</button>
-        <button class="r-tab" onclick="switchRtab(this)">Integrated Roadmap</button>
         <button class="r-tab" onclick="switchRtab(this)">Debug</button>
         <button class="r-tab" onclick="switchRtab(this)">Unmatched (${unmatched.length + unmappedEpic.length})</button>
       </div>
       <div class="r-panel active">${reportHtml}</div>
-      <div class="r-panel">${roadmapTabHtml}</div>
       <div class="r-panel">${dbgHtml}</div>
       <div class="r-panel">${umHtml}</div>
     </div>
@@ -233,12 +222,6 @@ function runPMR(){
   S.reportHtml.pmr=html;
   autoSaveDraft('pmr');
   checkDraftAndRestore('pmr');
-  // Populate the inline roadmap editor (reuses the same render function
-  // as the Settings page, but targets a different container ID).
-  const inlineRoadmapEl = document.getElementById('pmr-roadmap-editor-inline');
-  if (inlineRoadmapEl) {
-    renderPmrRoadmapEditorInto(inlineRoadmapEl);
-  }
   const _pdg=document.getElementById('pmr-dl-group'); if(_pdg) _pdg.style.display='flex';
 }
 
@@ -312,6 +295,35 @@ function importPmrRoadmap(input) {
   reader.readAsText(file);
 }
 
+// Open the roadmap editor as a standalone overlay (from Tools on home screen).
+function openRoadmapEditor() {
+  let overlay = document.getElementById('roadmap-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'roadmap-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML = `
+      <div style="background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);width:min(1000px,96vw);max-height:93vh;display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--bd);flex-shrink:0">
+          <span style="font-weight:700;color:var(--tx);font-size:var(--fs-lg)"><span class="mi" style="font-size:18px;margin-right:8px;vertical-align:middle">route</span>Integrated Milestone Roadmap</span>
+          <div class="row" style="gap:6px">
+            <button class="btn btn-ghost btn-xs" onclick="exportPmrRoadmap()" title="Export"><span class="mi" style="font-size:13px;margin-right:2px">download</span>Export</button>
+            <button class="btn btn-ghost btn-xs" onclick="document.getElementById('roadmap-import-tool').click()" title="Import"><span class="mi" style="font-size:13px;margin-right:2px">upload</span>Import</button>
+            <input type="file" id="roadmap-import-tool" accept=".json" style="display:none" onchange="importPmrRoadmap(this)">
+            <button onclick="document.getElementById('roadmap-overlay').remove()" style="background:none;border:none;color:var(--mu);font-size:18px;cursor:pointer;padding:2px 8px;border-radius:var(--r2)">✕</button>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:20px" id="roadmap-editor-tool"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  } else {
+    overlay.style.display = 'flex';
+  }
+  const el = document.getElementById('roadmap-editor-tool');
+  if (el) renderPmrRoadmapEditorInto(el);
+}
+
 function renderSlide(header,subheaders,layout,base,isGroup){
   const sid=slideSlug(header);
   const ctx=sid.replace(/^pmr-slide-/,''); // stable slug derived from slide header; passed down explicitly
@@ -334,8 +346,6 @@ function renderSlide(header,subheaders,layout,base,isGroup){
     }
   }
   let html=`<div class="slide" id="${sid}" data-pmr-layout="${esc(layout||'simple_list')}"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><h2 style="margin:0">(U) ${esc(header)}</h2><span style="flex:1"></span>${aiBtns}</div>`;
-  // Top-level narrative box always present — appears below the slide title
-  html+=blufBox(ctx);
   // feature_improvement_bug and mission_support_other layouts: always pool tickets,
   // never show per-topic sub-headers (DX4/DX Improvements or LX5/LX Improvements collapse into one list)
   const poolLayouts=['feature_improvement_bug','mission_support_other'];
@@ -351,21 +361,56 @@ function renderSlide(header,subheaders,layout,base,isGroup){
   }
   return html+'</div>';
 }
+// Ticket list with a move-to dropdown for feature_improvement_bug slides.
+function pmrTicketListWithMove(tickets, base, currentSection) {
+  if (!tickets.length) return '<div class="nstr">NSTR</div>';
+  const sorted = [...tickets].sort((a,b) => {
+    const ea=(a.epic_name||'').toLowerCase(), eb=(b.epic_name||'').toLowerCase();
+    if(ea!==eb) return ea.localeCompare(eb);
+    return a.issue_key.localeCompare(b.issue_key);
+  });
+  const sections = ['improvements','features','bugs'];
+  const labels = {improvements:'Improvements', features:'New Features', bugs:'Bug Fixes'};
+  return `<ul class="tl">${sorted.map(t => {
+    const link = jiraLink(t.issue_key, 'tk');
+    const opts = sections.filter(s => s !== currentSection)
+      .map(s => `<option value="${s}">${labels[s]}</option>`).join('');
+    const sel = `<select class="pmr-move-sel" style="font-size:10px;padding:1px 4px;background:var(--s3);border:1px solid var(--bd);color:var(--mu);border-radius:3px;cursor:pointer;margin-left:4px" onchange="pmrMoveTicket('${esc(t.issue_key)}',this.value)" title="Move to different section"><option value="">Move…</option>${opts}</select>`;
+    return `<li>${link}<span class="ts">${esc(t.summary)}</span>${sel}</li>`;
+  }).join('')}</ul>`;
+}
+
+// Move a ticket to a different section (features/improvements/bugs) and re-run PMR.
+function pmrMoveTicket(issueKey, targetSection) {
+  if (!targetSection) return;
+  if (!S._pmrSectionOverrides) S._pmrSectionOverrides = {};
+  S._pmrSectionOverrides[issueKey] = targetSection;
+  // Re-run PMR to reflect the change
+  if (typeof runPMR === 'function') runPMR();
+}
+
 function renderSlideLayout(tickets,layout,base,ctx,blufBox){
   if(layout==='feature_improvement_bug'){
     const ftypes=S.cfg.pmr_feature_types||['story','user request','new feature'];
     const btypes=S.cfg.pmr_bug_types||['bug','defect'];
+    // Check overrides first (user manually moved a ticket to a different section)
+    if (!S._pmrSectionOverrides) S._pmrSectionOverrides = {};
     const b={features:[],improvements:[],bugs:[]};
     tickets.forEach(t=>{
+      const override = S._pmrSectionOverrides[t.issue_key];
+      if (override === 'features') { b.features.push(t); return; }
+      if (override === 'bugs') { b.bugs.push(t); return; }
+      if (override === 'improvements') { b.improvements.push(t); return; }
       const it=t.issue_type.toLowerCase();
       if(ftypes.some(f=>it.includes(f))) b.features.push(t);
       else if(btypes.some(f=>it.includes(f))) b.bugs.push(t);
       else b.improvements.push(t);
     });
     let h='';
-    if(b.features.length){ h+=`<h4>New Features</h4>${blufBox(ctx+'-features')}${ticketList(b.features,base)}`; }
-    if(b.improvements.length){ h+=`<h4>Improvements</h4>${blufBox(ctx+'-improvements')}${ticketList(b.improvements,base)}`; }
-    if(b.bugs.length){ h+=`<h4>Bug Fixes</h4>${blufBox(ctx+'-bugs')}${ticketList(b.bugs,base)}`; }
+    // Improvements first, then New Features (per user request — swapped)
+    if(b.improvements.length){ h+=`<h4>Improvements</h4>${blufBox(ctx+'-improvements')}${pmrTicketListWithMove(b.improvements,base,'improvements')}`; }
+    if(b.features.length){ h+=`<h4>New Features</h4>${blufBox(ctx+'-features')}${pmrTicketListWithMove(b.features,base,'features')}`; }
+    if(b.bugs.length){ h+=`<h4>Bug Fixes</h4>${blufBox(ctx+'-bugs')}${pmrTicketListWithMove(b.bugs,base,'bugs')}`; }
     return h||'<div class="nstr">NSTR</div>';
   }
   if(layout==='project_split_3'){
