@@ -10786,8 +10786,24 @@ S.spin = {
 
 // ── Roadmap-compatible utils (use RS esc/jiraLink) ──────────
 const _snl = v => ((v || '').trim()).toLowerCase().replace(/\s+/g, ' ');
-const SPIN_DONE = new Set(['done', 'closed', 'resolved']);
+const SPIN_DONE = new Set(['done', 'closed', 'resolved', 'complete', 'completed', 'released',
+  'shipped', 'delivered', 'accepted', 'verified', 'cancelled', 'canceled',
+  'abandoned', 'wontfix', 'won\'t fix', 'obsolete', 'duplicate', 'rejected']);
 const spinIsDone = s => SPIN_DONE.has(_snl(s));
+
+// Classify a Jira status into one of 5 buckets for rendering.
+// Uses substring matching so custom statuses like "Dev In Progress"
+// or "Awaiting QA Review" still get meaningful color treatment.
+function spinStatusCategory(s) {
+  const l = _snl(s);
+  if (!l) return 'open';
+  if (SPIN_DONE.has(l)) return 'done';
+  if (l === 'blocked' || /\b(block|impediment|on.?hold|stuck|waiting\s+on)\b/.test(l)) return 'blocked';
+  if (/\b(progress|in.?dev|develop|implement|coding|active)\b/.test(l)) return 'inprogress';
+  if (/\b(review|code.?review|peer.?review|in.?test|testing|qa|verify|verification|staging|awaiting|ready.?for|integration|deploy|release)\b/.test(l)) return 'review';
+  if (/\b(backlog|to.?do|todo|open|new|planned|draft|icebox|proposed|candidate|grooming|refinement|selected|ready)\b/.test(l)) return 'open';
+  return 'open';
+}
 
 function spinIsBehind(issue) {
   if (spinIsDone(issue.status)) return false;
@@ -10867,14 +10883,14 @@ function spinDepIcon(size) {
   return `<span style="display:inline-flex;align-items:center;flex-shrink:0;width:${sz}px;height:${Math.round(sz*0.75)}px;vertical-align:middle;color:var(--a2)">${SPIN_DEP_ICON}</span>`;
 }
 function spinStatusIcon(s) {
-  const l = _snl(s);
-  if (l === 'blocked') return spinBlockedIcon(11) + ' ';
-  if (SPIN_DONE.has(l)) return '<span class="u-iflex-mr2"><svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#36B37E"/><path d="M2.5 5l1.8 1.8 3.2-3.2" stroke="#fff" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
-  if (l === 'in progress') return '<span class="u-iflex-mr2"><svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#0052CC"/><circle cx="5" cy="5" r="2" fill="#fff"/></svg></span>';
-  if (l === 'reviewing' || l === 'in test') return '<span class="u-iflex-mr2"><svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#6554C0"/><path d="M3 5h4M5 3v4" stroke="#fff" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg></span>';
+  const cat = spinStatusCategory(s);
+  if (cat === 'blocked')    return spinBlockedIcon(11) + ' ';
+  if (cat === 'done')       return '<span class="u-iflex-mr2"><svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#36B37E"/><path d="M2.5 5l1.8 1.8 3.2-3.2" stroke="#fff" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+  if (cat === 'inprogress') return '<span class="u-iflex-mr2"><svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#0052CC"/><circle cx="5" cy="5" r="2" fill="#fff"/></svg></span>';
+  if (cat === 'review')     return '<span class="u-iflex-mr2"><svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#6554C0"/><path d="M3 5h4M5 3v4" stroke="#fff" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg></span>';
   return '<span class="u-iflex-mr2"><svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="none" stroke="#8A97B8" stroke-width="1.5"/></svg></span>';
 }
-function spinSbClass(s) { const l = _snl(s); return l === 'blocked' ? 'sbl' : SPIN_DONE.has(l) ? 'sd' : l === 'in progress' ? 'sip' : (l === 'reviewing' || l === 'in test') ? 'srv' : 'sop'; }
+function spinSbClass(s) { const cat = spinStatusCategory(s); return cat === 'blocked' ? 'sbl' : cat === 'done' ? 'sd' : cat === 'inprogress' ? 'sip' : cat === 'review' ? 'srv' : 'sop'; }
 function spinStatusBadge(s) { if (!s) return ''; return `<span class="sb ${spinSbClass(s)}">${spinStatusIcon(s)}${esc(s)}</span>`; }
 
 // ── Key link — all keys go through RS jiraLink with .tk-c ───
@@ -11135,7 +11151,7 @@ function spinNodeStats(node) {
   const stories = spinCollectLeaves(node);
   const total = stories.length;
   const done = stories.filter(s => spinIsDone(s.status)).length;
-  const blocked = stories.filter(s => _snl(s.status) === 'blocked').length;
+  const blocked = stories.filter(s => spinStatusCategory(s.status) === 'blocked').length;
   const behind = stories.filter(s => spinIsBehind(s)).length;
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
   const spinMap = {};
@@ -11157,8 +11173,8 @@ function spinGlobalStats() {
   const stories = issues.filter(i => spinClassifyLevel(i.issueType) === 'story');
   const total = stories.length;
   const done = stories.filter(s => spinIsDone(s.status)).length;
-  const inprog = stories.filter(s => _snl(s.status) === 'in progress').length;
-  const blocked = stories.filter(s => _snl(s.status) === 'blocked').length;
+  const inprog = stories.filter(s => spinStatusCategory(s.status) === 'inprogress').length;
+  const blocked = stories.filter(s => spinStatusCategory(s.status) === 'blocked').length;
   const behind = stories.filter(s => spinIsBehind(s)).length;
   const pct = total ? Math.round(done / total * 100) : 0;
   return { total, done, inprog, blocked, behind, pct };
@@ -11219,7 +11235,7 @@ function renderSpinStoryTable(stories, epicId) {
   };
   const rows = sorted.map(s => {
     const behind = spinIsBehind(s);
-    const blocked = _snl(s.status) === 'blocked';
+    const blocked = spinStatusCategory(s.status) === 'blocked';
     const done = spinIsDone(s.status);
     const rowCls = blocked ? 'blocked' : behind ? 'behind' : done ? 'done' : '';
     return `<tr class="${rowCls}">
@@ -11543,7 +11559,7 @@ function spinRenderTierSection(topic, epicNodes) {
   const allStories = epicNodes.flatMap(n => spinCollectLeaves(n));
   const tot = allStories.length;
   const done = allStories.filter(s => spinIsDone(s.status)).length;
-  const blocked = allStories.filter(s => (s.status||'').trim().toLowerCase() === 'blocked').length;
+  const blocked = allStories.filter(s => spinStatusCategory(s.status) === 'blocked').length;
   const behind = allStories.filter(s => spinIsBehind(s)).length;
   const pct = tot ? Math.round(done / tot * 100) : 0;
   const tierRank = topic.tier_rank ?? topic.rank ?? 99;
@@ -11729,7 +11745,7 @@ function renderSpinQuarterView(tree) {
   return quarters.map(q => {
     const inQ = allStories.filter(s => q.sprints.some(sp => (s.sprints || [s.sprint]).some(ss => _snl(ss).includes(_snl(sp)))));
     const done = inQ.filter(s => spinIsDone(s.status)).length;
-    const blocked = inQ.filter(s => _snl(s.status) === 'blocked').length;
+    const blocked = inQ.filter(s => spinStatusCategory(s.status) === 'blocked').length;
     const behind = inQ.filter(s => spinIsBehind(s)).length;
     const pct = inQ.length ? Math.round(done / inQ.length * 100) : 0;
     const pctCls = pct >= 67 ? 'c-green' : pct >= 34 ? 'c-amber' : 'c-red';
@@ -11776,7 +11792,7 @@ function spinShowDrill(epicId, type) {
     items = spinCollectLeaves(node).filter(s => spinIsBehind(s));
   } else if (type === 'blocked') {
     title = `Blocked — ${esc(issue.key)}`;
-    items = spinCollectLeaves(node).filter(s => _snl(s.status) === 'blocked');
+    items = spinCollectLeaves(node).filter(s => spinStatusCategory(s.status) === 'blocked');
   } else if (type === 'deps') {
     title = `Dependencies — ${esc(issue.key)}`;
     drillEl.style.display = 'block';
@@ -12279,7 +12295,7 @@ function renderSpinMatrixView() {
     });
     const done = stories.filter(s => spinIsDone(s.status)).length;
     const behind = stories.filter(s => spinIsBehind(s)).length;
-    const blocked = stories.filter(s => _snl(s.status) === 'blocked').length;
+    const blocked = stories.filter(s => spinStatusCategory(s.status) === 'blocked').length;
     const pct = stories.length ? Math.round(done / stories.length * 100) : 0;
     const byProj = {};
     const projKeys = [...new Set(S.spin.issues.map(i => i.project).filter(Boolean))];
@@ -12306,7 +12322,7 @@ function renderSpinMatrixView() {
   });
   const spinDone = allSpinStories.filter(s => spinIsDone(s.status)).length;
   const spinBehind = allSpinStories.filter(s => spinIsBehind(s)).length;
-  const spinBlocked = allSpinStories.filter(s => _snl(s.status) === 'blocked').length;
+  const spinBlocked = allSpinStories.filter(s => spinStatusCategory(s.status) === 'blocked').length;
   const spinPct = allSpinStories.length ? Math.round(spinDone / allSpinStories.length * 100) : 0;
   const pctCls = spinPct >= 67 ? 'c-green' : spinPct >= 34 ? 'c-amber' : 'c-red';
 
@@ -12558,7 +12574,7 @@ function spinDrilldown(type) {
       tierMap[t].total++;
       if (spinIsDone(s.status)) tierMap[t].done++;
       if (spinIsBehind(s)) tierMap[t].behind++;
-      if (_snl(s.status) === 'blocked') tierMap[t].blocked++;
+      if (spinStatusCategory(s.status) === 'blocked') tierMap[t].blocked++;
     });
     const sortedTiers = Object.entries(tierMap).sort((a, b) => a[1].rank - b[1].rank);
     body = sortedTiers.map(([tier, st]) => {
@@ -12604,7 +12620,7 @@ function spinDrilldown(type) {
       const st   = node ? spinCollectLeaves(node) : [];
       const done    = st.filter(s => spinIsDone(s.status)).length;
       const behind  = st.filter(s => spinIsBehind(s)).length;
-      const blocked = st.filter(s => _snl(s.status) === 'blocked').length;
+      const blocked = st.filter(s => spinStatusCategory(s.status) === 'blocked').length;
       const pct     = st.length ? Math.round(done / st.length * 100) : 0;
       const pctClr  = pct >= 67 ? 'var(--a3)' : pct >= 34 ? 'var(--a4)' : 'var(--a5)';
       return `<tr data-searchable data-text="${esc((prog.project+' '+prog.key+' '+prog.summary).toLowerCase())}">
@@ -12634,7 +12650,7 @@ function spinDrilldown(type) {
       stories:  { t: 'All Stories',     s: `${allStories.length} total`,                      items: allStories,                                       extra: null },
       complete: { t: 'Complete Stories', s: 'Done / Closed / Resolved',                        items: allStories.filter(s => spinIsDone(s.status)),     extra: null },
       behind:   { t: 'Behind Schedule',  s: 'Past sprint end, not done',                       items: allStories.filter(s => spinIsBehind(s)),           extra: (s) => `<span style="font-size:var(--fs-xs);color:var(--a4)">${esc(s.sprint ? sprintToSpin(s.sprint) : 'no sprint')}</span>` },
-      blocked:  { t: 'Blocked Stories',  s: 'Status = Blocked',                               items: allStories.filter(s => _snl(s.status) === 'blocked'), extra: null },
+      blocked:  { t: 'Blocked Stories',  s: 'Status = Blocked',                               items: allStories.filter(s => spinStatusCategory(s.status) === 'blocked'), extra: null },
     };
     const cfg = cfgMap[type];
     if (!cfg) return;
@@ -13108,7 +13124,7 @@ function spinColStoriesTable(stories, eid) {
     const total   = spStories.length;
     const done    = spStories.filter(s => spinIsDone(s.status)).length;
     const hasBehind  = spStories.some(s => spinIsBehind(s));
-    const hasBlocked = spStories.some(s => _snl(s.status) === 'blocked');
+    const hasBlocked = spStories.some(s => spinStatusCategory(s.status) === 'blocked');
     const rowCls = hasBlocked ? 'background:rgba(245,107,107,.04)' : hasBehind ? 'background:rgba(245,167,65,.04)' : '';
     const rowBodyId = `scspb-${eid}-${idx}`;
     const isCurrent = sprintLabel === 'Current';
@@ -13129,28 +13145,29 @@ function spinColStoriesTable(stories, eid) {
       const isDoneRow = spinIsDone(s.status);
       const link = spinKeyLink(s.key);
       const searchData = `data-searchable data-text="${esc((_snl(s.key)+' '+_snl(s.summary)+' '+_snl(s.status)).toLowerCase())}" data-status="${esc(s.status)}"`;
+      const blkCls = spinStatusCategory(s.status) === 'blocked' ? 'blocked' : behind ? 'behind' : '';
       if (isDoneRow) {
         html += `<tr class="done" style="background:var(--s3)" ${searchData}>
-          <td colspan="2" style="padding:4px 24px;overflow:hidden">
-            <div style="display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden;opacity:.6">
+          <td colspan="5" style="padding:4px 24px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:4px;min-width:0">
               ${spinIssueIcon(s.issueType, 11)}${link}
               <span style="color:var(--bd3);flex-shrink:0">·</span>
-              <span style="overflow:hidden;text-overflow:ellipsis;color:var(--di);font-size:var(--fs-sm)" title="${esc(s.summary)}">${esc(s.summary)}</span>
-              <span style="margin-left:auto;flex-shrink:0">${spinStatusBadge(s.status)}</span>
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--di);font-size:var(--fs-sm);flex:1;min-width:0" title="${esc(s.summary)}">${esc(s.summary)}</span>
+              <span style="flex-shrink:0;margin-left:4px">${spinStatusBadge(s.status)}</span>
             </div>
           </td>
-          <td style="text-align:right;font-size:var(--fs-sm);padding:4px 10px;color:var(--di);white-space:nowrap">${s.points || '—'}</td>
+          <td colspan="2" style="text-align:right;font-size:var(--fs-sm);padding:4px 10px;color:var(--di);white-space:nowrap">${s.points || '—'}</td>
         </tr>`;
       } else {
-        html += `<tr class="${_snl(s.status)==='blocked'?'blocked':behind?'behind':''}" style="background:var(--s3)" ${searchData}>
-          <td style="padding:6px 24px;overflow:hidden">
-            <div style="display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden">
+        html += `<tr class="${blkCls}" style="background:var(--s3)" ${searchData}>
+          <td colspan="4" style="padding:6px 24px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:4px;min-width:0">
               ${spinIssueIcon(s.issueType, 12)}${link}
               <span style="color:var(--bd3);flex-shrink:0">·</span>
-              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${behind?'var(--a4)':'var(--tx)'};font-size:var(--fs-sm)" title="${esc(s.summary)}">${behind?'<span class="behind-dot"></span>':''}${esc(s.summary)}</span>
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${behind?'var(--a4)':'var(--tx)'};font-size:var(--fs-sm);flex:1;min-width:0" title="${esc(s.summary)}">${behind?'<span class="behind-dot"></span>':''}${esc(s.summary)}</span>
             </div>
           </td>
-          <td style="padding:6px 10px;max-width:110px;overflow:hidden;white-space:nowrap" data-sort="${esc(s.status)}">${spinStatusBadge(s.status)}</td>
+          <td colspan="2" style="padding:6px 4px;overflow:hidden;white-space:nowrap" data-sort="${esc(s.status)}">${spinStatusBadge(s.status)}</td>
           <td style="text-align:right;font-size:var(--fs-sm);padding:6px 10px;white-space:nowrap" data-sort="${s.points||0}">${s.points || '—'}</td>
         </tr>`;
       }

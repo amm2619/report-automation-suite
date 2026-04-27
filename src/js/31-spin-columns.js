@@ -151,7 +151,7 @@ function spinColStoriesTable(stories, eid) {
     const total   = spStories.length;
     const done    = spStories.filter(s => spinIsDone(s.status)).length;
     const hasBehind  = spStories.some(s => spinIsBehind(s));
-    const hasBlocked = spStories.some(s => _snl(s.status) === 'blocked');
+    const hasBlocked = spStories.some(s => spinStatusCategory(s.status) === 'blocked');
     const rowCls = hasBlocked ? 'background:rgba(245,107,107,.04)' : hasBehind ? 'background:rgba(245,167,65,.04)' : '';
     const rowBodyId = `scspb-${eid}-${idx}`;
     const isCurrent = sprintLabel === 'Current';
@@ -172,28 +172,29 @@ function spinColStoriesTable(stories, eid) {
       const isDoneRow = spinIsDone(s.status);
       const link = spinKeyLink(s.key);
       const searchData = `data-searchable data-text="${esc((_snl(s.key)+' '+_snl(s.summary)+' '+_snl(s.status)).toLowerCase())}" data-status="${esc(s.status)}"`;
+      const blkCls = spinStatusCategory(s.status) === 'blocked' ? 'blocked' : behind ? 'behind' : '';
       if (isDoneRow) {
         html += `<tr class="done" style="background:var(--s3)" ${searchData}>
-          <td colspan="2" style="padding:4px 24px;overflow:hidden">
-            <div style="display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden;opacity:.6">
+          <td colspan="5" style="padding:4px 24px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:4px;min-width:0">
               ${spinIssueIcon(s.issueType, 11)}${link}
               <span style="color:var(--bd3);flex-shrink:0">·</span>
-              <span style="overflow:hidden;text-overflow:ellipsis;color:var(--di);font-size:var(--fs-sm)" title="${esc(s.summary)}">${esc(s.summary)}</span>
-              <span style="margin-left:auto;flex-shrink:0">${spinStatusBadge(s.status)}</span>
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--di);font-size:var(--fs-sm);flex:1;min-width:0" title="${esc(s.summary)}">${esc(s.summary)}</span>
+              <span style="flex-shrink:0;margin-left:4px">${spinStatusBadge(s.status)}</span>
             </div>
           </td>
-          <td style="text-align:right;font-size:var(--fs-sm);padding:4px 10px;color:var(--di);white-space:nowrap">${s.points || '—'}</td>
+          <td colspan="2" style="text-align:right;font-size:var(--fs-sm);padding:4px 10px;color:var(--di);white-space:nowrap">${s.points || '—'}</td>
         </tr>`;
       } else {
-        html += `<tr class="${_snl(s.status)==='blocked'?'blocked':behind?'behind':''}" style="background:var(--s3)" ${searchData}>
-          <td style="padding:6px 24px;overflow:hidden">
-            <div style="display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden">
+        html += `<tr class="${blkCls}" style="background:var(--s3)" ${searchData}>
+          <td colspan="4" style="padding:6px 24px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:4px;min-width:0">
               ${spinIssueIcon(s.issueType, 12)}${link}
               <span style="color:var(--bd3);flex-shrink:0">·</span>
-              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${behind?'var(--a4)':'var(--tx)'};font-size:var(--fs-sm)" title="${esc(s.summary)}">${behind?'<span class="behind-dot"></span>':''}${esc(s.summary)}</span>
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${behind?'var(--a4)':'var(--tx)'};font-size:var(--fs-sm);flex:1;min-width:0" title="${esc(s.summary)}">${behind?'<span class="behind-dot"></span>':''}${esc(s.summary)}</span>
             </div>
           </td>
-          <td style="padding:6px 10px;max-width:110px;overflow:hidden;white-space:nowrap" data-sort="${esc(s.status)}">${spinStatusBadge(s.status)}</td>
+          <td colspan="2" style="padding:6px 4px;overflow:hidden;white-space:nowrap" data-sort="${esc(s.status)}">${spinStatusBadge(s.status)}</td>
           <td style="text-align:right;font-size:var(--fs-sm);padding:6px 10px;white-space:nowrap" data-sort="${s.points||0}">${s.points || '—'}</td>
         </tr>`;
       }

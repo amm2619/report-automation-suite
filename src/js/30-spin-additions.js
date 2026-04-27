@@ -136,7 +136,7 @@ function renderSpinMatrixView() {
     });
     const done = stories.filter(s => spinIsDone(s.status)).length;
     const behind = stories.filter(s => spinIsBehind(s)).length;
-    const blocked = stories.filter(s => _snl(s.status) === 'blocked').length;
+    const blocked = stories.filter(s => spinStatusCategory(s.status) === 'blocked').length;
     const pct = stories.length ? Math.round(done / stories.length * 100) : 0;
     const byProj = {};
     const projKeys = [...new Set(S.spin.issues.map(i => i.project).filter(Boolean))];
@@ -163,7 +163,7 @@ function renderSpinMatrixView() {
   });
   const spinDone = allSpinStories.filter(s => spinIsDone(s.status)).length;
   const spinBehind = allSpinStories.filter(s => spinIsBehind(s)).length;
-  const spinBlocked = allSpinStories.filter(s => _snl(s.status) === 'blocked').length;
+  const spinBlocked = allSpinStories.filter(s => spinStatusCategory(s.status) === 'blocked').length;
   const spinPct = allSpinStories.length ? Math.round(spinDone / allSpinStories.length * 100) : 0;
   const pctCls = spinPct >= 67 ? 'c-green' : spinPct >= 34 ? 'c-amber' : 'c-red';
 
@@ -415,7 +415,7 @@ function spinDrilldown(type) {
       tierMap[t].total++;
       if (spinIsDone(s.status)) tierMap[t].done++;
       if (spinIsBehind(s)) tierMap[t].behind++;
-      if (_snl(s.status) === 'blocked') tierMap[t].blocked++;
+      if (spinStatusCategory(s.status) === 'blocked') tierMap[t].blocked++;
     });
     const sortedTiers = Object.entries(tierMap).sort((a, b) => a[1].rank - b[1].rank);
     body = sortedTiers.map(([tier, st]) => {
@@ -461,7 +461,7 @@ function spinDrilldown(type) {
       const st   = node ? spinCollectLeaves(node) : [];
       const done    = st.filter(s => spinIsDone(s.status)).length;
       const behind  = st.filter(s => spinIsBehind(s)).length;
-      const blocked = st.filter(s => _snl(s.status) === 'blocked').length;
+      const blocked = st.filter(s => spinStatusCategory(s.status) === 'blocked').length;
       const pct     = st.length ? Math.round(done / st.length * 100) : 0;
       const pctClr  = pct >= 67 ? 'var(--a3)' : pct >= 34 ? 'var(--a4)' : 'var(--a5)';
       return `<tr data-searchable data-text="${esc((prog.project+' '+prog.key+' '+prog.summary).toLowerCase())}">
@@ -491,7 +491,7 @@ function spinDrilldown(type) {
       stories:  { t: 'All Stories',     s: `${allStories.length} total`,                      items: allStories,                                       extra: null },
       complete: { t: 'Complete Stories', s: 'Done / Closed / Resolved',                        items: allStories.filter(s => spinIsDone(s.status)),     extra: null },
       behind:   { t: 'Behind Schedule',  s: 'Past sprint end, not done',                       items: allStories.filter(s => spinIsBehind(s)),           extra: (s) => `<span style="font-size:var(--fs-xs);color:var(--a4)">${esc(s.sprint ? sprintToSpin(s.sprint) : 'no sprint')}</span>` },
-      blocked:  { t: 'Blocked Stories',  s: 'Status = Blocked',                               items: allStories.filter(s => _snl(s.status) === 'blocked'), extra: null },
+      blocked:  { t: 'Blocked Stories',  s: 'Status = Blocked',                               items: allStories.filter(s => spinStatusCategory(s.status) === 'blocked'), extra: null },
     };
     const cfg = cfgMap[type];
     if (!cfg) return;
