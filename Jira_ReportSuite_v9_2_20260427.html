@@ -5488,24 +5488,16 @@ function runPMR(){
   const allUnmapped = [...unmatched, ...unmappedEpic];
   const umHtml = buildPmrUnmatchedPanel(unmatched, unmappedEpic);
 
-  // Inline roadmap editor panel — collapsible, lives inside the Report tab
+  // Roadmap editor — gets its own tab
   const roadmapEnabled = S.cfg.pmr_roadmap && S.cfg.pmr_roadmap.enabled;
-  const roadmapPanel = `<details class="r-card" style="margin-top:16px;border-left:3px solid var(--a4);cursor:default"${roadmapEnabled ? '' : ' open'}>
-    <summary style="cursor:pointer;font-weight:700;font-size:var(--fs-sm);color:var(--a4);user-select:none;display:flex;align-items:center;gap:8px;padding:4px 0">
-      <span class="mi" style="font-size:16px">route</span>
-      Integrated Milestone Roadmap
-      <span style="flex:1"></span>
-      <span style="font-size:var(--fs-xs);font-weight:400;color:var(--mu)">${roadmapEnabled ? 'Enabled' : 'Disabled'} &mdash; click to expand editor</span>
-    </summary>
-    <div style="margin-top:10px">
-      <div class="row" style="gap:6px;margin-bottom:10px">
-        <button class="btn btn-ghost btn-xs" onclick="exportPmrRoadmap()" title="Download roadmap milestones as JSON"><span class="mi" style="font-size:13px;margin-right:2px">download</span>Export Roadmap</button>
-        <button class="btn btn-ghost btn-xs" onclick="document.getElementById('pmr-roadmap-import-file').click()" title="Import roadmap milestones from JSON"><span class="mi" style="font-size:13px;margin-right:2px">upload</span>Import Roadmap</button>
-        <input type="file" id="pmr-roadmap-import-file" accept=".json" style="display:none" onchange="importPmrRoadmap(this)">
-      </div>
-      <div id="pmr-roadmap-editor-inline"></div>
+  const roadmapTabHtml = `<div style="padding:4px 0">
+    <div class="row" style="gap:6px;margin-bottom:10px">
+      <button class="btn btn-ghost btn-xs" onclick="exportPmrRoadmap()" title="Download roadmap milestones as JSON"><span class="mi" style="font-size:13px;margin-right:2px">download</span>Export Roadmap</button>
+      <button class="btn btn-ghost btn-xs" onclick="document.getElementById('pmr-roadmap-import-file').click()" title="Import roadmap milestones from JSON"><span class="mi" style="font-size:13px;margin-right:2px">upload</span>Import Roadmap</button>
+      <input type="file" id="pmr-roadmap-import-file" accept=".json" style="display:none" onchange="importPmrRoadmap(this)">
     </div>
-  </details>`;
+    <div id="pmr-roadmap-editor-inline"></div>
+  </div>`;
 
   const html=`
   <div class="rpt-frame" id="rptf2">
@@ -5523,10 +5515,12 @@ function runPMR(){
       </div>
       <div class="r-tabs r-tabs-sticky">
         <button class="r-tab active" onclick="switchRtab(this)">Report</button>
+        <button class="r-tab" onclick="switchRtab(this)">Integrated Roadmap</button>
         <button class="r-tab" onclick="switchRtab(this)">Debug</button>
         <button class="r-tab" onclick="switchRtab(this)">Unmatched (${unmatched.length + unmappedEpic.length})</button>
       </div>
-      <div class="r-panel active">${reportHtml}${roadmapPanel}</div>
+      <div class="r-panel active">${reportHtml}</div>
+      <div class="r-panel">${roadmapTabHtml}</div>
       <div class="r-panel">${dbgHtml}</div>
       <div class="r-panel">${umHtml}</div>
     </div>
@@ -5620,14 +5614,23 @@ function renderSlide(header,subheaders,layout,base,isGroup){
   const ctx=sid.replace(/^pmr-slide-/,''); // stable slug derived from slide header; passed down explicitly
   // blufBox hoisted here — single definition shared by all layout branches
   const blufBox=(slug)=>`<div class="bluf-field pmr-bluf" id="pmrbluf-${slug}" contenteditable="true" data-pmr-bluf="${slug}" data-placeholder="Enter narrative..." style="margin:4px 0 10px"></div>`;
-  // AI prompt button — store the topic's tickets so copyPmrAiPrompt can read them
+  // AI prompt buttons — one per project so the SE for each project gets
+  // their own scoped prompt. Store tickets grouped by project.
   const allTix = subheaders.flatMap(s => s.tickets);
   if (!S._pmrSlideTickets) S._pmrSlideTickets = {};
   S._pmrSlideTickets[sid] = allTix;
-  const aiBtn = (S.cfg.pmr_ai_prompt_enabled !== false && allTix.length)
-    ? `<button class="btn btn-ghost btn-xs" style="margin-left:auto;flex-shrink:0" onclick="copyPmrAiPrompt('${esc(sid)}')" title="Copy AI prompt + tickets to clipboard"><span class="mi" style="font-size:13px;margin-right:2px">auto_awesome</span>AI</button>`
-    : '';
-  let html=`<div class="slide" id="${sid}" data-pmr-layout="${esc(layout||'simple_list')}"><div style="display:flex;align-items:center;gap:6px"><h2 style="margin:0">(U) ${esc(header)}</h2>${aiBtn}</div>`;
+  let aiBtns = '';
+  if (S.cfg.pmr_ai_prompt_enabled !== false && allTix.length) {
+    const projsInSlide = [...new Set(allTix.map(t => t.project_bucket).filter(Boolean))].sort();
+    if (projsInSlide.length <= 1) {
+      aiBtns = `<button class="btn btn-ghost btn-xs" style="flex-shrink:0" onclick="copyPmrAiPrompt('${esc(sid)}')" title="Copy AI prompt + tickets to clipboard"><span class="mi" style="font-size:13px;margin-right:2px">auto_awesome</span>AI</button>`;
+    } else {
+      aiBtns = projsInSlide.map(p =>
+        `<button class="btn btn-ghost btn-xs" style="flex-shrink:0" onclick="copyPmrAiPrompt('${esc(sid)}','${esc(p)}')" title="Copy AI prompt for ${esc(p)} tickets"><span class="mi" style="font-size:13px;margin-right:2px">auto_awesome</span>${esc(p)}</button>`
+      ).join('');
+    }
+  }
+  let html=`<div class="slide" id="${sid}" data-pmr-layout="${esc(layout||'simple_list')}"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><h2 style="margin:0">(U) ${esc(header)}</h2><span style="flex:1"></span>${aiBtns}</div>`;
   // Top-level narrative box always present — appears below the slide title
   html+=blufBox(ctx);
   // feature_improvement_bug and mission_support_other layouts: always pool tickets,
@@ -5791,13 +5794,17 @@ async function copyPmrUnmatched(proj) {
 }
 
 // Copy the AI prompt + ticket list for a PMR topic slide to clipboard.
-async function copyPmrAiPrompt(slideId) {
-  const tickets = S._pmrSlideTickets && S._pmrSlideTickets[slideId];
+// Optional project filter scopes to a single project's tickets.
+async function copyPmrAiPrompt(slideId, project) {
+  let tickets = S._pmrSlideTickets && S._pmrSlideTickets[slideId];
   if (!tickets || !tickets.length) return;
+  if (project) tickets = tickets.filter(t => t.project_bucket === project);
+  if (!tickets.length) return;
   const prompt = S.cfg.pmr_ai_prompt || '';
   const slideEl = document.getElementById(slideId);
   const header = slideEl ? (slideEl.querySelector('h2')?.textContent || '').replace(/^\(U\)\s*/i, '').trim() : slideId;
-  const lines = [`Topic: ${header}`, '', 'Tickets this reporting period:'];
+  const scope = project ? ` (${project})` : '';
+  const lines = [`Topic: ${header}${scope}`, '', 'Tickets this reporting period:'];
   tickets.forEach(t => {
     lines.push(`- ${t.issue_key}: ${t.summary} [${t.status}] (${t.story_points || 0} pts)`);
   });
