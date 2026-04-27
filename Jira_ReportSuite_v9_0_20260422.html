@@ -5463,6 +5463,25 @@ function runPMR(){
   const dbgHtml=eosDebugTable(allTraces,'pdbg');
   const umHtml=unmatchedPanel(unmatched,'PMR','um-pmr');
 
+  // Inline roadmap editor panel — collapsible, lives inside the Report tab
+  const roadmapEnabled = S.cfg.pmr_roadmap && S.cfg.pmr_roadmap.enabled;
+  const roadmapPanel = `<details class="r-card" style="margin-top:16px;border-left:3px solid var(--a4);cursor:default"${roadmapEnabled ? '' : ' open'}>
+    <summary style="cursor:pointer;font-weight:700;font-size:var(--fs-sm);color:var(--a4);user-select:none;display:flex;align-items:center;gap:8px;padding:4px 0">
+      <span class="mi" style="font-size:16px">route</span>
+      Integrated Milestone Roadmap
+      <span style="flex:1"></span>
+      <span style="font-size:var(--fs-xs);font-weight:400;color:var(--mu)">${roadmapEnabled ? 'Enabled' : 'Disabled'} &mdash; click to expand editor</span>
+    </summary>
+    <div style="margin-top:10px">
+      <div class="row" style="gap:6px;margin-bottom:10px">
+        <button class="btn btn-ghost btn-xs" onclick="exportPmrRoadmap()" title="Download roadmap milestones as JSON"><span class="mi" style="font-size:13px;margin-right:2px">download</span>Export Roadmap</button>
+        <button class="btn btn-ghost btn-xs" onclick="document.getElementById('pmr-roadmap-import-file').click()" title="Import roadmap milestones from JSON"><span class="mi" style="font-size:13px;margin-right:2px">upload</span>Import Roadmap</button>
+        <input type="file" id="pmr-roadmap-import-file" accept=".json" style="display:none" onchange="importPmrRoadmap(this)">
+      </div>
+      <div id="pmr-roadmap-editor-inline"></div>
+    </div>
+  </details>`;
+
   const html=`
   <div class="rpt-frame" id="rptf2">
     ${buildRptBar({icon:'bar_chart',iconColor:'var(--a4)',title:'PMR',
@@ -5482,7 +5501,7 @@ function runPMR(){
         <button class="r-tab" onclick="switchRtab(this)">Debug</button>
         <button class="r-tab" onclick="switchRtab(this)">Unmatched (${unmatched.length})</button>
       </div>
-      <div class="r-panel active">${reportHtml}</div>
+      <div class="r-panel active">${reportHtml}${roadmapPanel}</div>
       <div class="r-panel">${dbgHtml}</div>
       <div class="r-panel">${umHtml}</div>
     </div>
@@ -5492,7 +5511,83 @@ function runPMR(){
   S.reportHtml.pmr=html;
   autoSaveDraft('pmr');
   checkDraftAndRestore('pmr');
+  // Populate the inline roadmap editor (reuses the same render function
+  // as the Settings page, but targets a different container ID).
+  const inlineRoadmapEl = document.getElementById('pmr-roadmap-editor-inline');
+  if (inlineRoadmapEl) {
+    renderPmrRoadmapEditorInto(inlineRoadmapEl);
+  }
   const _pdg=document.getElementById('pmr-dl-group'); if(_pdg) _pdg.style.display='flex';
+}
+
+// Render the roadmap editor into a specific container element (for inline
+// use in the PMR report, separate from the Settings page instance).
+function renderPmrRoadmapEditorInto(el) {
+  if (!el) return;
+  // Temporarily swap the target element ID so renderPmrRoadmapEditor
+  // writes into our container instead of the settings one.
+  const origId = 'pmr-roadmap-editor';
+  el.id = origId;
+  renderPmrRoadmapEditor();
+  el.id = 'pmr-roadmap-editor-inline';
+}
+
+// Export the entire pmr_roadmap config as a JSON file.
+function exportPmrRoadmap() {
+  const data = S.cfg.pmr_roadmap;
+  if (!data) { alert('No roadmap data to export.'); return; }
+  const json = JSON.stringify(data, null, 2);
+  const a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+  const d = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  a.download = 'pmr_roadmap_' + d + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+// Import a previously exported roadmap JSON. Merges milestones: imported
+// items overwrite by ID, new IDs are appended, existing IDs not in the
+// import are kept. Slide configs are replaced entirely.
+function importPmrRoadmap(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  input.value = '';
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!imported || typeof imported !== 'object') { alert('Invalid roadmap JSON.'); return; }
+      const roadmap = S.cfg.pmr_roadmap;
+      if (!roadmap) { alert('No roadmap config — run the PMR first.'); return; }
+      // Replace slide definitions
+      if (Array.isArray(imported.slides) && imported.slides.length) {
+        roadmap.slides = imported.slides;
+      }
+      // Merge milestones: imported wins on ID match, new IDs appended
+      if (Array.isArray(imported.milestones)) {
+        const byId = {};
+        (roadmap.milestones || []).forEach(m => { byId[m.id] = m; });
+        imported.milestones.forEach(m => {
+          if (byId[m.id]) {
+            Object.assign(byId[m.id], m);
+          } else {
+            roadmap.milestones.push(m);
+          }
+        });
+      }
+      // Copy scalar fields
+      if (typeof imported.enabled === 'boolean') roadmap.enabled = imported.enabled;
+      if (typeof imported.seedVersion === 'number') roadmap.seedVersion = imported.seedVersion;
+      autoSaveCfg();
+      // Re-render both editor instances if they exist
+      renderPmrRoadmapEditor();
+      const inlineEl = document.getElementById('pmr-roadmap-editor-inline');
+      if (inlineEl) renderPmrRoadmapEditorInto(inlineEl);
+      alert('Roadmap imported: ' + (imported.milestones || []).length + ' milestones, ' + (imported.slides || []).length + ' slide(s).');
+    } catch(err) {
+      alert('Failed to parse roadmap JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
 }
 
 function renderSlide(header,subheaders,layout,base,isGroup){
