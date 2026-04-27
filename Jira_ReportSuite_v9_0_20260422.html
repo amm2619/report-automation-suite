@@ -9281,10 +9281,68 @@ function openGuide(){
             </ol>
           </div>
           <p>Tickets appear in the PMR only if they were in a sprint that overlapped the selected month AND were updated/resolved within that month.</p>
-          <p><strong>Download PPTX</strong> generates a formatted PowerPoint matching the BAMBOOTIGER template &mdash; title slide, agenda, and layout-specific content slides (feature/improvement/bug, project split, mission support).</p>
-    <li>Open in PowerPoint. The topic content slides are formatted — add any remaining deck slides (kudos, actions, tier dividers, roadmap, closing) from your master template.</li>
-  </ol>
-          <p style="font-size:var(--fs-xs);color:var(--mu)">The <strong>Integrated Milestone Roadmap</strong> slide is configured in Settings &rarr; PMR. Seed milestones from the spin plan, curate per-slide, preview as SVG, and it exports to the PPTX automatically.</p>
+          <p><strong>Download PPTX</strong> generates a formatted PowerPoint matching the BAMBOOTIGER template &mdash; title slide, agenda, and layout-specific content slides.</p>
+
+          <!-- Integrated Milestone Roadmap — dedicated expandable walkthrough -->
+          <details style="background:var(--s3);border:1px solid var(--a4b);border-left:3px solid var(--a4);border-radius:var(--r2);margin:14px 0;overflow:hidden">
+            <summary style="padding:12px 18px;cursor:pointer;font-weight:700;font-size:var(--fs-sm);color:var(--a4);user-select:none;display:flex;align-items:center;gap:8px">
+              <span class="mi" style="font-size:16px">route</span>
+              How the Integrated Milestone Roadmap works
+            </summary>
+            <div style="padding:4px 18px 18px;font-size:var(--fs-sm);line-height:1.8;color:var(--tx)">
+
+              <p style="color:var(--mu);margin:8px 0 12px">The roadmap slide shows your program milestones on a timeline organized by tier (T0, T1, T2, T3). It pulls data from your spin plan CSV and lets you pick which milestones to show on the slide. Here's how to set it up:</p>
+
+              <div style="font-weight:700;color:var(--a4);margin:12px 0 8px">Step 1: Load your Roadmap CSV</div>
+              <p style="margin:0 0 4px">Drop your Jira Plans / Roadmap CSV onto the file bar. This is the same file the Spin Plan uses. It needs:</p>
+              <ul style="margin:0 0 12px;padding-left:18px">
+                <li>A <code>Hierarchy</code> column (Strategy, Program, Initiative, Epic, etc.)</li>
+                <li>A <code>Target end date</code> column (this becomes the milestone date)</li>
+                <li>A <code>Parent</code> column (keys or title text — both work)</li>
+              </ul>
+
+              <div style="font-weight:700;color:var(--a4);margin:12px 0 8px">Step 2: Open the Roadmap Editor</div>
+              <p style="margin:0 0 4px">Go to <strong>Settings &rarr; PMR &rarr; Integrated Milestone Roadmap</strong> (scroll to the bottom of the PMR settings page).</p>
+              <p style="margin:0 0 12px">Click <strong>Re-seed from Spin Plan</strong>. This imports every Epic and Program row that has a target end date. Each becomes a milestone.</p>
+
+              <div style="font-weight:700;color:var(--a4);margin:12px 0 8px">Step 3: Curate your milestones</div>
+              <p style="margin:0 0 4px">The milestone table shows everything that was imported. For each milestone you can:</p>
+              <ul style="margin:0 0 4px;padding-left:18px">
+                <li><strong>Check/uncheck S1</strong> &mdash; controls whether it appears on the overview slide</li>
+                <li><strong>Change the Tier</strong> &mdash; if the auto-detected tier is wrong (it reads from the parent chain)</li>
+                <li><strong>Change the Date</strong> &mdash; override the target end date</li>
+                <li><strong>Change the Status</strong> &mdash; gray (not started), green (in progress), blue (complete), red (blocked)</li>
+                <li><strong>Edit the Label</strong> &mdash; what text shows on the diamond</li>
+              </ul>
+              <p style="font-size:var(--fs-xs);color:var(--mu);margin:4px 0 12px">Gold dots next to a field mean you've manually edited it &mdash; re-seeding won't overwrite your changes.</p>
+
+              <div style="font-weight:700;color:var(--a4);margin:12px 0 8px">Step 4: Configure the slide</div>
+              <ul style="margin:0 0 12px;padding-left:18px">
+                <li><strong>Title</strong> &mdash; the slide header text</li>
+                <li><strong>From / To</strong> &mdash; which months to show (e.g., Jan 2026 &ndash; Dec 2026)</li>
+                <li><strong>Tiers</strong> &mdash; which tier rows to include (T0, T1, T2, T3)</li>
+                <li><strong>Emphasize</strong> &mdash; one tier gets a taller row (default: T1)</li>
+              </ul>
+              <p style="margin:0 0 12px">Optionally click <strong>Add Zoomed Slide</strong> to create a second slide with a tighter date range (e.g., Mar&ndash;Jul).</p>
+
+              <div style="font-weight:700;color:var(--a4);margin:12px 0 8px">Step 5: Preview and generate</div>
+              <p style="margin:0 0 4px">The <strong>Preview</strong> at the bottom of the editor shows a live SVG of your slide. Toggle milestones on/off and it updates instantly.</p>
+              <p style="margin:0 0 4px">When you run the PMR report, the roadmap slide(s) appear before the first Tier 1 topic in the report.</p>
+              <p style="margin:0 0 12px">Click <strong>Download PPTX</strong> and the roadmap slide is included in the deck with diamond-shaped milestones, a Next Steps panel, and a status legend.</p>
+
+              <div style="background:var(--s2);border:1px solid var(--bd);border-radius:var(--r2);padding:10px 14px;margin-top:8px">
+                <div style="font-weight:600;font-size:var(--fs-xs);color:var(--mu);margin-bottom:6px">What the diamonds mean</div>
+                <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:var(--fs-xs)">
+                  <span><span style="display:inline-block;width:10px;height:10px;background:#8899BB;transform:rotate(45deg);margin-right:4px"></span>Not started</span>
+                  <span><span style="display:inline-block;width:10px;height:10px;background:#0A7A4A;transform:rotate(45deg);margin-right:4px"></span>In progress</span>
+                  <span><span style="display:inline-block;width:10px;height:10px;background:#0060B0;transform:rotate(45deg);margin-right:4px"></span>Complete</span>
+                  <span><span style="display:inline-block;width:10px;height:10px;background:#C0392B;transform:rotate(45deg);margin-right:4px"></span>Blocked</span>
+                </div>
+                <div style="font-size:var(--fs-xs);color:var(--mu);margin-top:6px">The letter inside each diamond is the product: <strong>D</strong>=DataXplorer, <strong>L</strong>=LinkXplorer, <strong>R</strong>=Rollercoaster</div>
+              </div>
+
+            </div>
+          </details>
 
           <!-- ════════ SPRINT PLAN ════════ -->
           <div id="guide-sprint" style="scroll-margin-top:12px"></div>
