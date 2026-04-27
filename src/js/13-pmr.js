@@ -153,7 +153,7 @@ function runPMR(){
       const allTix=subheaders.flatMap(s=>s.tickets);
       if(allTix.length){
         const layout=S.cfg.pmr_layouts[gid]||'simple_list';
-        slidesHtml+=renderSlide(g.header,subheaders,layout,base,true);
+        slidesHtml+=renderSlide(g.header,subheaders,layout,base,true,gid);
       }
     } else {
       if(groupIds.has(t.topic_id)) return;
@@ -163,7 +163,7 @@ function runPMR(){
       agendaItems+='<li class="'+(has?'has':'nstr')+'">'+tLink+'</li>';
       if(has){
         const layout=S.cfg.pmr_layouts[t.topic_id]||t.slide_type||'simple_list';
-        slidesHtml+=renderSlide(t.header,[{header:t.header,tickets:tix}],layout,base,false);
+        slidesHtml+=renderSlide(t.header,[{header:t.header,tickets:tix}],layout,base,false,t.topic_id);
       }
     }
   });
@@ -324,7 +324,7 @@ function openRoadmapEditor() {
   if (el) renderPmrRoadmapEditorInto(el);
 }
 
-function renderSlide(header,subheaders,layout,base,isGroup){
+function renderSlide(header,subheaders,layout,base,isGroup,layoutKey){
   const sid=slideSlug(header);
   const ctx=sid.replace(/^pmr-slide-/,''); // stable slug derived from slide header; passed down explicitly
   // blufBox hoisted here — single definition shared by all layout branches
@@ -345,7 +345,13 @@ function renderSlide(header,subheaders,layout,base,isGroup){
       ).join('');
     }
   }
-  let html=`<div class="slide" id="${sid}" data-pmr-layout="${esc(layout||'simple_list')}"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><h2 style="margin:0">(U) ${esc(header)}</h2><span style="flex:1"></span>${aiBtns}</div>`;
+  // Layout picker dropdown — lets the user switch slide type without going to Settings
+  const layoutOpts = ['simple_list','feature_improvement_bug','project_split_3','project_split_2','mission_support_other'];
+  const layoutLabels = {simple_list:'Simple List',feature_improvement_bug:'Feature/Improvement/Bug',project_split_3:'Project Split (3)',project_split_2:'Project Split (2)',mission_support_other:'Mission Support Grid'};
+  const layoutSel = layoutKey
+    ? `<select class="pmr-layout-sel" style="font-size:10px;padding:2px 6px;background:var(--s3);border:1px solid var(--bd);color:var(--mu);border-radius:3px;cursor:pointer;flex-shrink:0" onchange="pmrSwitchLayout('${esc(layoutKey)}',this.value)" title="Change slide layout">${layoutOpts.map(o=>'<option value="'+o+'"'+(o===layout?' selected':'')+'>'+layoutLabels[o]+'</option>').join('')}</select>`
+    : '';
+  let html=`<div class="slide" id="${sid}" data-pmr-layout="${esc(layout||'simple_list')}"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><h2 style="margin:0">(U) ${esc(header)}</h2><span style="flex:1"></span>${layoutSel}${aiBtns}</div>`;
   // Near-Future Tasks box — editable field that maps to the dark panel on the right side of the PPTX slide
   html+=`<div style="margin:8px 0 6px"><div class="bluf-label" style="color:var(--a4)">Near-Future Tasks</div>${blufBox(ctx+'-nearfuture')}</div>`;
   // feature_improvement_bug and mission_support_other layouts: always pool tickets,
@@ -363,6 +369,125 @@ function renderSlide(header,subheaders,layout,base,isGroup){
   }
   return html+'</div>';
 }
+// ── Slide Template Editor ─────────────────────────────────
+// Opens as an overlay from Tools. Lets users tweak the geometry
+// values that drive PPTX rendering, export/import as JSON.
+function openSlideTemplateEditor() {
+  let overlay = document.getElementById('slide-tpl-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'slide-tpl-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center';
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+  }
+  const tpl = S.cfg.pmr_slide_templates || {};
+  const sections = [
+    { key: 'feature_improvement_bug', label: 'Feature / Improvement / Bug' },
+    { key: 'project_split',           label: 'Project Split (DX/LX/RC)' },
+    { key: 'mission_support',         label: 'Mission Support Grid' },
+    { key: 'simple_list',             label: 'Simple List' },
+    { key: 'near_future',             label: 'Near-Future Panel' },
+    { key: 'global',                  label: 'Global Defaults' },
+  ];
+  const labels = {
+    leftWidthPct:'Left card width %', rightGap:'Right gap (in)', cardBorder:'Border (pt)',
+    narFontSize:'Narrative font', labelFontSize:'Label font', tagW:'Tag width (in)',
+    tagGap:'Tag gap (in)', rowGap:'Row gap (in)', codeFontSize:'Code font', nameFontSize:'Name font',
+    colGap:'Column gap (in)', headerH:'Header height (in)', headerFontSize:'Header font',
+    panelW:'Panel width (in)', panelGap:'Panel gap (in)', titleFontSize:'Title font',
+    bodyFontSize:'Body font', bulletGap:'Bullet gap (in)', headerFontSize:'Header font',
+    bodyBg:'Background color', cardBg:'Card color'
+  };
+  let html = sections.map(sec => {
+    const vals = tpl[sec.key] || {};
+    const fields = Object.entries(vals).map(([k, v]) => {
+      const isColor = typeof v === 'string' && /^[0-9A-Fa-f]{6}$/.test(v);
+      const input = isColor
+        ? `<input type="text" value="${esc(v)}" data-tpl-section="${sec.key}" data-tpl-field="${k}" style="width:80px;font-size:var(--fs-xs);font-family:var(--mono)">`
+        : `<input type="number" value="${v}" step="0.01" data-tpl-section="${sec.key}" data-tpl-field="${k}" style="width:80px;font-size:var(--fs-xs);font-family:var(--mono)">`;
+      return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0"><span style="font-size:var(--fs-xs);color:var(--mu);min-width:130px">${labels[k]||k}</span>${input}</div>`;
+    }).join('');
+    return `<div style="margin-bottom:14px"><div style="font-weight:600;font-size:var(--fs-sm);color:var(--a1);margin-bottom:6px;border-bottom:1px solid var(--bd);padding-bottom:4px">${sec.label}</div>${fields}</div>`;
+  }).join('');
+
+  overlay.innerHTML = `
+    <div style="background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);width:min(600px,96vw);max-height:93vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--bd);flex-shrink:0">
+        <span style="font-weight:700;color:var(--tx);font-size:var(--fs-lg)"><span class="mi" style="font-size:18px;margin-right:8px;vertical-align:middle">slideshow</span>Slide Templates</span>
+        <div class="row" style="gap:6px">
+          <button class="btn btn-ghost btn-xs" onclick="exportSlideTemplates()"><span class="mi" style="font-size:13px;margin-right:2px">download</span>Export</button>
+          <button class="btn btn-ghost btn-xs" onclick="document.getElementById('slide-tpl-import').click()"><span class="mi" style="font-size:13px;margin-right:2px">upload</span>Import</button>
+          <input type="file" id="slide-tpl-import" accept=".json" style="display:none" onchange="importSlideTemplates(this)">
+          <button class="btn btn-ghost btn-xs" onclick="resetSlideTemplates()"><span class="mi" style="font-size:13px;margin-right:2px">restart_alt</span>Reset</button>
+          <button onclick="document.getElementById('slide-tpl-overlay').remove()" style="background:none;border:none;color:var(--mu);font-size:18px;cursor:pointer;padding:2px 8px">✕</button>
+        </div>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:20px" id="slide-tpl-body">${html}</div>
+      <div style="padding:12px 20px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:8px">
+        <span id="slide-tpl-status" style="flex:1;font-size:var(--fs-xs);color:var(--a3)"></span>
+        <button class="btn btn-primary btn-sm" onclick="saveSlideTemplates()">Save</button>
+      </div>
+    </div>`;
+  overlay.style.display = 'flex';
+}
+
+function saveSlideTemplates() {
+  const tpl = S.cfg.pmr_slide_templates || {};
+  document.querySelectorAll('[data-tpl-section]').forEach(inp => {
+    const sec = inp.dataset.tplSection;
+    const fld = inp.dataset.tplField;
+    if (!tpl[sec]) tpl[sec] = {};
+    const v = inp.value.trim();
+    tpl[sec][fld] = isNaN(Number(v)) ? v : Number(v);
+  });
+  S.cfg.pmr_slide_templates = tpl;
+  autoSaveCfg();
+  const st = document.getElementById('slide-tpl-status');
+  if (st) { st.textContent = 'Saved'; setTimeout(() => { st.textContent = ''; }, 2000); }
+}
+
+function exportSlideTemplates() {
+  const json = JSON.stringify(S.cfg.pmr_slide_templates || {}, null, 2);
+  const a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+  a.download = 'pmr_slide_templates.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+function importSlideTemplates(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  input.value = '';
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      S.cfg.pmr_slide_templates = imported;
+      autoSaveCfg();
+      document.getElementById('slide-tpl-overlay')?.remove();
+      openSlideTemplateEditor();
+    } catch(err) { alert('Invalid JSON: ' + err.message); }
+  };
+  reader.readAsText(file);
+}
+
+function resetSlideTemplates() {
+  if (!confirm('Reset all slide templates to defaults?')) return;
+  delete S.cfg.pmr_slide_templates;
+  autoSaveCfg();
+  document.getElementById('slide-tpl-overlay')?.remove();
+  openSlideTemplateEditor();
+}
+
+// Switch a slide's layout and re-run the PMR report.
+function pmrSwitchLayout(layoutKey, newLayout) {
+  if (!layoutKey || !newLayout) return;
+  S.cfg.pmr_layouts[layoutKey] = newLayout;
+  autoSaveCfg();
+  if (typeof runPMR === 'function') runPMR();
+}
+
 // Ticket list with a move-to dropdown for feature_improvement_bug slides.
 function pmrTicketListWithMove(tickets, base, currentSection) {
   if (!tickets.length) return '<div class="nstr">NSTR</div>';

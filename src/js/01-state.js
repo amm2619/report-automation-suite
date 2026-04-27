@@ -106,6 +106,51 @@ const S = {
     eos_ai_prompt: 'You are summarizing Jira tickets for a government contract sprint review briefing. Create a summary that is easy to read out loud. Use a single paragraph, less than 300 words. Do not include ticket numbers. Combine similar tasks into cohesive statements. Every sentence must start with the portion marking (U).\n\nFor completed work, start with: "(U) During this sprint, the team..."\nFor planned work, start with: "(U) For the next sprint, the team plans to..."',
     pmr_ai_prompt_enabled: true,
     pmr_ai_prompt: 'You are writing the narrative section of a monthly Program Management Review (PMR) for a government contract. For each topic below, write a concise 2-3 sentence paragraph summarizing the work completed this reporting period. Write in past tense, third person ("the team"). Focus on outcomes and progress, not individual tickets. Combine related work into cohesive statements. Do not mention ticket numbers. Start every sentence with the portion marking (U). If a topic has no completed work, write "(U) No reportable activity this period."',
+    // Slide template geometry — editable via Tools → Slide Templates.
+    // Each layout type has its own set of dimensions (inches). The PPTX
+    // helpers read from here instead of hardcoded constants.
+    pmr_slide_templates: {
+      feature_improvement_bug: {
+        leftWidthPct: 0.58,   // left card width as % of content area
+        rightGap: 0.15,       // gap between left and right cards
+        cardBorder: 0.75,     // border width in pt
+        narFontSize: 13,      // narrative text font size
+        labelFontSize: 11,    // section label font size
+      },
+      project_split: {
+        tagW: 1.10,           // product tag block width
+        tagGap: 0.08,         // gap between tag and narrative card
+        rowGap: 0.18,         // gap between product rows
+        narFontSize: 13,
+        codeFontSize: 26,     // DX/LX/RC big letter
+        nameFontSize: 10,     // DataXplorer/LinkXplorer text
+      },
+      mission_support: {
+        tagW: 1.10,
+        colGap: 0.05,         // gap between column cells
+        rowGap: 0.04,
+        headerH: 0.30,        // column header height
+        narFontSize: 11,
+        headerFontSize: 9,
+      },
+      simple_list: {
+        narFontSize: 13,
+        labelFontSize: 11,
+        cardBorder: 0.75,
+      },
+      near_future: {
+        panelW: 2.67,         // near-future panel width
+        panelGap: 0.26,       // gap between content and panel
+        titleFontSize: 10,
+        bodyFontSize: 10,
+        bulletGap: 0.78,      // vertical spacing between bullets
+      },
+      global: {
+        headerFontSize: 22,   // slide title
+        bodyBg: 'F7F5F1',     // slide background
+        cardBg: 'FFFFFF',     // card fill
+      }
+    },
     pmr_title: '(U) Xplorer Suite PMR',
     pmr_groups: [
       { group_id: 'dx_modernization', header: 'Tier 1: Priority 2: Tool Modernization: DX', topic_ids: ['dx4','dx_improvements'] },
