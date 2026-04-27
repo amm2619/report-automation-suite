@@ -4909,12 +4909,15 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
   topics.forEach((topic,tidx)=>{
     const curr=results[topic.header].current;
     const futt=results[topic.header].future;
+    const isEmpty = !curr.length && !futt.length;
+    // Skip NSTR topics entirely when the user has toggled them off
+    if (isEmpty && S.cfg.eos_hide_empty_topics) return;
     lines.push(`h2. (U) ${topic.header}`);
-    if(!curr.length&&!futt.length){ lines.push('* (U) Summary: _NSTR for this period_',''); return; }
+    if (isEmpty) { lines.push('_NSTR for this period_',''); return; }
     const topicSlug=`bluf-eos-${proj.toLowerCase()}-${tidx}`;
     const summaryEl=document.getElementById(topicSlug);
-    const summaryTxt=(summaryEl&&summaryEl.innerText.trim())||'TBD';
-    lines.push(`(U) Summary: ${summaryTxt}`,'');
+    const summaryTxt=(summaryEl&&summaryEl.innerText.trim())||'';
+    if (summaryTxt) lines.push(`(U) Summary: ${summaryTxt}`,'');
     if(curr.length) lines.push('h3. (U) Current Sprint Tickets','', tableFromEpics(curr,cur),'');
     if(futt.length) lines.push('h3. (U) Future Sprint Tickets','', tableFromEpics(futt,fut),'');
   });
@@ -6619,14 +6622,53 @@ function openEOSConfluencePicker() {
   const texts = S.eosConfluenceTexts || {};
   const available = Object.keys(texts);
   if (!available.length) { alert('Run the EOS report first.'); return; }
-  openConfluencePicker({
-    overlayId: 'eos-conf-picker',
-    checkboxPrefix: 'eosc-',
-    statusId: 'eosc-copy-status',
-    copyBtnId: 'eosc-copy-btn',
-    available,
-    label: 'Choose which projects to include in the copied markup.',
-    getMarkup: chosen => chosen.map(p => `=== ${p} ===\n${texts[p]||''}`).join('\n\n').trim(),
+
+  // Build the picker with an extra toggle for empty topics
+  let overlay = document.getElementById('eos-conf-picker');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'eos-conf-picker';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center';
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.style.display = 'none'; });
+    document.body.appendChild(overlay);
+  }
+  const checkboxes = available.map(p =>
+    `<label style="display:flex;align-items:center;gap:8px;padding:7px 0;cursor:pointer;font-size:var(--fs-sm)">
+      <input type="checkbox" id="eosc-${p}" checked style="width:14px;height:14px;accent-color:var(--a1)">
+      ${esc(p)}
+    </label>`
+  ).join('');
+  const hideEmpty = S.cfg.eos_hide_empty_topics || false;
+  overlay.innerHTML = `
+    <div style="background:var(--s2);border:1px solid var(--bd2);border-radius:var(--r);width:min(400px,92vw);padding:24px;display:flex;flex-direction:column;gap:14px">
+      <div style="font-weight:600;font-size:var(--fs-base);color:var(--tx)">Copy for Confluence</div>
+      <div class="u-muted-xs">Choose which projects to include in the copied markup.</div>
+      <div style="border:1px solid var(--bd);border-radius:var(--r2);padding:4px 12px">${checkboxes}</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-xs);color:var(--mu);cursor:pointer">
+        <input type="checkbox" id="eosc-hide-empty" ${hideEmpty?'checked':''} style="width:14px;height:14px;accent-color:var(--a1)">
+        Exclude empty (NSTR) topics
+      </label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('eos-conf-picker').style.display='none'">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="eosc-copy-btn">
+          <span class="mi" style="font-size:14px;margin-right:4px">content_copy</span>Copy
+        </button>
+      </div>
+      <div id="eosc-copy-status" style="font-size:var(--fs-xs);color:var(--a3);min-height:16px;text-align:right"></div>
+    </div>`;
+  overlay.style.display = 'flex';
+  document.getElementById('eosc-copy-btn').addEventListener('click', async function() {
+    const chosen = available.filter(p => document.getElementById('eosc-' + p)?.checked);
+    if (!chosen.length) { alert('Select at least one project.'); return; }
+    // Read the toggle and persist + regenerate if changed
+    const wantHide = !!document.getElementById('eosc-hide-empty')?.checked;
+    if (wantHide !== (S.cfg.eos_hide_empty_topics || false)) {
+      S.cfg.eos_hide_empty_topics = wantHide;
+      autoSaveCfg();
+      refreshEOSConfluenceTexts();
+    }
+    const markup = chosen.map(p => texts[p] || '').join('\n\n').trim();
+    await copyTextWithFallback(markup, document.getElementById('eosc-copy-status'), 2500);
   });
 }
 
