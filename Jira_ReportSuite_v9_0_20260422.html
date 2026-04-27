@@ -9064,6 +9064,7 @@ function buildGuideNav(overlay) {
     { id:'sprint',    label:'Sprint Plan/Report' },
     { id:'pmr',       label:'PMR' },
     { id:'spin',      label:'Spin Plan' },
+    { id:'velocity',  label:'Sprint Velocity' },
     { id:'topics',    label:'Topics' },
     { id:'people',    label:'Excluded People' },
     { id:'overrides', label:'Rule Overrides' },
@@ -9236,7 +9237,29 @@ function openGuide(){
             <li><strong>Unmatched (N)</strong> — tickets that didn't match any topic. Click <strong>+ Create Rule</strong> to add a keyword, exact phrase, epic key, or exclude keyword to a topic. The rule is saved to Rule Overrides, persisted to browser storage, and the report reruns immediately</li>
             <li><strong>Debug</strong> — full trace of every ticket's matching decisions; filter by ticket key</li>
           </ul>
-          <p>Use <strong>Save Draft</strong> to preserve BLUF and Summary text. <strong>Save All</strong> in Settings also persists overrides.</p>
+
+          <p class="u-label">Auto-save &amp; Drafts</p>
+          <p style="margin:0 0 10px">All editable text (BLUF, topic summaries, additional sections) auto-saves to localStorage as you type (debounced 800ms). Navigate away and come back — your text is preserved. Use <strong>Save Draft</strong> for explicit backup. <strong>Save All</strong> in Settings also persists overrides.</p>
+
+          <p class="u-label">Confluence output</p>
+          <ul class="u-list-indent-tight">
+            <li>Ticket sections render as live <strong>{jira:jqlQuery=...}</strong> macros — Confluence executes the JQL so the tables stay current as tickets are added/updated</li>
+            <li>Sprint ticket counts link to Jira with the corresponding JQL filter</li>
+            <li>The <strong>Exclude empty (NSTR) topics</strong> checkbox in the Copy picker omits topics with no tickets from the output</li>
+            <li>Summary text only appears if you've typed something — no "TBD" placeholders</li>
+          </ul>
+
+          <p class="u-label">Prioritization / Upcoming</p>
+          <p style="margin:0 0 6px">At the bottom of each project's Report tab, an interactive section for identifying upcoming work:</p>
+          <ul class="u-list-indent-tight">
+            <li><strong>By Epic</strong> — multi-select epics from the loaded CSV; shows backlog tickets not in the current/future sprint. Results appear as a table with Key, Epic, Summary, Status, Points</li>
+            <li><strong>Recently Created</strong> — filter by tickets created in the last N days (default 14)</li>
+            <li><strong>Custom JQL</strong> — paste raw JQL text; not executed locally. Included in the Confluence output as a <code>{jira:jqlQuery=...}</code> macro so Confluence runs it live</li>
+          </ul>
+          <p style="margin:0 0 10px;font-size:var(--fs-xs);color:var(--mu)">All prioritization settings persist to localStorage — mode, epic selections, day count, and JQL text survive page reloads.</p>
+
+          <p class="u-label">Additional sections</p>
+          <p style="margin:0 0 10px">Below prioritization, three editable text blocks: <strong>Deployments</strong>, <strong>User Engagement and New Requirements</strong>, and <strong>Demonstrations</strong>. Type content or leave blank — empty fields emit <em>NSTR for this period</em> in the Confluence output. Each line you type becomes a sub-bullet in the wiki markup.</p>
 
           <!-- ==== PMR ==== -->
           <div id="guide-sprint" style="scroll-margin-top:12px"></div>
@@ -9317,9 +9340,19 @@ function openGuide(){
           </ul>
           <p><strong><span class="mi" style="font-size:13px;margin-right:3px">description</span>Copy Narrative</strong> exports only slide titles, sub-headings, and narrative text — no ticket lists — for pasting into a brief or email. <strong>Save Draft</strong> saves all narrative text; when restoring, all narrative boxes are matched by their stable semantic IDs so they survive report re-generation.</p>
 
+          <p class="u-label">Integrated Milestone Roadmap</p>
+          <p style="margin:0 0 6px">A tier-based roadmap slide seeded from the loaded spin plan. Configure in <strong>Settings → PMR → Integrated Milestone Roadmap</strong>:</p>
+          <ul class="u-list-indent-tight">
+            <li><strong>Re-seed from Spin Plan</strong> — imports Epic/Program rows from the loaded roadmap CSV. Epics are matched to tiers by walking the parent chain (Strategy → Program → Initiative → Epic). Date, status, and product are auto-mapped. Manual edits are preserved across re-seeds (sticky per field)</li>
+            <li><strong>Slide controls</strong> — set title, month range, which tiers to show, and which tier to emphasize (gets 2.5× row height). Add an optional zoomed second slide with a tighter range</li>
+            <li><strong>Milestone table</strong> — toggle selection per slide, edit tier/product/date/status/label. Search and "in-range only" filters for large lists. Gold dots mark user-edited fields that re-seed won't overwrite</li>
+            <li><strong>Preview</strong> — live SVG preview updates as you toggle milestones. Diamond shapes colored by status (gray/green/blue/red) with product letter inside (D/L/R). Dense months auto-pack into lanes; overflow collapses into +N cluster badges</li>
+            <li><strong>PPTX output</strong> — neutral navy header (no tier accent), Cambria labels, Next Steps panel on the right listing selected milestones chronologically, status legend at the bottom</li>
+          </ul>
+
           <!-- ==== SPRINT METRICS ==== -->
           <div id="guide-topics" style="scroll-margin-top:12px"></div>
-          
+
           <div id="guide-spin" style="scroll-margin-top:12px"></div>
           <h3 style="color:var(--a1);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:0 0 10px" data-guide-section="spin">Spin Plan</h3>
           <p>Live program dashboard showing hierarchical progress across all epics, organized by tier, with sprint breakdowns, blockers, and dependency tracking.</p>
@@ -9336,6 +9369,17 @@ function openGuide(){
             </ol>
             <p style="font-size:var(--fs-xs);color:var(--mu);margin-top:8px">Hierarchy: Strategy &rarr; Program &rarr; Initiative &rarr; Epic &rarr; Story. Issues with no sprint assigned bucket by their Target End Date.</p>
           </div>
+          <p class="u-label">File format</p>
+          <p style="margin:0 0 10px">The parser auto-detects <strong>CSV</strong> (comma-separated) and <strong>TSV</strong> (tab-separated) formats by counting delimiters in the header line. Jira Plans exports from the browser are typically CSV; copies from Google Sheets or Excel are TSV. Both work transparently.</p>
+          <p class="u-label">Parent resolution</p>
+          <p style="margin:0 0 10px">The <code>Parent</code> column can contain either <strong>issue keys</strong> (<code>DX-21480</code>) or <strong>title strings</strong> (<code>Rework DX Primary Navigation for HCI Platform Standards</code>). The tree builder resolves by key first, then falls back to a case-insensitive title lookup.</p>
+          <p class="u-label">Diagnostic banner</p>
+          <p style="margin:0 0 10px">A line above the summary bar shows: <em>864 stories under 59 epics · 33 epics empty</em>. If orphan stories are detected (stories that failed to resolve to any epic), the message turns amber. This is the first thing to check after porting to a new environment.</p>
+
+          <div id="guide-velocity" style="scroll-margin-top:12px"></div>
+          <h3 style="color:var(--a1);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:20px 0 10px" data-guide-section="velocity">Sprint Velocity</h3>
+          <p>Optional velocity tracker powered by <code>velocity-report.js</code>. If the JS file is in the same folder as the HTML, a <strong>Sprint Velocity</strong> card appears on the home grid automatically. Remove the file and the card disappears — no code changes needed.</p>
+          <p>Uses the same issues CSV and sprint calendar as other reports. Runs as a 2-step wizard (Files → Report). Metrics include committed vs completed story points per sprint, velocity trends, and project-level breakdowns.</p>
 
 <h3 class="u-a1-hdr" data-guide-section="topics">Topics</h3>
           <p>Topics control how tickets are bucketed into report sections. Matching rules are evaluated in this order for each topic:</p>
