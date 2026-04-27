@@ -5342,8 +5342,15 @@ function runPMR(){
   S.topics.forEach(t=>topicMap[t.topic_id]=[]);
   const allTraces=[];
   const unmatched=[];
+  const unmappedEpic=[]; // tickets with no epic — excluded from slides
 
   scoped.forEach(ticket=>{
+    // Tickets with no epic link are excluded from PMR slides entirely —
+    // they go into a separate "unmapped" bucket for the SE to triage.
+    if (!ticket.epic_link) {
+      unmappedEpic.push(ticket);
+      return;
+    }
     const {best,traces}=findBestMatch(ticket,S.topics);
     allTraces.push({ticket,traces});
     if(!best){ unmatched.push(ticket); return; }
@@ -5454,14 +5461,17 @@ function runPMR(){
   const agendaHtml='<ul class="agenda-list">'+agendaItems+'</ul>';
 
   const total=scoped.length;
-  const matched=total-unmatched.length;
+  const matched=total-unmatched.length-unmappedEpic.length;
 
   const reportHtml=`
   <div class="slide"><h2>Agenda</h2>${agendaHtml}</div>
   ${slidesHtml}`;
 
   const dbgHtml=eosDebugTable(allTraces,'pdbg');
-  const umHtml=unmatchedPanel(unmatched,'PMR','um-pmr');
+  // Build the unmatched panel with per-project sections + copy buttons.
+  // Includes both topic-unmatched and epic-unmapped tickets.
+  const allUnmapped = [...unmatched, ...unmappedEpic];
+  const umHtml = buildPmrUnmatchedPanel(unmatched, unmappedEpic);
 
   // Inline roadmap editor panel — collapsible, lives inside the Report tab
   const roadmapEnabled = S.cfg.pmr_roadmap && S.cfg.pmr_roadmap.enabled;
@@ -5492,14 +5502,14 @@ function runPMR(){
       <div class="rpt-hdr" style="border-left-color:var(--a3)">
         <div><h1>${esc(S.cfg.pmr_title)}</h1><div class="rsub">${esc(label)}</div></div>
         <div class="row" style="gap:16px;align-items:center">
-          <span class="u-muted-xs">${total} tickets &nbsp;·&nbsp; ${matched} matched &nbsp;·&nbsp; ${unmatched.length} unmatched</span>
+          <span class="u-muted-xs">${total} tickets &nbsp;·&nbsp; ${matched} matched &nbsp;·&nbsp; ${unmatched.length} unmatched &nbsp;·&nbsp; ${unmappedEpic.length} no epic</span>
           <span class="badge" style="background:var(--a3d);color:var(--a3);border:1px solid var(--a3b)">PMR</span>
         </div>
       </div>
       <div class="r-tabs r-tabs-sticky">
         <button class="r-tab active" onclick="switchRtab(this)">Report</button>
         <button class="r-tab" onclick="switchRtab(this)">Debug</button>
-        <button class="r-tab" onclick="switchRtab(this)">Unmatched (${unmatched.length})</button>
+        <button class="r-tab" onclick="switchRtab(this)">Unmatched (${unmatched.length + unmappedEpic.length})</button>
       </div>
       <div class="r-panel active">${reportHtml}${roadmapPanel}</div>
       <div class="r-panel">${dbgHtml}</div>
@@ -5656,6 +5666,106 @@ function renderSlideLayout(tickets,layout,base,ctx,blufBox){
   }
   // simple_list — top-level blufBox is added by renderSlide; just render tickets here
   return ticketList(tickets,base);
+}
+
+// Per-project unmatched panel for PMR. Shows topic-unmatched and
+// epic-unmapped tickets in separate sections by project, each with a
+// copy button that builds a list of Jira links for emailing to the SE.
+function buildPmrUnmatchedPanel(unmatched, unmappedEpic) {
+  const jiraBase = (S.cfg.jira_url || '').replace(/\/+$/, '');
+  const projects = [...new Set(
+    [...unmatched, ...unmappedEpic].map(t => t.project_bucket).filter(Boolean)
+  )].sort();
+
+  if (!unmatched.length && !unmappedEpic.length) {
+    return '<p style="color:var(--a3);font-size:var(--fs-base)">All tickets matched a topic and have an epic.</p>';
+  }
+
+  const byProj = {};
+  projects.forEach(p => { byProj[p] = { unmatched: [], unmapped: [] }; });
+  unmatched.forEach(t => { if (byProj[t.project_bucket]) byProj[t.project_bucket].unmatched.push(t); });
+  unmappedEpic.forEach(t => { if (byProj[t.project_bucket]) byProj[t.project_bucket].unmapped.push(t); });
+
+  function ticketRow(t) {
+    const safeId = 'um_' + t.issue_key.replace(/[^a-zA-Z0-9]/g, '_');
+    S._unmatchedLookup[safeId] = t;
+    return `<div class="um-item">
+      <div class="um-header">
+        <span class="um-key">${jiraLink(t.issue_key, 'um-key')}</span>
+        <button class="btn btn-purple btn-xs" onclick="openOverrideModal('${safeId}')">+ Create Rule</button>
+      </div>
+      <div class="um-summary">${esc(t.summary)}</div>
+      <div class="um-meta">
+        Epic: ${esc(t.epic_name || t.epic_link || '— none —')} · Labels: ${esc(t.labels || '—')} · Components: ${esc((t.components || []).join(', ') || '—')}
+      </div>
+    </div>`;
+  }
+
+  function copyList(tickets, label) {
+    const lines = tickets.map(t => {
+      const url = jiraBase ? jiraBase + '/browse/' + t.issue_key : t.issue_key;
+      return `${t.issue_key} — ${t.summary}\n  ${url}`;
+    });
+    return lines.join('\n\n');
+  }
+
+  let html = '';
+  projects.forEach(proj => {
+    const bucket = byProj[proj];
+    const total = bucket.unmatched.length + bucket.unmapped.length;
+    if (!total) return;
+
+    // Store the copy text on a global so the onclick can reference it
+    const copyId = 'pmr-um-copy-' + proj.toLowerCase();
+    const allTickets = [...bucket.unmapped, ...bucket.unmatched];
+    const copyText = `${proj} — ${total} ticket${total !== 1 ? 's' : ''} need attention:\n\n` +
+      (bucket.unmapped.length ? `NO EPIC (${bucket.unmapped.length}):\n` + copyList(bucket.unmapped) + '\n\n' : '') +
+      (bucket.unmatched.length ? `UNMATCHED TOPIC (${bucket.unmatched.length}):\n` + copyList(bucket.unmatched) : '');
+
+    html += `<div class="r-card" style="margin-bottom:12px;border-left:3px solid var(--a5)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-weight:700;font-size:var(--fs-sm);color:var(--tx)">${esc(proj)}</span>
+        <span class="badge" style="background:var(--a5d);color:var(--a5);border:1px solid var(--a5b)">${total}</span>
+        <span style="flex:1"></span>
+        <button class="btn btn-ghost btn-xs" id="${copyId}" onclick="copyPmrUnmatched('${esc(proj)}')"><span class="mi" style="font-size:13px;margin-right:2px">content_copy</span>Copy for SE</button>
+      </div>`;
+
+    if (bucket.unmapped.length) {
+      html += `<div style="font-size:var(--fs-xs);font-weight:600;color:var(--a4);margin:8px 0 4px">No Epic Assigned (${bucket.unmapped.length})</div>`;
+      bucket.unmapped.forEach(t => { html += ticketRow(t); });
+    }
+    if (bucket.unmatched.length) {
+      html += `<div style="font-size:var(--fs-xs);font-weight:600;color:var(--a2);margin:8px 0 4px">No Topic Match (${bucket.unmatched.length})</div>`;
+      bucket.unmatched.forEach(t => { html += ticketRow(t); });
+    }
+    html += '</div>';
+
+    // Store copy text for the button
+    if (!S._pmrUnmatchedCopy) S._pmrUnmatchedCopy = {};
+    S._pmrUnmatchedCopy[proj] = copyText;
+  });
+
+  return html;
+}
+
+async function copyPmrUnmatched(proj) {
+  const text = S._pmrUnmatchedCopy && S._pmrUnmatchedCopy[proj];
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    const btn = document.getElementById('pmr-um-copy-' + proj.toLowerCase());
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<span class="mi" style="font-size:13px;margin-right:2px">check</span>Copied';
+      setTimeout(() => { btn.innerHTML = orig; }, 1500);
+    }
+  } catch(e) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
 }
 
 // ============================================================
