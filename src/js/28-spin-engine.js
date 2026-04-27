@@ -802,7 +802,7 @@ function spinRenderTierSection(topic, epicNodes) {
   const behind = allStories.filter(s => spinIsBehind(s)).length;
   const pct = tot ? Math.round(done / tot * 100) : 0;
   const tierRank = topic.tier_rank ?? topic.rank ?? 99;
-  const tierNum = tierRank <= 0 ? 0 : tierRank <= 1 ? 1 : tierRank <= 4 ? 2 : tierRank <= 6 ? 3 : 3;
+  const tierNum = tierRank <= 0 ? 0 : tierRank <= 4 ? 1 : tierRank <= 5 ? 2 : 3;
 
   const openDeps = epicNodes.reduce((sum, n) => {
     const deps = spinGatherDeps(n);

@@ -234,7 +234,7 @@ function renderSpinMatrixView() {
       </td>`;
     }).join('');
     const tierRank = topic.tier_rank ?? topic.rank ?? 99;
-    const tierColor = tierRank === 0 ? 'var(--a5)' : tierRank === 1 ? 'var(--a1)' : tierRank <= 4 ? 'var(--a4)' : 'var(--mu)';
+    const tierColor = tierRank <= 0 ? 'var(--a5)' : tierRank <= 4 ? 'var(--a1)' : tierRank <= 5 ? 'var(--a4)' : 'var(--mu)';
     const shortHdr = (topic.header || '').replace(/^\([^)]*\)\s*/, '').replace(/Tier \d+: Priority \d+:\s*/, '');
     const tid = topic.topic_id || topic.id || '';
     return `<tr id="spin-tier-row-${spinUid(tid)}">
