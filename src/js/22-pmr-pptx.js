@@ -771,11 +771,28 @@ function pmrRoadmapSeedFromSpin() {
   const tierCounts = {}, statusCounts = {};
   const sample = [];
 
+  // Build an index: epic_key → tier from S.topics. This is the most reliable
+  // source because the user has already mapped epics to topics with explicit
+  // tier_rank values in the settings.
+  const tierRankToTier = r => r <= 0 ? 'T0' : r <= 4 ? 'T1' : r <= 5 ? 'T2' : 'T3';
+  const epicKeyToTier = {};
+  (S.topics || []).forEach(t => {
+    const tier = tierRankToTier(t.tier_rank != null ? t.tier_rank : 99);
+    (t.epic_keys || []).forEach(k => { epicKeyToTier[k] = tier; });
+  });
+
   candidates.forEach(ep => {
     const existing = byKey[ep.key];
     const labelText = (ep.title || ep.summary || ep.key).trim();
+    // Tier resolution priority:
+    //   1. Direct epic_key match in S.topics (most reliable — user configured)
+    //   2. Title/parent-chain regex (pmrRoadmapParseTierDeep)
+    //   3. Existing tier from a previous seed (user may have manually set it)
+    //   4. Default T1
+    const tierFromTopics = epicKeyToTier[ep.key];
     const fields = {
-      tier:      pmrRoadmapParseTierDeep(ep, spinIndex, 5)
+      tier:      tierFromTopics
+                   || pmrRoadmapParseTierDeep(ep, spinIndex, 5)
                    || (existing && existing.tier) || 'T1',
       product:   pmrRoadmapProductLetter(ep.key),
       date:      ep.targetEnd,
