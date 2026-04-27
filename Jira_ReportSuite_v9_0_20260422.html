@@ -4864,7 +4864,7 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
   //     tickets added to those epics in that sprint appear automatically.
   //   tableFromBlocked — status=Blocked in either sprint.
   //   tableFromKeys — key-only fallback for time-based sections (Prio 'created').
-  const COLS = 'key,summary,type,status,assignee,priority';
+  const COLS = 'key,summary,type,status,priority';
   const ORDER = 'ORDER BY "Epic Link" ASC, Rank DESC';
   const tableFromKeys = tickets => {
     if (!tickets.length) return '_NSTR for this period_';
@@ -4905,7 +4905,7 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
   lines.push('h2. (U) Sprint Tickets',
     `|${spfx} ${cur}| ${sprintJql(cur)}|`,`|${spfx} ${fut}| ${sprintJql(fut)}|`,'',
     `h2. (U) Story Points Available for MTLs to add: ${meta.mtl_points}`,'',
-    'h2. (U) Blocked Work', tableFromBlocked(),'');
+    'h2. (U) Blocked Work','', tableFromBlocked(),'');
   topics.forEach((topic,tidx)=>{
     const curr=results[topic.header].current;
     const futt=results[topic.header].future;
@@ -4915,8 +4915,8 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
     const summaryEl=document.getElementById(topicSlug);
     const summaryTxt=(summaryEl&&summaryEl.innerText.trim())||'TBD';
     lines.push(`(U) Summary: ${summaryTxt}`,'');
-    if(curr.length) lines.push('h3. (U) Current Sprint Tickets',tableFromEpics(curr,cur),'');
-    if(futt.length) lines.push('h3. (U) Future Sprint Tickets',tableFromEpics(futt,fut),'');
+    if(curr.length) lines.push('h3. (U) Current Sprint Tickets','', tableFromEpics(curr,cur),'');
+    if(futt.length) lines.push('h3. (U) Future Sprint Tickets','', tableFromEpics(futt,fut),'');
   });
 
   // Prioritization / Upcoming section
@@ -12633,6 +12633,23 @@ function spinUpdateSummaryBar() {
   const programs = S.spin.issues.filter(i => spinClassifyLevel(i.issueType) === 'program').length;
   const pctCls = gStats.pct >= 67 ? 'c-green' : gStats.pct >= 34 ? 'c-amber' : 'c-red';
 
+  // Diagnostic: count how many epics have stories (tree resolution health)
+  const epicsWithKids = allEpics.filter(e => {
+    const n = S.spin._nodeMap[e.key];
+    return n && n.children.length > 0;
+  }).length;
+  const epicsEmpty = allEpics.length - epicsWithKids;
+  // Count orphaned stories (not reachable from any epic via tree)
+  const allStoryIssues = S.spin.issues.filter(i => spinClassifyLevel(i.issueType) === 'story');
+  const storiesInTree = gStats.total; // spinGlobalStats counts leaves under epics
+  const orphanStories = allStoryIssues.length - storiesInTree;
+
+  const diagParts = [`${gStats.total} stories under ${epicsWithKids} epics`];
+  if (epicsEmpty) diagParts.push(`${epicsEmpty} epics empty`);
+  if (orphanStories > 0) diagParts.push(`${orphanStories} orphan stories`);
+  const diagCls = orphanStories > 0 ? 'color:var(--a4)' : 'color:var(--mu)';
+  const diagLine = `<div style="font-size:var(--fs-xs);${diagCls};padding:0 4px 8px;display:flex;gap:6px;align-items:center"><span class="mi" style="font-size:12px">info</span>${esc(diagParts.join(' · '))}</div>`;
+
   const bar = `<div class="spin-sum-bar" style="margin-bottom:14px">
     <div class="sc clickable" onclick="spinDrilldown('programs')" title="All programs"><div class="sv c-blue">${programs}</div><div class="sl">${spinIssueIcon('Program',11)} Programs ›</div></div>
     <div class="sc clickable" onclick="spinDrilldown('epics')" title="All epics"><div class="sv c-blue">${allEpics.length}</div><div class="sl">${spinIssueIcon('Epic',11)} Epics ›</div></div>
@@ -12645,7 +12662,7 @@ function spinUpdateSummaryBar() {
   </div>`;
 
   const el = document.getElementById('spin-sumbar-slot');
-  if (el) el.innerHTML = bar;
+  if (el) el.innerHTML = diagLine + bar;
 }
 
 // ── Search bar builder ───────────────────────────────────────
