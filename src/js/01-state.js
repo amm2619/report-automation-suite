@@ -145,6 +145,21 @@ const S = {
         bodyFontSize: 10,
         bulletGap: 0.78,      // vertical spacing between bullets
       },
+      title_slide: {
+        leftPanelW: 7.063,    // left navy panel width
+        titleFontSize: 44,    // main title
+        subtitleFontSize: 18, // "Monthly Progress Report"
+        chipFontSize: 14,     // info chip value font
+        chipLabelFontSize: 10.5, // info chip label font
+        rightTitleFontSize: 34, // "Program Management Review"
+      },
+      agenda: {
+        itemH: 0.30,          // height per agenda item
+        headerH: 0.27,        // section header height
+        colGap: 0.2,          // gap between left and right columns
+        itemFontSize: 13,     // agenda item text
+        headerFontSize: 11,   // "TOPICS" header
+      },
       global: {
         headerFontSize: 22,   // slide title
         bodyBg: 'F7F5F1',     // slide background

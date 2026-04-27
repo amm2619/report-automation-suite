@@ -1986,6 +1986,21 @@ const S = {
         bodyFontSize: 10,
         bulletGap: 0.78,      // vertical spacing between bullets
       },
+      title_slide: {
+        leftPanelW: 7.063,    // left navy panel width
+        titleFontSize: 44,    // main title
+        subtitleFontSize: 18, // "Monthly Progress Report"
+        chipFontSize: 14,     // info chip value font
+        chipLabelFontSize: 10.5, // info chip label font
+        rightTitleFontSize: 34, // "Program Management Review"
+      },
+      agenda: {
+        itemH: 0.30,          // height per agenda item
+        headerH: 0.27,        // section header height
+        colGap: 0.2,          // gap between left and right columns
+        itemFontSize: 13,     // agenda item text
+        headerFontSize: 11,   // "TOPICS" header
+      },
       global: {
         headerFontSize: 22,   // slide title
         bodyBg: 'F7F5F1',     // slide background
@@ -8777,43 +8792,47 @@ function _pmrAddTitleSlide(pres, ctx, meta, data) {
   const s = pres.addSlide();
   s.background = { color: C.navyDk };
   addFOUO(s);
+  const lpW = _tpl('title_slide', 'leftPanelW', 7.063);
+  const titleFs = _tpl('title_slide', 'titleFontSize', 44);
+  const subFs = _tpl('title_slide', 'subtitleFontSize', 18);
+  const chipFs = _tpl('title_slide', 'chipFontSize', 14);
+  const chipLblFs = _tpl('title_slide', 'chipLabelFontSize', 10.5);
+  const rtFs = _tpl('title_slide', 'rightTitleFontSize', 34);
   // Left navy panel + cyan strip
-  rect(s, 0, FOUO_H, 7.063, H - FOUO_H*2, C.navy);
-  rect(s, 7.063, FOUO_H, 0.055, H - FOUO_H*2, C.cyan);
+  rect(s, 0, FOUO_H, lpW, H - FOUO_H*2, C.navy);
+  rect(s, lpW, FOUO_H, 0.055, H - FOUO_H*2, C.cyan);
   // Title
-  text(s, meta.pmrTitle || 'PMR', { x:0.36, y:1.6, w:6.5, h:1.3, fontSize:44, bold:true, color:'FFFFFF', charSpacing:2 });
+  text(s, meta.pmrTitle || 'PMR', { x:0.36, y:1.6, w:lpW-0.56, h:1.3, fontSize:titleFs, bold:true, color:'FFFFFF', charSpacing:2 });
   // Accent divider
   rect(s, 0.36, 3.02, 2.8, 0.04, C.cyan);
   rect(s, 3.20, 3.02, 2.467, 0.04, '3A4A5A');
   // Subtitle
-  text(s, 'Monthly Progress Report', { x:0.36, y:3.14, w:6.5, h:0.45, fontSize:18, color:C.subtle });
-  // WORK PERIOD line
+  text(s, 'Monthly Progress Report', { x:0.36, y:3.14, w:lpW-0.56, h:0.45, fontSize:subFs, color:C.subtle });
   if (meta.workPeriod) {
     text(s, [
       { text:'WORK PERIOD  ', options:{ fontSize:12, bold:true, color:'6A7A8A', fontFace:F.mono } },
       { text: meta.workPeriod, options:{ fontSize:16, bold:true, color:'FFFFFF' } },
-    ], { x:0.36, y:3.72, w:6.8, h:0.36 });
+    ], { x:0.36, y:3.72, w:lpW-0.26, h:0.36 });
   }
-  // SUBMITTED line
   text(s, [
     { text:'SUBMITTED  ', options:{ fontSize:12, bold:true, color:'6A7A8A', fontFace:F.mono } },
     { text: meta.submitted, options:{ fontSize:14, color:'FFFFFF' } },
-  ], { x:0.36, y:4.84, w:6.8, h:0.36 });
+  ], { x:0.36, y:4.84, w:lpW-0.26, h:0.36 });
 
-  // Right side — subtitle tag + product name block
-  text(s, 'XPLORER SUITE', { x:7.981, y:0.45, w:5, h:0.38, fontSize:11, bold:true, color:'5A6070', fontFace:F.mono });
-  rect(s, 8.081, 0.88, 4.99, 0.022, C.border);
+  // Right side
+  const rx = lpW + 0.918;
+  text(s, 'XPLORER SUITE', { x:rx, y:0.45, w:5, h:0.38, fontSize:11, bold:true, color:'5A6070', fontFace:F.mono });
+  rect(s, rx+0.1, 0.88, 4.99, 0.022, C.border);
   text(s, [
-    { text:'Program Management', options:{ fontSize:34, bold:true, color:'1E2736', breakLine:true } },
-    { text:'Review', options:{ fontSize:34, bold:true, color:'1E2736' } },
-  ], { x:7.981, y:0.96, w:5, h:1.45 });
+    { text:'Program Management', options:{ fontSize:rtFs, bold:true, color:'1E2736', breakLine:true } },
+    { text:'Review', options:{ fontSize:rtFs, bold:true, color:'1E2736' } },
+  ], { x:rx, y:0.96, w:5, h:1.45 });
 
-  // Info chips: PERIOD / TOPICS / TICKETS / STATUS
   function chip(y, label, value) {
-    rect(s, 7.981, y, 4.5, 0.456, 'FFFFFF');
-    rect(s, 7.981, y, 0.03, 0.454, C.cyan);
-    text(s, label, { x:8.048, y:y, w:1.2, h:0.456, fontSize:10.5, bold:true, color:'5A6070', fontFace:F.mono, valign:'middle' });
-    text(s, value, { x:9.281, y:y, w:3.1, h:0.456, fontSize:14, color:'1E2736', valign:'middle' });
+    rect(s, rx, y, 4.5, 0.456, 'FFFFFF');
+    rect(s, rx, y, 0.03, 0.454, C.cyan);
+    text(s, label, { x:rx+0.067, y:y, w:1.2, h:0.456, fontSize:chipLblFs, bold:true, color:'5A6070', fontFace:F.mono, valign:'middle' });
+    text(s, value, { x:rx+1.3, y:y, w:3.1, h:0.456, fontSize:chipFs, color:'1E2736', valign:'middle' });
   }
   chip(2.75, 'PERIOD',  meta.monthLong || meta.monthLabel || '—');
   chip(3.40, 'TOPICS',  String(data.length));
@@ -8828,27 +8847,28 @@ function _pmrAddAgendaSlide(pres, ctx, data) {
   const s = pres.addSlide();
   s.background = { color: C.void };
   addHeader(s, '(U) Presentation Agenda', C.cyan);
-  const gap = 0.2;
-  const half = (W - M*2 - gap) / 2;
-  const itemH = 0.30, headerH = 0.27;
+  const agGap = _tpl('agenda', 'colGap', 0.2);
+  const half = (W - M*2 - agGap) / 2;
+  const itemH = _tpl('agenda', 'itemH', 0.30);
+  const headerH = _tpl('agenda', 'headerH', 0.27);
+  const itemFs = _tpl('agenda', 'itemFontSize', 13);
+  const hdrFs = _tpl('agenda', 'headerFontSize', 11);
   const splitAt = Math.ceil(data.length / 2);
   const cols = [ data.slice(0, splitAt), data.slice(splitAt) ];
   cols.forEach((items, ci) => {
-    const x = M + ci * (half + gap);
+    const x = M + ci * (half + agGap);
     let y = BODY_Y + 0.05;
-    // Section header bar
     rect(s, x, y, half, headerH, C.navy);
     rect(s, x, y, 0.032, headerH, C.cyan);
-    text(s, 'TOPICS', { x:x+0.10, y:y, w:half-0.14, h:headerH, fontSize:11, bold:true, color:'FFFFFF', fontFace:F.mono, valign:'middle' });
+    text(s, 'TOPICS', { x:x+0.10, y:y, w:half-0.14, h:headerH, fontSize:hdrFs, bold:true, color:'FFFFFF', fontFace:F.mono, valign:'middle' });
     y += headerH + 0.005;
-    // Items
     const maxY = H - FOUO_H - itemH - 0.1;
     items.forEach(item => {
       if (y > maxY) return;
       rect(s, x, y, half, itemH, C.cardLt);
       rect(s, x + 0.10, y + 0.11, 0.08, 0.08, C.cyan);
       const label = item.header.length > 56 ? item.header.slice(0, 53) + '…' : item.header;
-      text(s, label, { x:x+0.26, y:y, w:half-0.30, h:itemH, fontSize:13, color:'1E2736', valign:'middle' });
+      text(s, label, { x:x+0.26, y:y, w:half-0.30, h:itemH, fontSize:itemFs, color:'1E2736', valign:'middle' });
       y += itemH;
     });
   });
@@ -9774,7 +9794,8 @@ function _pmrCtx(pres) {
     accent = accent || C.cyan;
     rect(s, 0, HDR_Y, W, HDR_H, C.navy);
     rect(s, 0, HDR_Y, 0.05, HDR_H, accent);
-    text(s, title, { x:0.20, y:HDR_Y, w:W-0.4, h:HDR_H, valign:'middle', fontSize:22, bold:true, color:'FFFFFF' });
+    const gHdrFs = _tpl('global', 'headerFontSize', 22);
+    text(s, title, { x:0.20, y:HDR_Y, w:W-0.4, h:HDR_H, valign:'middle', fontSize:gHdrFs, bold:true, color:'FFFFFF' });
     rect(s, 0, BAR_Y, W*0.35, BAR_H, accent);
     rect(s, W*0.35, BAR_Y, W*0.65, BAR_H, C.border);
   }
