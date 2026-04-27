@@ -5665,6 +5665,8 @@ function renderSlide(header,subheaders,layout,base,isGroup){
     }
   }
   let html=`<div class="slide" id="${sid}" data-pmr-layout="${esc(layout||'simple_list')}"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><h2 style="margin:0">(U) ${esc(header)}</h2><span style="flex:1"></span>${aiBtns}</div>`;
+  // Near-Future Tasks box — editable field that maps to the dark panel on the right side of the PPTX slide
+  html+=`<div style="margin:8px 0 6px"><div class="bluf-label" style="color:var(--a4)">Near-Future Tasks</div>${blufBox(ctx+'-nearfuture')}</div>`;
   // feature_improvement_bug and mission_support_other layouts: always pool tickets,
   // never show per-topic sub-headers (DX4/DX Improvements or LX5/LX Improvements collapse into one list)
   const poolLayouts=['feature_improvement_bug','mission_support_other'];
@@ -8326,8 +8328,70 @@ async function copyPmrNarrative(){
   await copyTextWithFallback(text, cst, 2500);
 }
 
+// Near-Future Tasks panel — dark navy strip on the far right of content slides.
+// Reads from sd.sections looking for a section with label containing 'near-future'
+// or from sd.nearFuture (set by the extractor from the data-pmr-bluf field).
+const NF_PANEL_W = 2.67;
+const NF_GAP = 0.26;
+function _pmrAddNearFuturePanel(pres, ctx, s, sd, topY) {
+  const { C, F, W, H, FOUO_H, M, rect, text } = ctx;
+  const panelX = W - M - NF_PANEL_W;
+  const panelH = H - FOUO_H - topY - 0.1;
+
+  // Dark background
+  rect(s, panelX, topY - 0.1, NF_PANEL_W, panelH + 0.1, C.navyDk);
+  // Gold accent bar
+  rect(s, panelX, topY - 0.1, 0.06, panelH + 0.1, C.amber);
+
+  // Title
+  text(s, 'NEAR-FUTURE', {
+    x: panelX + 0.16, y: topY + 0.1, w: NF_PANEL_W - 0.3, h: 0.24,
+    fontSize: 10, bold: true, color: 'FFFFFF', fontFace: F.mono
+  });
+  text(s, 'TASKS', {
+    x: panelX + 0.16, y: topY + 0.34, w: NF_PANEL_W - 0.3, h: 0.44,
+    fontSize: 22, bold: true, color: '3A4A5A'
+  });
+  // Divider
+  rect(s, panelX + 0.16, topY + 0.82, NF_PANEL_W - 0.4, 0.02, '2E3A50');
+
+  // Content — find near-future narrative from the extracted slide data
+  const nfSection = (sd.sections || []).find(sec =>
+    (sec.label || '').toLowerCase().includes('near-future') ||
+    (sec.label || '').toLowerCase().includes('nearfuture')
+  );
+  const nfText = (nfSection && nfSection.narrative)
+    || sd.nearFuture
+    || '';
+
+  if (nfText) {
+    // Split into bullet items on newline
+    const bullets = nfText.split(/\n+/).filter(Boolean);
+    let by = topY + 0.96;
+    bullets.forEach(b => {
+      if (by > topY + panelH - 0.3) return;
+      // Gold bullet dot
+      s.addShape(pres.ShapeType.ellipse, {
+        x: panelX + 0.16, y: by + 0.06, w: 0.05, h: 0.05,
+        fill: { color: C.amber }, line: { color: C.amber }
+      });
+      text(s, b, {
+        x: panelX + 0.28, y: by, w: NF_PANEL_W - 0.46, h: 1.50,
+        fontSize: 10, color: 'FFFFFF', fontFace: 'Calibri',
+        valign: 'top', wrap: true
+      });
+      // Estimate height — roughly 0.7" per bullet block
+      by += 0.78;
+      // Divider between bullets
+      if (by < topY + panelH - 0.3) {
+        rect(s, panelX + 0.16, by - 0.10, NF_PANEL_W - 0.4, 0.015, '2E3A50');
+      }
+    });
+  }
+}
+
 // Feature / Improvement / Bug — mirrors BAMBOOTIGER slide 7
-// NEW FEATURES = full-height left card; IMPROVEMENTS = top-right; BUG FIXES = bottom-right
+// IMPROVEMENTS = full-height left card; NEW FEATURES = top-right; BUG FIXES = bottom-right
 function _pmrAddFibSlide(pres, ctx, sd) {
   const { C, F, W, H, FOUO_H, BODY_Y, M, rect, text, addHeader, fit } = ctx;
   const s = pres.addSlide();
@@ -8347,10 +8411,14 @@ function _pmrAddFibSlide(pres, ctx, sd) {
     else if (l.indexOf('improvement') >= 0) sec.improvements = x;
     else if (l.indexOf('bug') >= 0) sec.bugs = x;
   });
+  // Near-future panel on the far right
+  _pmrAddNearFuturePanel(pres, ctx, s, sd, topY);
+  // Content area narrows to make room for the panel
+  const contentW = W - M*2 - NF_PANEL_W - NF_GAP;
   // Improvements on the left (full height), New Features + Bug Fixes stacked right
-  const leftW = 6.6;
+  const leftW = contentW * 0.58;
   const rightX = M + leftW + 0.15;
-  const rightW = W - rightX - M;
+  const rightW = contentW - leftW - 0.15;
   const bodyH = H - FOUO_H - topY - 0.1;
   const rightH = (bodyH - 0.15) / 2;
   function card(x, y, w, h, label, color, section) {
@@ -8390,12 +8458,15 @@ function _pmrAddProjectSlide(pres, ctx, sd, projects) {
     const found = sd.sections.find(sec => sec.label.toLowerCase() === p.toLowerCase());
     return { name:p, info:info[p], section:found };
   });
+  // Near-future panel
+  _pmrAddNearFuturePanel(pres, ctx, s, sd, topY);
+  const contentW = W - M*2 - NF_PANEL_W - NF_GAP;
   const totalH = H - FOUO_H - topY - 0.15;
   const gap = 0.18;
   const rowH = (totalH - gap * (projects.length - 1)) / projects.length;
   const tagW = 1.10;
   const narrX = M + tagW + 0.08;
-  const narrW = W - narrX - M;
+  const narrW = contentW - tagW - 0.08;
   matched.forEach((m, i) => {
     const rY = topY + i * (rowH + gap);
     // Tag block
@@ -8412,18 +8483,15 @@ function _pmrAddProjectSlide(pres, ctx, sd, projects) {
   });
 }
 
-// Mission support / other — top/bottom stacked layout with purple + gold accents
+// Mission support — 3-column × 3-row grid matching the BAMBOOTIGER template.
+// Columns represent sub-categories (Sustainment, AI/ML, 508 Accessibility);
+// rows represent products (DX, LX, RC). Each cell gets its own narrative.
+// The sections in sd.sections are matched by label to fill the grid.
 function _pmrAddMissionSupportSlide(pres, ctx, sd) {
   const { C, F, W, H, FOUO_H, BODY_Y, M, rect, text, addHeader, fit } = ctx;
   const s = pres.addSlide();
   s.background = { color: C.void };
   addHeader(s, '(U) ' + sd.header, C.purple);
-  const sec = { ms:null, other:null };
-  sd.sections.forEach(x => {
-    const l = x.label.toLowerCase();
-    if (l.indexOf('mission support') >= 0) sec.ms = x;
-    else sec.other = x;
-  });
   let topY = BODY_Y;
   if (sd.topNarrative) {
     rect(s, M, topY, W - M*2, 0.50, C.cardLt);
@@ -8431,20 +8499,82 @@ function _pmrAddMissionSupportSlide(pres, ctx, sd) {
     text(s, sd.topNarrative, { x:M+0.14, y:topY+0.05, w:W-M*2-0.22, h:0.40, fontSize:11, color:C.text, valign:'top', wrap:true });
     topY += 0.60;
   }
-  const gap = 0.18;
-  const cardW = W - M*2;
+
+  // Product rows
+  const products = [
+    { code: 'DX', name: 'DataXplorer',  color: C.cyan },
+    { code: 'LX', name: 'LinkXplorer',  color: C.cyanDk },
+    { code: 'RC', name: 'Rollercoaster', color: C.purple },
+  ];
+  // Column categories — match against section labels
+  const cols = [
+    { label: 'SUSTAINMENT',       color: C.purple, match: s => /sustainment|mission support|support/i.test(s) },
+    { label: 'AI / ML',           color: C.cyan,   match: s => /ai|ml|machine learning/i.test(s) },
+    { label: '508 ACCESSIBILITY', color: C.green,   match: s => /508|accessibility|compliance/i.test(s) },
+  ];
+
+  // Match sections to the grid — each section's label is compared against col matchers
+  // Narrative text goes in the cell matching [product][column]
+  const grid = {}; // grid['DX_0'] = narrative
+  (sd.sections || []).forEach(sec => {
+    const narr = sec.narrative || '';
+    const label = (sec.label || '').toLowerCase();
+    let colIdx = cols.findIndex(c => c.match(label));
+    if (colIdx < 0) colIdx = 0; // default to first column
+    // Try to detect project from label
+    let proj = null;
+    if (/\bdx\b|dataxplorer/i.test(label)) proj = 'DX';
+    else if (/\blx\b|linkxplorer/i.test(label)) proj = 'LX';
+    else if (/\brc\b|rollercoaster/i.test(label)) proj = 'RC';
+    if (proj) {
+      grid[proj + '_' + colIdx] = narr;
+    } else {
+      // No project detected — put in all product rows for this column
+      products.forEach(p => {
+        if (!grid[p.code + '_' + colIdx]) grid[p.code + '_' + colIdx] = narr;
+      });
+    }
+  });
+
+  const tagW = 1.10;
+  const contentX = M + tagW + 0.08;
+  const contentW = W - contentX - M;
+  const colGap = 0.05;
+  const colW = (contentW - colGap * (cols.length - 1)) / cols.length;
+  const rowGap = 0.04;
+  const headerH = 0.30;
   const totalH = H - FOUO_H - topY - 0.1;
-  const cardH = (totalH - gap) / 2;
-  function card(y, label, color, section) {
-    rect(s, M, y, cardW, cardH, C.card);
-    s.addShape(pres.ShapeType.rect, { x:M, y, w:cardW, h:cardH, fill:{type:'noFill'}, line:{color:C.border, width:0.75} });
-    rect(s, M, y, cardW, 0.048, color);
-    text(s, label, { x:M+0.14, y:y+0.06, w:cardW-0.28, h:0.22, fontSize:11, bold:true, color:color, fontFace:F.mono });
-    const narr = section ? (section.narrative || '(no narrative)') : 'NSTR';
-    text(s, narr, { x:M+0.14, y:y+0.34, w:cardW-0.28, h:cardH-0.50, fontSize:13, color:C.text, valign:'top', wrap:true });
-  }
-  card(topY, 'MISSION SUPPORT', C.purple, sec.ms);
-  card(topY + cardH + gap, 'OTHER', C.gold, sec.other);
+  const rowH = (totalH - headerH - rowGap * products.length) / products.length;
+
+  // Column headers
+  cols.forEach((col, ci) => {
+    const cx = contentX + ci * (colW + colGap);
+    rect(s, cx, topY, colW, headerH, C.cardLt);
+    rect(s, cx, topY + headerH - 0.03, colW, 0.03, col.color);
+    text(s, col.label, { x:cx, y:topY, w:colW, h:headerH, fontSize:9, bold:true, color:C.text, fontFace:F.mono, align:'center', valign:'middle' });
+  });
+
+  // Product rows
+  products.forEach((prod, ri) => {
+    const ry = topY + headerH + ri * (rowH + rowGap);
+    // Tag block
+    rect(s, M, ry, tagW, rowH, C.card);
+    rect(s, M, ry, 0.06, rowH, prod.color);
+    text(s, prod.code, { x:M, y:ry + rowH*0.08, w:tagW, h:rowH*0.52, align:'center', fontSize:22, bold:true, color:prod.color });
+    text(s, prod.name, { x:M+0.05, y:ry + rowH*0.58, w:tagW-0.10, h:rowH*0.35, align:'center', fontSize:9, color:prod.color });
+    // Cell for each column
+    cols.forEach((col, ci) => {
+      const cx = contentX + ci * (colW + colGap);
+      rect(s, cx, ry, colW, rowH, C.card);
+      s.addShape(pres.ShapeType.rect, { x:cx, y:ry, w:colW, h:rowH, fill:{type:'noFill'}, line:{color:C.border, width:0.5} });
+      const narr = grid[prod.code + '_' + ci] || '';
+      text(s, narr || 'NSTR', {
+        x:cx+0.08, y:ry+0.06, w:colW-0.16, h:rowH-0.12,
+        fontSize: 11, color: narr ? C.text : C.muted, valign:'top', wrap:true,
+        fontStyle: narr ? undefined : 'italic'
+      });
+    });
+  });
 }
 
 // Title slide — mirrors BAMBOOTIGER slide 1 (split-panel hero + info chips)
@@ -8870,7 +9000,10 @@ function _pmrAddSimpleListSlide(pres, ctx, sd) {
   const s = pres.addSlide();
   s.background = { color: C.void };
   addHeader(s, '(U) ' + sd.header, C.cyan);
-  const x = M, y = BODY_Y, w = W - M*2, h = H - FOUO_H - y - 0.1;
+  // Near-future panel
+  _pmrAddNearFuturePanel(pres, ctx, s, sd, BODY_Y);
+  const contentW = W - M*2 - NF_PANEL_W - NF_GAP;
+  const x = M, y = BODY_Y, w = contentW, h = H - FOUO_H - y - 0.1;
   rect(s, x, y, w, h, C.card);
   s.addShape(pres.ShapeType.rect, { x, y, w, h, fill:{type:'noFill'}, line:{color:C.border, width:0.75} });
   rect(s, x, y, w, 0.048, C.cyan);
@@ -9336,6 +9469,10 @@ function _pmrExtractSlides(frame) {
     let topNarrative = '';
     const topBluf = slide.querySelector('[data-pmr-bluf="' + slugCtx + '"]');
     if (topBluf) topNarrative = (topBluf.innerText || topBluf.textContent || '').trim();
+    // Near-future narrative (for the dark panel on the right side of PPTX slides)
+    let nearFuture = '';
+    const nfBluf = slide.querySelector('[data-pmr-bluf="' + slugCtx + '-nearfuture"]');
+    if (nfBluf) nearFuture = (nfBluf.innerText || nfBluf.textContent || '').trim();
     // Sections from h4 elements (pooled layouts) or entire slide (simple_list)
     const sections = [];
     const h4s = slide.querySelectorAll('h4');
@@ -9379,7 +9516,7 @@ function _pmrExtractSlides(frame) {
     const merged = order.map(k => map[k]);
     const allTickets = [];
     merged.forEach(sec => sec.tickets.forEach(t => { if (allTickets.indexOf(t) < 0) allTickets.push(t); }));
-    out.push({ header, layout, topNarrative, sections: merged, allTickets });
+    out.push({ header, layout, topNarrative, nearFuture, sections: merged, allTickets });
   });
   return out;
 }

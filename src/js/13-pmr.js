@@ -346,6 +346,8 @@ function renderSlide(header,subheaders,layout,base,isGroup){
     }
   }
   let html=`<div class="slide" id="${sid}" data-pmr-layout="${esc(layout||'simple_list')}"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><h2 style="margin:0">(U) ${esc(header)}</h2><span style="flex:1"></span>${aiBtns}</div>`;
+  // Near-Future Tasks box — editable field that maps to the dark panel on the right side of the PPTX slide
+  html+=`<div style="margin:8px 0 6px"><div class="bluf-label" style="color:var(--a4)">Near-Future Tasks</div>${blufBox(ctx+'-nearfuture')}</div>`;
   // feature_improvement_bug and mission_support_other layouts: always pool tickets,
   // never show per-topic sub-headers (DX4/DX Improvements or LX5/LX Improvements collapse into one list)
   const poolLayouts=['feature_improvement_bug','mission_support_other'];
