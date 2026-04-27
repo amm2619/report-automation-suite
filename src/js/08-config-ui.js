@@ -235,7 +235,6 @@ function renderConfigUI(){
 
   renderPmrGroups();
   renderPmrLayouts();
-  renderPmrRoadmapEditor();
   renderFieldMapRows();
   renderClassPresets();
 }
