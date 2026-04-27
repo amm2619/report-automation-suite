@@ -5025,12 +5025,12 @@ async function copyEosAiPrompt(proj, tidx) {
   const lines = [`Topic: ${topic.header}`, ''];
   if (res.current.length) {
     lines.push(`Current Sprint (${data.cur}) — completed work:`);
-    res.current.forEach(t => lines.push(`- ${t.issue_key}: ${t.summary} [${t.status}]`));
+    res.current.forEach(t => lines.push(`- ${t.issue_key}: ${t.summary}`));
     lines.push('');
   }
   if (res.future.length) {
     lines.push(`Future Sprint (${data.fut}) — planned work:`);
-    res.future.forEach(t => lines.push(`- ${t.issue_key}: ${t.summary} [${t.status}]`));
+    res.future.forEach(t => lines.push(`- ${t.issue_key}: ${t.summary}`));
     lines.push('');
   }
   const text = prompt + '\n\n' + lines.join('\n');
@@ -9119,19 +9119,15 @@ function guideScrollTo(id) {
 
 function buildGuideNav(overlay) {
   const GUIDE_SECTIONS = [
-    { id:'files',     label:'Files' },
-    { id:'drafts',    label:'Drafts' },
-    { id:'config',    label:'Configuration' },
+    { id:'start',     label:'Getting Started' },
+    { id:'files',     label:'Your Files' },
     { id:'weekly',    label:'Weekly Digest' },
     { id:'eos',       label:'End of Sprint' },
-    { id:'sprint',    label:'Sprint Plan/Report' },
     { id:'pmr',       label:'PMR' },
+    { id:'sprint',    label:'Sprint Plan' },
     { id:'spin',      label:'Spin Plan' },
-    { id:'velocity',  label:'Sprint Velocity' },
-    { id:'topics',    label:'Topics' },
-    { id:'people',    label:'Excluded People' },
-    { id:'overrides', label:'Rule Overrides' },
-    { id:'legend',    label:'Legend' },
+    { id:'velocity',  label:'Velocity' },
+    { id:'config',    label:'Settings' },
     { id:'tips',      label:'Tips' },
   ];
   const nav = overlay.querySelector('#guide-nav');
@@ -9181,293 +9177,163 @@ function openGuide(){
         <div style="display:flex;flex:1;overflow:hidden">
           <div style="width:175px;flex-shrink:0;background:var(--s2);border-right:1px solid var(--bd);overflow-y:auto;padding:8px 0" id="guide-nav"></div>
           <div style="flex:1;overflow-y:auto;padding:24px 30px;font-size:var(--fs-sm);line-height:1.75;color:var(--tx)" id="guide-body">
+
+          <!-- ════════ GETTING STARTED ════════ -->
+          <div id="guide-start" style="scroll-margin-top:12px"></div>
+          <h3 style="color:var(--a3);font-size:var(--fs-lg);border-bottom:2px solid var(--a3b);padding-bottom:6px;margin:0 0 14px" data-guide-section="start">Getting Started</h3>
+
+          <div style="background:var(--a3d);border:1px solid var(--a3b);border-radius:var(--r);padding:16px 20px;margin-bottom:16px">
+            <div style="font-weight:700;color:var(--a3);margin-bottom:8px">3 steps. That's it.</div>
+            <ol style="margin:0;padding-left:20px;font-size:var(--fs-sm);line-height:2.2;color:var(--tx)">
+              <li><strong>Export 2 CSVs from Jira</strong> (see JQL below)</li>
+              <li><strong>Drop them onto the app</strong> (the gray bar at the top)</li>
+              <li><strong>Click the report you want</strong> on the home screen</li>
+            </ol>
+          </div>
+
+          <div style="font-weight:700;color:var(--tx);margin:16px 0 8px">The 2 files you need from Jira</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+            <div style="background:var(--s3);border:1px solid var(--bd);border-left:3px solid var(--a1);border-radius:var(--r2);padding:12px 16px">
+              <div style="font-weight:700;color:var(--a1);margin-bottom:4px">1. Issues CSV <span style="color:var(--mu);font-weight:400;font-size:var(--fs-xs)">(required for all reports)</span></div>
+              <div style="font-size:var(--fs-xs);color:var(--mu);margin-bottom:6px">Go to Jira &rarr; Filters &rarr; paste this JQL &rarr; Export &rarr; CSV (All fields)</div>
+              <code style="display:block;background:var(--s2);border:1px solid var(--bd2);border-radius:var(--r2);padding:8px 12px;font-size:var(--fs-xs);color:var(--a1);user-select:all;cursor:text">project in (DX, LX, RCR) ORDER BY updated DESC</code>
+            </div>
+            <div style="background:var(--s3);border:1px solid var(--bd);border-left:3px solid var(--a2);border-radius:var(--r2);padding:12px 16px">
+              <div style="font-weight:700;color:var(--a2);margin-bottom:4px">2. Epics CSV <span style="color:var(--mu);font-weight:400;font-size:var(--fs-xs)">(needed for Weekly, EOS, PMR)</span></div>
+              <div style="font-size:var(--fs-xs);color:var(--mu);margin-bottom:6px">Same process, different JQL:</div>
+              <code style="display:block;background:var(--s2);border:1px solid var(--bd2);border-radius:var(--r2);padding:8px 12px;font-size:var(--fs-xs);color:var(--a2);user-select:all;cursor:text">project in (DX, LX, RCR) AND issuetype = Epic</code>
+            </div>
+            <div style="background:var(--s3);border:1px solid var(--bd);border-left:3px solid var(--a4);border-radius:var(--r2);padding:12px 16px">
+              <div style="font-weight:700;color:var(--a4);margin-bottom:4px">3. Roadmap CSV <span style="color:var(--mu);font-weight:400;font-size:var(--fs-xs)">(optional &mdash; only for Spin Plan)</span></div>
+              <div style="font-size:var(--fs-xs);color:var(--mu);margin-bottom:6px">Export from Jira Plans / Roadmap view. Can be CSV or TSV (tab-separated) &mdash; both work.</div>
+              <div style="font-size:var(--fs-xs);color:var(--mu)">Must have a <code>Hierarchy</code> column (Strategy / Program / Epic / Story etc.)</div>
+            </div>
+          </div>
+          <div style="font-size:var(--fs-xs);color:var(--mu);margin-bottom:20px">Drop all files at once &mdash; the app figures out which is which from the column headers. You can also use the <strong>Jira API</strong> panel (configure in Settings) to fetch directly without exporting CSVs.</div>
+
+          <!-- ════════ YOUR FILES ════════ -->
           <div id="guide-files" style="scroll-margin-top:12px"></div>
-          <h3 style="color:var(--a1);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:0 0 10px" data-guide-section="files">Files</h3>
-          <p>The app needs two CSV exports from Jira. Drop both at once onto the file zone — the app identifies which is which by filename, falling back to the CSV header row if needed.</p>
-          <ul class="u-list-indent">
-            <li><strong>Issues CSV</strong> — all tickets: <code>project in (DX, LX, RCR) ORDER BY updated DESC</code></li>
-            <li><strong>Epics CSV</strong> — for readable epic names: <code>project in (DX, LX, RCR) AND issuetype = Epic</code></li>
-          </ul>
-          <p>Sprint Plan/Report only needs the Issues CSV. Re-clicking a loaded zone resets the input so the same filename can be re-loaded after a fresh Jira export. You can also fetch tickets directly via the <strong>Jira API panel</strong> — configure your Jira URL, email, and API token in Configuration, then use the fetch panel to pull issues or epics without exporting a CSV.</p>
-
-          <!-- ==== CONTINUE WORKING / DRAFT ==== -->
-          <div id="guide-drafts" style="scroll-margin-top:12px"></div>
-          <h3 class="u-a1-hdr" data-guide-section="drafts">Saving &amp; Restoring Drafts</h3>
-          <p>Every report has a <strong>Save Draft</strong> button in its toolbar. Clicking it downloads a <code>.json</code> file containing:</p>
-          <ul class="u-list-indent">
-            <li>All editable text fields — BLUF boxes, topic summaries, PMR narratives</li>
-            <li>The exact parameters used — date range, sprint selection, or PMR month</li>
-            <li>The CSV filenames that were loaded when the draft was saved</li>
-            <li>A snapshot of key configuration values</li>
-          </ul>
-          <p>On the <strong>Continue Working</strong> panel (right side of the Files step), the app automatically shows your most recent saved draft for that report type — including the date, parameter summary, and CSV filenames. Click <strong><span class="mi" style="font-size:13px;margin-right:2px">play_arrow</span>Generate from Draft</strong> to skip the parameters step entirely and jump straight to the report with all your previous settings and text restored. The only prerequisite is loading your CSVs first.</p>
-          <p>A <strong><span class="mi" style="font-size:14px;margin-right:4px">history</span>Restore Draft</strong> button is also available in the report toolbar after generating, for mid-session restores without going back to step 0.</p>
-
-          <!-- ==== CONFIGURATION ==== -->
-          <div id="guide-config" style="scroll-margin-top:12px"></div>
-          <h3 class="u-a1-hdr" data-guide-section="config">Configuration</h3>
-          <p>All settings auto-save to your browser. Use <strong>↓ Export Config</strong> and <strong>↑ Import Config</strong> in the settings header to back up or transfer settings. The <strong>Save All</strong> button flashes green on success.</p>
-
-          <p class="u-label">General tab</p>
+          <h3 style="color:var(--a1);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:0 0 10px" data-guide-section="files">Your Files</h3>
+          <p>Drop files onto the gray bar at the top. The app auto-detects which file is which from the column headers. You can drop multiple files at once.</p>
           <ul class="u-list-indent-tight">
-            <li><strong>Jira Base URL</strong> — makes every ticket key a clickable link throughout the app</li>
-            <li><strong>Classification / Highest Classification</strong> — appears on Sprint Package exports</li>
-            <li><strong>Contract defaults</strong> — BT DO Line, Report/Contract/CDRL/DID numbers, Prepared For/By — fills the Sprint Package cover sheet</li>
-            <li><strong>Roles</strong> — Project Owner, Technical Lead, Government Approver names and IDs</li>
-            <li><strong>Sprint Prefixes</strong> — project prefixes used in sprint names (DX, LX, RC, RCR, AFX). Used to match sprint values like "DX 26.2.6" to the calendar sprint "26.2.6"</li>
+            <li><strong>Issues CSV</strong> &rarr; needed for Weekly, EOS, Sprint, PMR</li>
+            <li><strong>Epics CSV</strong> &rarr; needed for readable epic names in Weekly, EOS, PMR</li>
+            <li><strong>Roadmap CSV</strong> &rarr; only for Spin Plan (accepts CSV or TSV)</li>
           </ul>
+          <p style="font-size:var(--fs-xs);color:var(--mu)">Your text (BLUF, summaries) auto-saves as you type. Come back later and it's still there. Use <strong>Continue Working</strong> on the Files step to restore everything including your date/sprint selections.</p>
 
-          <p class="u-label">Weekly Digest tab</p>
-          <ul class="u-list-indent-tight">
-            <li><strong>Backend Components</strong> — tickets on these components are excluded (e.g. neo4j, kea)</li>
-            <li><strong>User-Facing Components</strong> — tickets on these route to the Other User-Facing section (e.g. dataxplorer3, lx4)</li>
-            <li><strong>Always-Include Keywords</strong> — values like <code>dxs</code> and <code>gats</code> that match the label field <em>or</em> any substring of summary/epic/labels/components; bypass all exclusions and force routing to the FROM_DXS section, regardless of component</li>
-            <li><strong>Excluded Keywords</strong> — summary keywords that disqualify a ticket from the report</li>
-            <li><strong>Status Order</strong> — controls sort order within each section</li>
-          </ul>
-
-          <p class="u-label">Appearance tab</p>
-          <ul class="u-list-indent-tight">
-            <li><strong>Theme</strong> — toggle between Dark (default) and Light mode. Persisted across sessions.</li>
-            <li><strong>Text size</strong> — use the − / + buttons to scale all text between 10px and 18px. Adjusts all <code>--fs-*</code> CSS variables proportionally. Persisted across sessions.</li>
-          </ul>
-
-          <p class="u-label">EOS Projects tab</p>
-          <p style="margin:0 0 10px">Report title and MTL story points per project (DX, LX, RC). These appear in the EOS report header and Confluence output.</p>
-
-          <p class="u-label">PMR Settings tab</p>
-          <ul class="u-list-indent-tight">
-            <li><strong>PMR Title</strong> — the report header title</li>
-            <li><strong>PMR Groups</strong> — combine multiple topics into one pooled slide (e.g. DX Modernization = DX4 + DX Improvements). Grouped topics using the feature/improvement/bug layout are pooled — no sub-topic separators</li>
-            <li><strong>PMR Layouts</strong> — per-topic slide layout: simple list, feature/improvement/bug, project split (2 or 3 columns), or mission support/other</li>
-            <li><strong>Feature / Bug types</strong> — which Jira issue types count as New Features vs Bug Fixes; everything else is an Improvement</li>
-          </ul>
-
-          <p class="u-label">Sprint Calendar tab</p>
-          <p style="margin:0 0 10px">Defines sprint dates using the <code>YY.Q.S</code> naming convention. Pre-populated through FY27 Q2. Drives sprint auto-detection in EOS and Sprint Plan/Report. The current sprint is highlighted in amber — the NOW indicator. Date values are normalized when comparing (padding single-digit months/days), so hand-typed entries like <code>2026-4-1</code> work correctly. The calendar must include at least one sprint <em>after</em> the current one, or the VBA export will warn you and use a placeholder for the next sprint label.</p>
-
-          <p class="u-label">Field Mapping tab</p>
-          <p style="margin:0 0 10px">If your Jira export uses non-standard column names (e.g. "Story point estimate" instead of "Story Points"), map them here. After loading a CSV, detected column names appear automatically so you can map without guessing.</p>
-
-          <!-- ==== TOPICS ==== -->
+          <!-- ════════ WEEKLY DIGEST ════════ -->
           <div id="guide-weekly" style="scroll-margin-top:12px"></div>
-          
-<div class="guide-steps" class="u-card-sm">
-  <div style="font-weight:700;font-size:var(--fs-sm);margin-bottom:10px;color:var(--a1)">How to run a Weekly Digest</div>
-  <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2">
-    <li>Drop your <code>jira_issues_master.csv</code> and <code>jira_epics_export.csv</code> onto the <strong>Drop CSV</strong> zone in the header.</li>
-    <li>Click <strong>Weekly Digest</strong> on the home screen. If files are loaded it goes straight to the date picker.</li>
-    <li>Select your <strong>start date</strong> and <strong>end date</strong> (typically Mon–Fri of the current week).</li>
-    <li>Click <strong>Generate Report →</strong>.</li>
-    <li>When the report appears, the sticky bar shows <strong>Copy for Confluence</strong> — click it to copy the wiki markup.</li>
-    <li>Paste into your Confluence page. Done.</li>
-  </ol>
-  <div style="margin-top:8px;font-size:var(--fs-xs);color:var(--mu)">Tip: The report auto-saves. Next time you open Weekly Digest it will be in <strong>Recent Reports</strong> on the home screen.</div>
-</div>
-<h3 class="u-a2-hdr" data-guide-section="weekly">Weekly Digest</h3>
-          <p>Status report of tickets updated within a selected date range. Ticket routing priority (first match wins):</p>
-          <ol style="padding-left:20px;margin:6px 0 10px;display:flex;flex-direction:column;gap:3px">
-            <li>Always-include keyword match (dxs, gats) → <strong>FROM_DXS</strong>, bypasses all other checks</li>
-            <li>Backend component match → excluded</li>
-            <li>Excluded summary keyword → excluded</li>
-            <li>User-facing component match → <strong>Other User-Facing</strong></li>
-            <li>No match → not shown</li>
-          </ol>
-          <p>The <strong>Debug tab</strong> shows every ticket's routing decision with the reason. Excluded tickets have a <strong>+ Include</strong> button to override inline. <strong><span class="mi" style="font-size:13px;margin-right:3px">mail</span>Copy for Email</strong> produces a light-themed HTML table formatted for Outlook.</p>
-          <p>Use <strong>Save Draft</strong> to preserve BLUF text between sessions.</p>
+          <h3 class="u-a2-hdr" data-guide-section="weekly">Weekly Digest</h3>
+          <div style="background:var(--s3);border:1px solid var(--bd);border-radius:var(--r2);padding:14px 18px;margin-bottom:12px">
+            <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2.2">
+              <li>Drop <strong>Issues + Epics CSVs</strong></li>
+              <li>Click <strong>Weekly Digest</strong> &rarr; pick start &amp; end dates</li>
+              <li>Click <strong>Generate</strong></li>
+              <li>Click <strong>Copy for Confluence</strong> &rarr; paste into Confluence</li>
+            </ol>
+          </div>
+          <p>Shows tickets updated in your date range, grouped by project (DX/LX/RC). The <strong>Debug</strong> tab shows why each ticket was included or excluded.</p>
 
-          <!-- ==== EOS ==== -->
+          <!-- ════════ END OF SPRINT ════════ -->
           <div id="guide-eos" style="scroll-margin-top:12px"></div>
-          
-<div class="guide-steps" class="u-card-sm">
-  <div style="font-weight:700;font-size:var(--fs-sm);margin-bottom:10px;color:var(--a1)">How to run an End of Sprint report</div>
-  <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2">
-    <li>Drop your <code>jira_issues_master.csv</code> and <code>jira_epics_export.csv</code> onto the <strong>Drop CSV</strong> zone in the header.</li>
-    <li>Click <strong>End of Sprint</strong> on the home screen.</li>
-    <li>Select the <strong>Current Sprint</strong> (the sprint just ended) and <strong>Future Sprint</strong> (the one starting next).</li>
-    <li>Click <strong>Generate Report →</strong>.</li>
-    <li>Click <strong>Copy Confluence</strong> in the sticky bar to copy all project sections at once.</li>
-    <li>Paste into Confluence. Each project (DX, LX, RC) gets its own section.</li>
-  </ol>
-  <div style="margin-top:8px;font-size:var(--fs-xs);color:var(--mu)">Tip: Sprint numbers are auto-detected from your sprint calendar. Configure it in Settings → Sprint Calendar.</div>
-</div>
-<h3 class="u-a2-hdr" data-guide-section="eos">End of Sprint (EOS)</h3>
-          <p>Per-project sprint review. The dropdown shows 7 sprints by default (3 before current, current, 3 after). Click <strong>Show all N sprints</strong> to expand. Selecting a Current Sprint automatically sets Future Sprint to the next one, which you can override manually.</p>
-          <p>Each project tab has four sub-tabs:</p>
-          <ul class="u-list-indent">
-            <li><strong>Report</strong> — project BLUF + per-topic editable <strong>Summary</strong> fields + blocked work + current/future ticket lists</li>
-            <li><strong>Confluence</strong> — wiki markup; Summary fields are read live from the editable boxes, so fill them in before copying</li>
-            <li><strong>Unmatched (N)</strong> — tickets that didn't match any topic. Click <strong>+ Create Rule</strong> to add a keyword, exact phrase, epic key, or exclude keyword to a topic. The rule is saved to Rule Overrides, persisted to browser storage, and the report reruns immediately</li>
-            <li><strong>Debug</strong> — full trace of every ticket's matching decisions; filter by ticket key</li>
-          </ul>
+          <h3 class="u-a2-hdr" data-guide-section="eos">End of Sprint (EOS)</h3>
+          <div style="background:var(--s3);border:1px solid var(--bd);border-radius:var(--r2);padding:14px 18px;margin-bottom:12px">
+            <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2.2">
+              <li>Drop <strong>Issues + Epics CSVs</strong></li>
+              <li>Click <strong>End of Sprint</strong> &rarr; pick Current &amp; Future sprints</li>
+              <li>Click <strong>Generate</strong></li>
+              <li>Fill in the <strong>BLUF</strong> and <strong>Summary</strong> boxes for each topic</li>
+              <li>Fill in <strong>Deployments</strong>, <strong>User Engagement</strong>, <strong>Demonstrations</strong> (or leave blank for NSTR)</li>
+              <li>Click <strong>Copy for Confluence</strong> &rarr; pick projects &rarr; paste</li>
+            </ol>
+          </div>
 
-          <p class="u-label">Auto-save &amp; Drafts</p>
-          <p style="margin:0 0 10px">All editable text (BLUF, topic summaries, additional sections) auto-saves to localStorage as you type (debounced 800ms). Navigate away and come back — your text is preserved. Use <strong>Save Draft</strong> for explicit backup. <strong>Save All</strong> in Settings also persists overrides.</p>
-
-          <p class="u-label">Confluence output</p>
+          <p style="font-weight:700;color:var(--tx);margin:14px 0 6px">What each section does</p>
           <ul class="u-list-indent-tight">
-            <li>Ticket sections render as live <strong>{jira:jqlQuery=...}</strong> macros — Confluence executes the JQL so the tables stay current as tickets are added/updated</li>
-            <li>Sprint ticket counts link to Jira with the corresponding JQL filter</li>
-            <li>The <strong>Exclude empty (NSTR) topics</strong> checkbox in the Copy picker omits topics with no tickets from the output</li>
-            <li>Summary text only appears if you've typed something — no "TBD" placeholders</li>
+            <li><strong>BLUF</strong> &mdash; top-level summary for the project. Type it, it auto-saves.</li>
+            <li><strong>Topic sections</strong> &mdash; tickets grouped by topic (HCI Migration, Tool Mod, etc.). Each has a Summary field and a ticket table.</li>
+            <li><strong>AI button</strong> &mdash; the sparkle icon next to each topic copies a prompt + ticket list to your clipboard. Paste into ChatGPT/Claude to generate a summary. Configure the prompt in Settings &rarr; EOS &rarr; AI Summary Prompt.</li>
+            <li><strong>Prioritization</strong> &mdash; at the bottom. Pick epics to see backlog tickets, or paste JQL for Confluence to run live.</li>
+            <li><strong>Deployments / User Engagement / Demos</strong> &mdash; type content or leave blank. Blank = "NSTR" in Confluence.</li>
           </ul>
 
-          <p class="u-label">Prioritization / Upcoming</p>
-          <p style="margin:0 0 6px">At the bottom of each project's Report tab, an interactive section for identifying upcoming work:</p>
+          <p style="font-weight:700;color:var(--tx);margin:14px 0 6px">Confluence output</p>
           <ul class="u-list-indent-tight">
-            <li><strong>By Epic</strong> — multi-select epics from the loaded CSV; shows backlog tickets not in the current/future sprint. Results appear as a table with Key, Epic, Summary, Status, Points</li>
-            <li><strong>Recently Created</strong> — filter by tickets created in the last N days (default 14)</li>
-            <li><strong>Custom JQL</strong> — paste raw JQL text; not executed locally. Included in the Confluence output as a <code>{jira:jqlQuery=...}</code> macro so Confluence runs it live</li>
+            <li>Ticket tables are live <strong>{jira:...}</strong> macros &mdash; Confluence runs the JQL, so tables update as tickets change</li>
+            <li>Sprint counts link to Jira filtered views</li>
+            <li>Check <strong>"Exclude empty topics"</strong> in the copy picker to hide NSTR sections</li>
+            <li>Your typed summaries are included. No typing = no summary line (no "TBD")</li>
           </ul>
-          <p style="margin:0 0 10px;font-size:var(--fs-xs);color:var(--mu)">All prioritization settings persist to localStorage — mode, epic selections, day count, and JQL text survive page reloads.</p>
 
-          <p class="u-label">Additional sections</p>
-          <p style="margin:0 0 10px">Below prioritization, three editable text blocks: <strong>Deployments</strong>, <strong>User Engagement and New Requirements</strong>, and <strong>Demonstrations</strong>. Type content or leave blank — empty fields emit <em>NSTR for this period</em> in the Confluence output. Each line you type becomes a sub-bullet in the wiki markup.</p>
+          <p style="font-size:var(--fs-xs);color:var(--mu)">Everything auto-saves as you type. Close the browser, come back, your text is still there.</p>
 
-          <!-- ==== PMR ==== -->
-          <div id="guide-sprint" style="scroll-margin-top:12px"></div>
-          
-<div class="guide-steps" class="u-card-sm">
-  <div style="font-weight:700;font-size:var(--fs-sm);margin-bottom:10px;color:var(--a1)">How to run a Sprint Plan/Report</div>
-  <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2">
-    <li>Drop your <code>jira_issues_master.csv</code> onto the <strong>Drop CSV</strong> zone in the header. (Epics not required.)</li>
-    <li>Click <strong>Sprint Plan/Report</strong> on the home screen — the report runs immediately.</li>
-    <li>Review the velocity metrics table and sprint delta section.</li>
-    <li>Paste your Jira Sprint Report text into the <strong>Sprint Delta</strong> box and click <strong>Analyze</strong> to detect mid-sprint additions and removals.</li>
-    <li>Click <strong>Copy VBA</strong> in the sticky bar, then paste into the Excel macro editor (Alt+F11 → Import File), or use <strong>Download VBA</strong> to save the file.</li>
-    <li>Run the macro in Excel to populate the Sprint Package.</li>
-  </ol>
-</div>
-<div style="background:var(--s3);border:1px solid var(--bd);border-left:3px solid var(--a3);border-radius:var(--r2);padding:14px 18px;margin:14px 0">
-  <div style="font-weight:700;font-size:var(--fs-sm);margin-bottom:10px;color:var(--a3)"><span class="mi" style="font-size:14px;margin-right:5px;vertical-align:middle">code</span>Using the VBA macro in Excel</div>
-  <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2">
-    <li>Click <strong>Download VBA</strong> in the Sprint Plan/Report sticky bar. A <code>.txt</code> file is saved — rename it to <code>.bas</code> if your organization requires it, or leave as-is.</li>
-    <li>Open Excel and press <kbd style="background:var(--s4);border:1px solid var(--bd2);border-radius:3px;padding:1px 5px;font-family:var(--mono);font-size:var(--fs-xs)">Alt</kbd> + <kbd style="background:var(--s4);border:1px solid var(--bd2);border-radius:3px;padding:1px 5px;font-family:var(--mono);font-size:var(--fs-xs)">F11</kbd> to open the Visual Basic Editor.</li>
-    <li>In the VBE menu go to <strong>File → Import File…</strong> and select the downloaded <code>.txt</code> / <code>.bas</code> file. A new module will appear in the Project tree.</li>
-    <li>Press <kbd style="background:var(--s4);border:1px solid var(--bd2);border-radius:3px;padding:1px 5px;font-family:var(--mono);font-size:var(--fs-xs)">F5</kbd> or go to <strong>Run → Run Macro</strong>. Select <code>CreateSprintPlan</code> to generate the Plan workbook, or <code>EndOfSprint</code> to generate the Report workbook, then click <strong>Run</strong>.</li>
-    <li>The macro creates and populates the Sprint Package spreadsheet. Save as <code>.xlsm</code> to keep macros, or <code>.xlsx</code> for distribution.</li>
-  </ol>
-  <div style="margin-top:10px;font-size:var(--fs-xs);color:var(--mu)">Note: If Excel prompts "Enable Macros", click <strong>Enable Content</strong>. If macros are blocked by org policy, import into a macro-enabled workbook you already trust.</div>
-</div>
-<h3 class="u-a2-hdr" data-guide-section="sprint">Sprint Plan/Report</h3>
-          <p>Auto-detects current and previous sprints from the sprint calendar. Two top-level tabs — <strong>Sprint Plan</strong> (current sprint) and <strong>Sprint Report</strong> (previous sprint) — each with identical 7-tab workbooks:</p>
-          <p style="margin:4px 0 8px;color:var(--mu);font-size:var(--fs-xs)">Cover Sheet · Information · Sprint Plan · Sprint Report · User Stories · Initial Incident · Final Incident</p>
-          <p>Both workbooks have all 7 tabs. The Sprint Report tab is blank in the Plan workbook; the Sprint Plan tab is blank in the Report workbook. Government employees (Excluded People) are filtered out of all counts and story points here only.</p>
-          <p>Download <strong><span class="mi" style="font-size:14px;margin-right:3px">code</span>VBA</strong> to get a <code>.txt</code> macro file (rename to <code>.bas</code> if needed). Import into Excel (Alt+F11 → Import File), then run <code>CreateSprintPlan</code> to generate the Plan workbook or <code>EndOfSprint</code> to generate the Report workbook.</p>
-          <p>The <strong>Sprint Delta</strong> panel (below the metrics) accepts pasted text from the Jira Sprint Report page. It identifies tickets added mid-sprint (★) and removed, cross-referenced against your issues CSV to flag excluded-assignee tickets.</p>
-
-          <!-- ==== RULE OVERRIDES ==== -->
+          <!-- ════════ PMR ════════ -->
           <div id="guide-pmr" style="scroll-margin-top:12px"></div>
-          
-<div class="guide-steps" class="u-card-sm">
-  <div style="font-weight:700;font-size:var(--fs-sm);margin-bottom:10px;color:var(--a1)">How to run a PMR</div>
-  <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2">
-    <li>Drop your <code>jira_issues_master.csv</code> and <code>jira_epics_export.csv</code> onto the <strong>Drop CSV</strong> zone in the header.</li>
-    <li>Click <strong>PMR</strong> on the home screen.</li>
-    <li>Select the <strong>month</strong> you are reporting on using the month picker.</li>
-    <li>Click <strong>Generate Report →</strong>.</li>
-    <li>Edit the BLUF and narrative fields directly in the report — all text is editable in place.</li>
-    <li>Click <strong>Copy Narrative</strong> in the sticky bar to copy the formatted narrative text.</li>
-    <li>Click <strong>Download PPTX</strong> to generate a BAMBOOTIGER-formatted PowerPoint deck directly in your browser.</li>
-  </ol>
-  <div style="margin-top:8px;font-size:var(--fs-xs);color:var(--mu)">Note: A ticket appears in the PMR only if it was in a sprint that overlapped the selected month AND its updated/resolved date falls within that month.</div>
-</div>
-<div style="background:var(--s3);border:1px solid var(--bd);border-left:3px solid var(--a4);border-radius:var(--r2);padding:14px 18px;margin:14px 0">
-  <div style="font-weight:700;font-size:var(--fs-sm);margin-bottom:10px;color:var(--a4)"><span class="mi" style="font-size:14px;margin-right:5px;vertical-align:middle">slideshow</span>BAMBOOTIGER PMR PowerPoint export</div>
-  <p style="font-size:var(--fs-xs);color:var(--mu);margin:0 0 10px">Generates a fully-formatted <code>.pptx</code> matching the BAMBOOTIGER Monthly Progress Report template — hero title slide, two-column agenda, and layout-specific content slides — directly in the browser via the bundled pptxgenjs library.</p>
-  <div style="font-weight:600;font-size:var(--fs-xs);color:var(--tx);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Slide types generated</div>
-  <ul class="u-list-indent" style="font-size:var(--fs-sm);line-height:1.8;margin:0 0 12px">
-    <li><strong>Title slide</strong> — BAMBOOTIGER navy/cyan hero with work period, submitted date, and PERIOD/TOPICS/TICKETS/STATUS info chips.</li>
-    <li><strong>Presentation Agenda</strong> — two-column list of every topic, with section header and accent squares.</li>
-    <li><strong>Feature / Improvement / Bug</strong> — NEW FEATURES card on the left (full height) with IMPROVEMENTS and BUG FIXES stacked on the right.</li>
-    <li><strong>Project split (DX / LX / RC)</strong> — stacked product rows, each with a product tag block and narrative card.</li>
-    <li><strong>Mission Support / Other</strong> — two-column card layout with purple + gold accents.</li>
-    <li><strong>Simple list</strong> — single full-width narrative card with ticket strip.</li>
-  </ul>
-  <div style="font-weight:600;font-size:var(--fs-xs);color:var(--tx);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Usage</div>
-  <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2">
-    <li>Generate and finalise your PMR report (fill in narratives, check unmatched tickets).</li>
-    <li>Click <strong>Download PPTX</strong> in the PMR sticky bar. A <code>BAMBOOTIGER_PMR_&lt;Month_Year&gt;.pptx</code> file is saved to your downloads.</li>
+          <h3 class="u-a2-hdr" data-guide-section="pmr">PMR</h3>
+          <div style="background:var(--s3);border:1px solid var(--bd);border-radius:var(--r2);padding:14px 18px;margin-bottom:12px">
+            <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2.2">
+              <li>Drop <strong>Issues + Epics CSVs</strong></li>
+              <li>Click <strong>PMR</strong> &rarr; pick the reporting month</li>
+              <li>Click <strong>Generate</strong></li>
+              <li>Fill in the narrative boxes for each topic</li>
+              <li>Click <strong>Copy Narrative</strong> to copy text, or <strong>Download PPTX</strong> for a PowerPoint deck</li>
+            </ol>
+          </div>
+          <p>Tickets appear in the PMR only if they were in a sprint that overlapped the selected month AND were updated/resolved within that month.</p>
+          <p><strong>Download PPTX</strong> generates a formatted PowerPoint matching the BAMBOOTIGER template &mdash; title slide, agenda, and layout-specific content slides (feature/improvement/bug, project split, mission support).</p>
     <li>Open in PowerPoint. The topic content slides are formatted — add any remaining deck slides (kudos, actions, tier dividers, roadmap, closing) from your master template.</li>
   </ol>
-  <div style="margin-top:10px;font-size:var(--fs-xs);color:var(--mu)">Tip: Slide layouts are chosen automatically per topic based on the <strong>PMR Layouts</strong> setting in Settings → PMR. Change the layout there and regenerate to see a different slide style.</div>
-</div>
-<h3 class="u-a2-hdr" data-guide-section="pmr">PMR</h3>
-          <p>Monthly Program Review. Select a month from the calendar grid (click the display to open — year navigation with ‹ › buttons, 4-column month grid). Future months are dimmed. Tickets are included if updated within the month, in a non-future sprint, and resolved within the month or still open.</p>
-          <p>Topic routing uses a pre-computed lookup so every ticket is matched in O(1) time regardless of how many PMR groups are defined. The agenda and slides are built in a single pass — order in the agenda always matches slide order.</p>
-          <p>Slide layout notes:</p>
-          <ul class="u-list-indent">
-            <li><strong>DX Modernization</strong> (DX4 + DX Improvements) — tickets pooled, split into New Features / Improvements / Bug Fixes. No sub-topic separators between DX4 and DX Improvements.</li>
-            <li><strong>LX Modernization</strong> (LX5 + LX Improvements) — same pooling and split.</li>
-            <li>Each sub-heading has an editable <strong>narrative box</strong> directly beneath it for talking points.</li>
-          </ul>
-          <p><strong><span class="mi" style="font-size:13px;margin-right:3px">description</span>Copy Narrative</strong> exports only slide titles, sub-headings, and narrative text — no ticket lists — for pasting into a brief or email. <strong>Save Draft</strong> saves all narrative text; when restoring, all narrative boxes are matched by their stable semantic IDs so they survive report re-generation.</p>
+          <p style="font-size:var(--fs-xs);color:var(--mu)">The <strong>Integrated Milestone Roadmap</strong> slide is configured in Settings &rarr; PMR. Seed milestones from the spin plan, curate per-slide, preview as SVG, and it exports to the PPTX automatically.</p>
 
-          <p class="u-label">Integrated Milestone Roadmap</p>
-          <p style="margin:0 0 6px">A tier-based roadmap slide seeded from the loaded spin plan. Configure in <strong>Settings → PMR → Integrated Milestone Roadmap</strong>:</p>
-          <ul class="u-list-indent-tight">
-            <li><strong>Re-seed from Spin Plan</strong> — imports Epic/Program rows from the loaded roadmap CSV. Epics are matched to tiers by walking the parent chain (Strategy → Program → Initiative → Epic). Date, status, and product are auto-mapped. Manual edits are preserved across re-seeds (sticky per field)</li>
-            <li><strong>Slide controls</strong> — set title, month range, which tiers to show, and which tier to emphasize (gets 2.5× row height). Add an optional zoomed second slide with a tighter range</li>
-            <li><strong>Milestone table</strong> — toggle selection per slide, edit tier/product/date/status/label. Search and "in-range only" filters for large lists. Gold dots mark user-edited fields that re-seed won't overwrite</li>
-            <li><strong>Preview</strong> — live SVG preview updates as you toggle milestones. Diamond shapes colored by status (gray/green/blue/red) with product letter inside (D/L/R). Dense months auto-pack into lanes; overflow collapses into +N cluster badges</li>
-            <li><strong>PPTX output</strong> — neutral navy header (no tier accent), Cambria labels, Next Steps panel on the right listing selected milestones chronologically, status legend at the bottom</li>
-          </ul>
-
-          <!-- ==== SPRINT METRICS ==== -->
-          <div id="guide-topics" style="scroll-margin-top:12px"></div>
-
-          <div id="guide-spin" style="scroll-margin-top:12px"></div>
-          <h3 style="color:var(--a1);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:0 0 10px" data-guide-section="spin">Spin Plan</h3>
-          <p>Live program dashboard showing hierarchical progress across all epics, organized by tier, with sprint breakdowns, blockers, and dependency tracking.</p>
-          <div class="u-card-sm">
-            <div style="font-weight:700;font-size:var(--fs-sm);margin-bottom:10px;color:var(--a1)">How to use Spin Plan</div>
-            <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2">
-              <li>Export your Jira Roadmap / Plans view as a CSV and drop it onto the <strong>Drop CSV</strong> zone in the header.</li>
-              <li>Click <strong>Spin Plan</strong> on the home screen &mdash; opens directly, no wizard.</li>
-              <li>Switch between <strong>List</strong>, <strong>Column</strong>, and <strong>Spin</strong> views using the pill buttons in the report bar.</li>
-              <li>Click any summary chip (Programs, Epics, Stories, Behind, Blocked, Deps) to drill into that category.</li>
-              <li>In <strong>Column view</strong>: epics are shown in DX / LX / RC columns within each tier. Use expand/collapse buttons on tier headers.</li>
-              <li>In <strong>Spin (quarter) view</strong>: click any tier&times;month cell to see open tasks for that combination.</li>
-              <li>Use the <strong>Dependencies</strong> card on the home screen to see all open blockers without entering the dashboard.</li>
+          <!-- ════════ SPRINT PLAN ════════ -->
+          <div id="guide-sprint" style="scroll-margin-top:12px"></div>
+          <h3 class="u-a2-hdr" data-guide-section="sprint">Sprint Plan/Report</h3>
+          <div style="background:var(--s3);border:1px solid var(--bd);border-radius:var(--r2);padding:14px 18px;margin-bottom:12px">
+            <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2.2">
+              <li>Drop <strong>Issues CSV</strong> (epics not needed)</li>
+              <li>Click <strong>Sprint Plan/Report</strong> &mdash; runs immediately</li>
+              <li>Click <strong>Download VBA</strong> &rarr; open Excel &rarr; Alt+F11 &rarr; Import File &rarr; Run macro</li>
             </ol>
-            <p style="font-size:var(--fs-xs);color:var(--mu);margin-top:8px">Hierarchy: Strategy &rarr; Program &rarr; Initiative &rarr; Epic &rarr; Story. Issues with no sprint assigned bucket by their Target End Date.</p>
           </div>
-          <p class="u-label">File format</p>
-          <p style="margin:0 0 10px">The parser auto-detects <strong>CSV</strong> (comma-separated) and <strong>TSV</strong> (tab-separated) formats by counting delimiters in the header line. Jira Plans exports from the browser are typically CSV; copies from Google Sheets or Excel are TSV. Both work transparently.</p>
-          <p class="u-label">Parent resolution</p>
-          <p style="margin:0 0 10px">The <code>Parent</code> column can contain either <strong>issue keys</strong> (<code>DX-21480</code>) or <strong>title strings</strong> (<code>Rework DX Primary Navigation for HCI Platform Standards</code>). The tree builder resolves by key first, then falls back to a case-insensitive title lookup.</p>
-          <p class="u-label">Diagnostic banner</p>
-          <p style="margin:0 0 10px">A line above the summary bar shows: <em>864 stories under 59 epics · 33 epics empty</em>. If orphan stories are detected (stories that failed to resolve to any epic), the message turns amber. This is the first thing to check after porting to a new environment.</p>
+          <p>Auto-detects current &amp; previous sprints from the calendar. Generates Sprint Plan and Sprint Report workbooks with 7 tabs each. Government employees (Excluded People) are filtered from counts.</p>
+          <p style="font-size:var(--fs-xs);color:var(--mu)">The <strong>Sprint Delta</strong> box accepts pasted text from the Jira Sprint Report page to detect mid-sprint additions and removals.</p>
 
+          <!-- ════════ SPIN PLAN ════════ -->
+          <div id="guide-spin" style="scroll-margin-top:12px"></div>
+          <h3 style="color:var(--a1);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:20px 0 10px" data-guide-section="spin">Spin Plan</h3>
+          <div style="background:var(--s3);border:1px solid var(--bd);border-radius:var(--r2);padding:14px 18px;margin-bottom:12px">
+            <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2.2">
+              <li>Drop your <strong>Roadmap CSV</strong> (from Jira Plans export)</li>
+              <li>Click <strong>Spin Plan</strong> &mdash; opens directly</li>
+              <li>Switch between <strong>List</strong>, <strong>Column</strong>, and <strong>Spin</strong> views</li>
+              <li>Click the summary chips (Epics, Stories, Behind, Blocked, Deps) to drill down</li>
+            </ol>
+          </div>
+          <p>Must have a <code>Hierarchy</code> column. <code>Parent</code> can be issue keys or title strings &mdash; both work. CSV and TSV are auto-detected.</p>
+          <p style="font-size:var(--fs-xs);color:var(--mu)">A <strong>diagnostic banner</strong> above the summary bar shows story/epic resolution counts. Amber = some stories didn't find their parent.</p>
+
+          <!-- ════════ VELOCITY ════════ -->
           <div id="guide-velocity" style="scroll-margin-top:12px"></div>
           <h3 style="color:var(--a1);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:20px 0 10px" data-guide-section="velocity">Sprint Velocity</h3>
-          <p>Optional velocity tracker powered by <code>velocity-report.js</code>. If the JS file is in the same folder as the HTML, a <strong>Sprint Velocity</strong> card appears on the home grid automatically. Remove the file and the card disappears — no code changes needed.</p>
-          <p>Uses the same issues CSV and sprint calendar as other reports. Runs as a 2-step wizard (Files → Report). Metrics include committed vs completed story points per sprint, velocity trends, and project-level breakdowns.</p>
+          <p>Optional. If <code>velocity-report.js</code> is in the same folder, a <strong>Sprint Velocity</strong> card appears on the home screen. Remove the file to hide it. Uses the same Issues CSV and sprint calendar as other reports.</p>
 
-<h3 class="u-a1-hdr" data-guide-section="topics">Topics</h3>
-          <p>Topics control how tickets are bucketed into report sections. Matching rules are evaluated in this order for each topic:</p>
-          <ol style="padding-left:20px;margin:6px 0 10px;display:flex;flex-direction:column;gap:3px">
-            <li><strong>Epic Key</strong> — exact match on the ticket's Epic Link field</li>
-            <li><strong>Exact Phrase</strong> — phrase appears anywhere in Summary + Epic Name + Labels + Components</li>
-            <li><strong>Exclude check</strong> — if any exclude keyword matches, this topic is skipped for this ticket</li>
-            <li><strong>Keyword</strong> — any keyword appears in the combined text blob</li>
-          </ol>
-          <p>When multiple topics match, the lowest <code>tier_rank</code> wins (0 = highest priority). Topics are scoped by project — a DX ticket only matches against topics that include DX in their projects list. Use <strong>Import Topics</strong> / <strong>Export Topics</strong> to load or share the full topic set as JSON. Topics are also persisted to browser storage automatically.</p>
-
-          <!-- ==== EXCLUDED PEOPLE ==== -->
-          <div id="guide-people" style="scroll-margin-top:12px"></div>
-          <h3 class="u-a1-hdr" data-guide-section="people">Excluded People</h3>
-          <p>Government employees who do not count toward contract obligations. Excluding them ensures Sprint Plan/Report velocity and completion figures reflect contractor delivery only. They appear normally in Weekly Digest, EOS, and PMR. Add by typing a Jira display name or clicking from the list detected from your loaded CSV.</p>
-
-          <!-- ==== WEEKLY ==== -->
-          <div id="guide-overrides" style="scroll-margin-top:12px"></div>
-          <h3 style="color:var(--a4);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:20px 0 10px" data-guide-section="overrides">Rule Overrides</h3>
-          <p>Custom matching rules created from the Unmatched tabs in EOS or PMR. Each rule adds a keyword, exact phrase, or epic key to a topic, or adds an exclude keyword to prevent a false match. Rules are applied on top of the base topic config, persisted to browser storage across sessions, and re-applied automatically on page reload. Use <strong>Export overrides.json</strong> to back them up — clear browser data will erase them otherwise.</p>
-
-
-          <!-- ==== LEGEND ==== -->
-          <div id="guide-legend" style="scroll-margin-top:12px"></div>
-          <h3 style="color:var(--a3);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:20px 0 10px" data-guide-section="legend">Legend</h3>
+          <!-- ════════ SETTINGS ════════ -->
+          <div id="guide-config" style="scroll-margin-top:12px"></div>
+          <h3 class="u-a1-hdr" data-guide-section="config">Settings</h3>
+          <p>All settings auto-save to your browser. Use <strong>Export / Import Config</strong> to transfer between machines.</p>
+          <ul class="u-list-indent-tight">
+            <li><strong>General</strong> &mdash; Jira URL (makes ticket keys clickable), classification, contract info, roles, sprint prefixes</li>
+            <li><strong>Weekly Digest</strong> &mdash; backend components (excluded), user-facing components, always-include keywords, excluded keywords</li>
+            <li><strong>EOS</strong> &mdash; per-project report titles, MTL points, AI summary prompt (toggle + editable text)</li>
+            <li><strong>PMR</strong> &mdash; title, topic groups, slide layouts, feature/bug type lists, Integrated Milestone Roadmap editor</li>
+            <li><strong>Sprint Calendar</strong> &mdash; sprint dates (pre-populated FY26&ndash;FY27). Keep it current &mdash; it drives auto-detection everywhere</li>
+            <li><strong>Topics</strong> &mdash; how tickets get bucketed into report sections (epic keys, keywords, phrases). Import/Export as JSON</li>
+            <li><strong>Excluded People</strong> &mdash; government employees filtered from Sprint Plan counts only</li>
+            <li><strong>Rule Overrides</strong> &mdash; quick fixes from the Unmatched tab. Persist across sessions. Export as backup</li>
+            <li><strong>Appearance</strong> &mdash; dark/light theme, text size</li>
+            <li><strong>Field Mapping</strong> &mdash; map non-standard Jira column names</li>
+          </ul>
 
           <p style="font-weight:600;color:var(--tx);margin:0 0 8px">Status Icons</p>
           <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px">
@@ -9506,14 +9372,12 @@ function openGuide(){
           <div id="guide-tips" style="scroll-margin-top:12px"></div>
           <h3 style="color:var(--a3);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:20px 0 10px" data-guide-section="tips">Tips</h3>
           <ul style="padding-left:18px;display:flex;flex-direction:column;gap:6px">
-            <li>Export your config and overrides before making major changes — both are easy to re-import if something goes wrong.</li>
-            <li>The sprint calendar drives auto-detection in EOS and Sprint Plan/Report. Keep it current; it's pre-populated through FY27 Q2. Always keep at least one sprint after the current one so VBA export has a valid next-sprint reference.</li>
-            <li>Fill in EOS Summary fields and PMR narrative boxes <em>before</em> using Confluence copy or Copy Narrative — both read the live field content at the moment you click.</li>
-            <li>The Debug tab in EOS and PMR shows exactly why each ticket matched or didn't. Filter by ticket key to trace a specific issue.</li>
-            <li>Save Draft regularly during long editing sessions. Use Generate from Draft on the Continue Working panel to pick up exactly where you left off — the same dates, sprints, and text, without re-entering anything.</li>
-            <li>Rule Overrides are the right tool for one-off routing fixes. If the same type of ticket keeps landing in the wrong section, update the topic directly in the Topics editor instead.</li>
-            <li>Text size (Settings → Appearance) scales all interface text proportionally. If the app feels cramped on a small screen or too small on a large monitor, adjust it there — the setting persists across sessions.</li>
-            <li>PMR Groups let you pool multiple topics (e.g. DX4 + DX Improvements) onto one pooled slide. Manage groups in Settings → PMR — changes to group headers and topic ID lists take effect the next time you generate a PMR.</li>
+            <li><strong>Keep the sprint calendar current.</strong> It drives auto-detection in EOS and Sprint Plan. Always have at least one sprint after the current one.</li>
+            <li><strong>Fill in summaries before copying.</strong> Confluence copy reads the live text at the moment you click.</li>
+            <li><strong>Use the Debug tab</strong> in EOS and PMR to see exactly why a ticket ended up where it did.</li>
+            <li><strong>Ticket in the wrong section?</strong> Click <strong>+ Create Rule</strong> in the Unmatched tab. For recurring issues, edit the Topic directly.</li>
+            <li><strong>Text too small?</strong> Settings &rarr; Appearance &rarr; adjust text size.</li>
+            <li><strong>Back up your settings.</strong> Export Config &amp; Overrides before major changes.</li>
           </ul>
           </div>
         </div>
