@@ -2012,14 +2012,21 @@ const PAGE_TITLES = {
 function parseCSV(text) {
   const lines = text.split(/\r?\n/);
   if(!lines.length) return [];
+  // Auto-detect delimiter: if the first line has more tabs than commas, treat
+  // as TSV. Jira Plans exports can be either format depending on whether the
+  // user exports from the UI (CSV) or copies from a spreadsheet (TSV).
+  const firstLine = lines[0] || '';
+  const tabCount = (firstLine.match(/\t/g) || []).length;
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const delim = tabCount > commaCount ? '\t' : ',';
+  const delimRe = delim === '\t'
+    ? /("(?:[^"]|"")*"|[^\t]*)\t?/g
+    : /("(?:[^"]|"")*"|[^,]*),?/g;
   function parseLine(line) {
-    const out=[], re=/("(?:[^"]|"")*"|[^,]*),?/g;
+    const out=[];
     let m;
+    const re = new RegExp(delimRe.source, 'g');
     while((m=re.exec(line))!==null) {
-      // Guard against zero-width match infinite loop. Note: this also means a
-      // truly empty trailing field (line ending in ",") will be dropped rather
-      // than appended as "". In practice Jira CSVs never produce that pattern,
-      // but headers.forEach below fills missing values with '' anyway.
       if(m.index===re.lastIndex) { re.lastIndex++; break; }
       let v=m[1];
       if(v.startsWith('"')&&v.endsWith('"')) v=v.slice(1,-1).replace(/""/g,'"');
