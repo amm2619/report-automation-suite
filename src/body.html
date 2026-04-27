@@ -1,0 +1,878 @@
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" id="mi-sprite">
+<symbol id="mi-account_tree" viewBox="0 0 24 24"><path d="M22 11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3zM7 9H4V5h3zm10 6h3v4h-3zm0-12h3v4h-3z"/></symbol>
+<symbol id="mi-add" viewBox="0 0 24 24"><path d="M11 13H5v-2h6V5h2v6h6v2h-6v6h-2z"/></symbol>
+<symbol id="mi-analytics" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m0 16H5V5h14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/></symbol>
+<symbol id="mi-arrow_back" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></symbol>
+<symbol id="mi-arrow_downward" viewBox="0 0 24 24"><path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8z"/></symbol>
+<symbol id="mi-arrow_upward" viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8z"/></symbol>
+<symbol id="mi-bar_chart" viewBox="0 0 24 24"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></symbol>
+<symbol id="mi-check" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></symbol>
+<symbol id="mi-check_circle" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8m-2-5.83L7.41 11.6 6 13l4 4 8-8-1.41-1.41z"/></symbol>
+<symbol id="mi-chevron_right" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></symbol>
+<symbol id="mi-close" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+<symbol id="mi-code" viewBox="0 0 24 24"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6z"/></symbol>
+<symbol id="mi-content_copy" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2m0 16H8V7h11z"/></symbol>
+<symbol id="mi-contrast" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m0 18V4c4.41 0 8 3.59 8 8s-3.59 8-8 8"/></symbol>
+<symbol id="mi-date_range" viewBox="0 0 24 24"><path d="M9 11H7v2h2zm4 0h-2v2h2zm4 0h-2v2h2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m0 16H5V9h14z"/></symbol>
+<symbol id="mi-delete" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6zM8 9h8v10H8zm7.5-5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
+<symbol id="mi-delete_sweep" viewBox="0 0 24 24"><path d="M15 16h4v2h-4zm0-8h7v2h-7zm0 4h6v2h-6zM3 18c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V8H3zm2-8h6v8H5zM10 3H7L6 4H3v2h10V4h-3z"/></symbol>
+<symbol id="mi-description" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8zm2 16H8v-2h8zm0-4H8v-2h8zm-3-5V3.5L18.5 9z"/></symbol>
+<symbol id="mi-done" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></symbol>
+<symbol id="mi-download" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7zm-8 2V5h2v6h1.17L12 13.17 9.83 11zm-2 0H7.83L12 15.17 16.17 11H15V5h-2v6zM5 18v2h14v-2z"/></symbol>
+<symbol id="mi-draft" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m0 16H5V5h14zM7 7h10v2H7zm0 4h10v2H7zm0 4h7v2H7z"/></symbol>
+<symbol id="mi-dynamic_feed" viewBox="0 0 24 24"><path d="M2 12h2v9H2zm4-6h2v15H6zm4 3h2v12h-2zm4-6h2v18h-2zm4 3h2v15h-2z"/></symbol>
+<symbol id="mi-filter_list" viewBox="0 0 24 24"><path d="M10 18h4v-2h-4zM3 6v2h18V6zm3 7h12v-2H6z"/></symbol>
+<symbol id="mi-flag" viewBox="0 0 24 24"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z"/></symbol>
+<symbol id="mi-folder_open" viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2m0 12H4V8h16z"/></symbol>
+<symbol id="mi-format_list_bulleted" viewBox="0 0 24 24"><path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5m0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5m0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5M7 19h14v-2H7zm0-6h14v-2H7zm0-8v2h14V5z"/></symbol>
+<symbol id="mi-group" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3m-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3m0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5m8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5"/></symbol>
+<symbol id="mi-help_outline" viewBox="0 0 24 24"><path d="M11 18h2v-2h-2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8m0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4"/></symbol>
+<symbol id="mi-history" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9m-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8z"/></symbol>
+<symbol id="mi-info" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m1 15h-2v-6h2zm0-8h-2V7h2z"/></symbol>
+<symbol id="mi-label" viewBox="0 0 24 24"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12z"/></symbol>
+<symbol id="mi-link" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1M8 13h8v-2H8zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5"/></symbol>
+<symbol id="mi-mail" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2m0 4l-8 5-8-5V6l8 5 8-5z"/></symbol>
+<symbol id="mi-menu_book" viewBox="0 0 24 24"><path d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1m0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5z"/></symbol>
+<symbol id="mi-newspaper" viewBox="0 0 24 24"><path d="M22 3H2v18l4-4h16zm-2 11H6v-2h14zm0-4H6V8h14z"/></symbol>
+<symbol id="mi-open_in_full" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"/></symbol>
+<symbol id="mi-play_arrow" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+<symbol id="mi-restart_alt" viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8"/></symbol>
+<symbol id="mi-rule" viewBox="0 0 24 24"><path d="M16.5 9.5 15 11 13.5 9.5 12 11l1.5 1.5L12 14l1.5 1.5L15 14l1.5 1.5L18 14l-1.5-1.5L18 11zM7 12l-2.5 2.5-1-1L2 15l2.5 2.5L10 12zM7 5.5 4.5 8 3.5 7 2 8.5 4.5 11 9 6.5zM16 3l-1.5 1.5-1-1L12 5l2 2 3.5-3.5z"/></symbol>
+<symbol id="mi-save" viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3m3-10H5V5h10z"/></symbol>
+<symbol id="mi-settings" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6"/></symbol>
+<symbol id="mi-slideshow" viewBox="0 0 24 24"><path d="M10 8v8l5-4zm9-5H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m0 16H5V5h14z"/></symbol>
+<symbol id="mi-swap_vert" viewBox="0 0 24 24"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99zm-8-4h3L7 9.01l-4 3.99h3V18h2z"/></symbol>
+<symbol id="mi-task_alt" viewBox="0 0 24 24"><path d="M22 5.18 10.59 16.6l-4.24-4.24 1.41-1.41 2.83 2.83 10-10.01zm-2.21 5.86c.13.57.21 1.17.21 1.79C20 16.42 16.42 20 12 20s-8-3.58-8-8c0-4.42 3.58-8 8-8 1.58 0 3.04.46 4.28 1.25l1.44-1.44A9.9 9.9 0 0 0 12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10c0-1.19-.22-2.33-.6-3.39z"/></symbol>
+<symbol id="mi-tips_and_updates" viewBox="0 0 24 24"><path d="m19 6.41-1.41-1.41-1.06 1.06 1.41 1.41zm-3.49.59-9 9-3 3h12.5c.28 0 .5-.22.5-.5V10l-1-3zM11 1H9v3h2zM4.59 5 3.17 6.41l1.41 1.42L6 6.42zM7 22.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V22H7z"/></symbol>
+<symbol id="mi-unfold_less" viewBox="0 0 24 24"><path d="M7.41 18.59 8.83 20 12 16.83 15.17 20l1.41-1.41L12 14zm9.18-13.18L15.17 4 12 7.17 8.83 4 7.41 5.41 12 10z"/></symbol>
+<symbol id="mi-unfold_more" viewBox="0 0 24 24"><path d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15z"/></symbol>
+<symbol id="mi-upload" viewBox="0 0 24 24"><path d="M9 10v6h6v-6h4l-7-7-7 7zm-4 8h14v2H5z"/></symbol>
+<symbol id="mi-upload_file" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8zm4 18H6V4h7v5h5zM8 15.01l1.41 1.41L11 14.84V19h2v-4.16l1.59 1.59L16 15.01 12.01 11z"/></symbol>
+<symbol id="mi-verified_user" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9z"/></symbol>
+<symbol id="mi-view_week" viewBox="0 0 24 24"><path d="M6 5H3c-.55 0-1 .45-1 1v12c0 .55.45 1 1 1h3c.55 0 1-.45 1-1V6c0-.55-.45-1-1-1m14 0h-3c-.55 0-1 .45-1 1v12c0 .55.45 1 1 1h3c.55 0 1-.45 1-1V6c0-.55-.45-1-1-1m-7 0h-3c-.55 0-1 .45-1 1v12c0 .55.45 1 1 1h3c.55 0 1-.45 1-1V6c0-.55-.45-1-1-1"/></symbol>
+<symbol id="mi-warning" viewBox="0 0 24 24"><path d="M1 21h22L12 2zm12-3h-2v-2h2zm0-4h-2v-4h2z"/></symbol>
+</svg>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="app-header">
+    <div class="app-logo" onclick="exitWizard()" style="cursor:pointer" title="Go to home">
+      <div class="app-logo-icon">RS</div>
+      <span class="app-logo-text">Report Suite</span>
+      <span class="app-logo-ver">v8.27</span>
+    </div>
+    <div class="header-sep"></div>
+    <div id="header-status">
+      <div id="hdr-dropzone"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="event.preventDefault();this.classList.remove('drag');handleMultiCsvDrop(event.dataTransfer.files)"
+        onclick="document.getElementById('hdr-file-input').click()"
+        title="Drop any CSV here. Issues, Epics, or Spin Plan routed automatically.">
+        <input type="file" id="hdr-file-input" accept=".csv" multiple style="display:none"
+          onchange="handleMultiCsvDrop(this.files);this.value=''">
+        <span class="mi" style="font-size:15px;color:var(--mu)">upload_file</span>
+        <span class="u-muted-xs">Drop CSV</span>
+      </div>
+      <div class="header-sep"></div>
+      <div class="hst-chip" id="hchip-issues">
+        <div class="hst-dot"></div>
+        <span class="hst-lbl" id="hsl-issues">No data</span>
+      </div>
+      <div class="hst-chip" id="hchip-epics">
+        <div class="hst-dot"></div>
+        <span class="hst-lbl" id="hsl-epics">No epics</span>
+      </div>
+      <div class="hst-chip" id="hchip-spin">
+        <div class="hst-dot"></div>
+        <span class="hst-lbl" id="hsl-spin">No roadmap</span>
+      </div>
+      <div class="hst-chip" id="hchip-deps" onclick="openDepsDashboard()" style="cursor:pointer" title="Open Dependencies">
+        <div class="hst-dot"></div>
+        <span class="hst-lbl" id="hsl-deps">No dependencies</span>
+      </div>
+    </div>
+    <div id="header-actions">
+      <button class="btn btn-ghost btn-sm" onclick="openSettings('config')"><span class="mi" style="font-size:15px;margin-right:4px">settings</span>Settings</button>
+      <button class="btn btn-ghost btn-sm" onclick="openGuide()"><span class="mi" style="font-size:15px;margin-right:4px">help_outline</span>Guide</button>
+    </div>
+  </div>
+
+  <!-- APP BODY -->
+  <div id="app-body">
+
+    <!-- HOME -->
+    <div id="home">
+      <div class="home-eyebrow">Jira Report Suite</div>
+      <div class="home-title">What would you like to run?</div>
+      <div class="home-sub">Drop your CSVs in the header, then pick a report. Settings and data carry across all reports.</div>
+
+      <div id="recent-reports-slot"></div>
+
+      <div class="home-section-label">Reports</div>
+      <div class="report-grid">
+
+        <div class="report-card weekly" onclick="startWizard('weekly')">
+          <div class="rc-header">
+            <div class="rc-icon"><span class="mi" style="font-size:28px">newspaper</span></div>
+          </div>
+          <div class="rc-name">Weekly Digest</div>
+          <div class="rc-desc">Status update of tickets updated in a date window, with Confluence markup.</div>
+          <div class="rc-steps">
+            <span class="rc-step-pip">Date Range</span>
+            <span class="rc-step-pip">Report</span>
+          </div>
+        </div>
+
+        <div class="report-card eos" onclick="startWizard('eos')">
+          <div class="rc-header">
+            <div class="rc-icon"><span class="mi" style="font-size:28px">flag</span></div>
+          </div>
+          <div class="rc-name">End of Sprint</div>
+          <div class="rc-desc">Per-project review with topic routing and Confluence markup.</div>
+          <div class="rc-steps">
+            <span class="rc-step-pip">Sprints</span>
+            <span class="rc-step-pip">Report</span>
+          </div>
+        </div>
+
+        <div class="report-card pmr" onclick="startWizard('pmr')">
+          <div class="rc-header">
+            <div class="rc-icon"><span class="mi" style="font-size:28px">bar_chart</span></div>
+          </div>
+          <div class="rc-name">PMR</div>
+          <div class="rc-desc">Monthly Program Review with agenda and per-topic slides.</div>
+          <div class="rc-steps">
+            <span class="rc-step-pip">Month</span>
+            <span class="rc-step-pip">Report</span>
+          </div>
+        </div>
+
+        <div class="report-card sprint" onclick="startWizard('sprint')">
+          <div class="rc-header">
+            <div class="rc-icon"><span class="mi" style="font-size:28px">task_alt</span></div>
+          </div>
+          <div class="rc-name">Sprint Plan/Report</div>
+          <div class="rc-desc">Velocity metrics and VBA macro for the Excel sprint package.</div>
+          <div class="rc-steps">
+            <span class="rc-step-pip">Report + VBA</span>
+          </div>
+        </div>
+
+        <div class="report-card spin" onclick="openSpinDashboard()">
+          <div class="rc-header">
+            <div class="rc-icon"><span class="mi" style="font-size:28px">account_tree</span></div>
+          </div>
+          <div class="rc-name">Spin Plan</div>
+          <div class="rc-desc">Live program dashboard. Opens directly to current status — no wizard.</div>
+          <div class="rc-steps">
+            <span class="rc-step-pip">Dashboard</span>
+          </div>
+        </div>
+
+        <div class="report-card batch" onclick="try{startWizard('batch')}catch(e){console.error('[batch card onclick]',e);alert('Error opening batch: '+e.message)}">
+          <div class="rc-header">
+            <div class="rc-icon"><span class="mi" style="font-size:28px">dynamic_feed</span></div>
+          </div>
+          <div class="rc-name">Run All Reports</div>
+          <div class="rc-desc">Pick which reports to include, enter all params once, generate everything together.</div>
+          <div class="rc-steps">
+            <span class="rc-step-pip">Pick &amp; Params</span>
+            <span class="rc-step-pip">All Reports</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="home-section-label" style="margin-top:24px">Tools</div>
+      <div class="report-grid">
+
+        <div class="report-card deps-card" onclick="openDepsDashboard()">
+          <div class="rc-header">
+            <div class="rc-icon"><span class="mi" style="font-size:28px">link</span></div>
+          </div>
+          <div class="rc-name">Dependencies</div>
+          <div class="rc-desc">All open blockers and dependency links across epics. Requires Spin Plan data.</div>
+          <div class="rc-steps">
+            <span class="rc-step-pip">Live View</span>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- end home -->
+
+    <!-- WIZARD -->
+    <div id="wizard">
+      <div class="wiz-progress">
+        <button class="wiz-back-btn" onclick="wizBack()">
+          <span class="wiz-back-arrow">‹</span> Back
+        </button>
+        <span class="wiz-name" id="wiz-title"></span>
+        <div class="wiz-steps-bar" id="wiz-steps"></div>
+      </div>
+      <div class="wiz-body">
+        <div class="wiz-content" id="wiz-content"></div>
+      </div>
+    </div><!-- end wizard -->
+
+  </div><!-- end app-body -->
+</div><!-- end app -->
+
+<!-- SETTINGS OVERLAY -->
+<div id="settings-overlay">
+  <div class="settings-modal">
+    <div class="settings-modal-header">
+      <span class="settings-modal-title" id="settings-title"><span class="mi" style="font-size:15px;margin-right:4px">settings</span>Settings</span>
+      <div class="settings-modal-actions">
+        <button class="btn btn-primary btn-sm" id="cfg-save-btn" onclick="manualSaveCfg()">Save All</button>
+        <button class="settings-modal-close" onclick="closeSettings()"><span class="mi">close</span></button>
+      </div>
+    </div>
+    <div class="settings-modal-body">
+
+      <!-- NAV -->
+      <div class="settings-nav">
+        <div class="settings-nav-group">General</div>
+        <div class="settings-nav-item active" id="snav-config" onclick="switchSettings('config')">
+          <span class="settings-nav-icon"><span class="mi">settings</span></span>Jira / API
+        </div>
+        <div class="settings-nav-item" id="snav-appearance" onclick="switchSettings('appearance')">
+          <span class="settings-nav-icon"><span class="mi">contrast</span></span>Appearance
+        </div>
+
+        <div class="settings-nav-item" id="snav-manage" onclick="switchSettings('manage')">
+          <span class="settings-nav-icon"><span class="mi">folder_open</span></span>Manage Data
+        </div>
+        <div class="settings-nav-group">Reports</div>
+        <div class="settings-nav-item" id="snav-weekly" onclick="switchSettings('weekly')">
+          <span class="settings-nav-icon"><span class="mi">newspaper</span></span>Weekly Digest
+        </div>
+        <div class="settings-nav-item" id="snav-eos" onclick="switchSettings('eos')">
+          <span class="settings-nav-icon"><span class="mi">flag</span></span>End of Sprint
+        </div>
+        <div class="settings-nav-item" id="snav-sprint" onclick="switchSettings('sprint')">
+          <span class="settings-nav-icon"><span class="mi">task_alt</span></span>Sprint Plan/Report
+        </div>
+        <div class="settings-nav-item" id="snav-pmr" onclick="switchSettings('pmr')">
+          <span class="settings-nav-icon"><span class="mi">bar_chart</span></span>PMR
+        </div>
+        <div class="settings-nav-item" id="snav-spin" onclick="switchSettings('spin')">
+          <span class="settings-nav-icon"><span class="mi">account_tree</span></span>Spin Plan
+        </div>
+
+        <div class="settings-nav-group">Data &amp; Routing</div>
+        <div class="settings-nav-item" id="snav-topics" onclick="switchSettings('topics')">
+          <span class="settings-nav-icon"><span class="mi">label</span></span>Topics
+        </div>
+        <div class="settings-nav-item" id="snav-overrides" onclick="switchSettings('overrides')">
+          <span class="settings-nav-icon"><span class="mi">rule</span></span>Rule Overrides
+        </div>
+        <div class="settings-nav-item" id="snav-classification" onclick="switchSettings('classification')">
+          <span class="settings-nav-icon"><span class="mi">verified_user</span></span>Classification
+        </div>
+        <div class="settings-nav-item" id="snav-calendar" onclick="switchSettings('calendar')">
+          <span class="settings-nav-icon"><span class="mi">date_range</span></span>Sprint Calendar
+        </div>
+      </div>
+
+      <!-- CONTENT -->
+      <div class="settings-content">
+
+        <!-- == MANAGE DATA == -->
+        <div id="settings-manage" class="settings-pane">
+          <div class="stn-page-title">Manage Data</div>
+          <div class="stn-page-desc">Export and import your configuration and overrides.</div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Configuration</span></div>
+            <div class="stn-body">
+              <div class="stn-row">
+                <div class="stn-label">Config JSON<small>All settings, topics, sprint calendar</small></div>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-ghost btn-sm" onclick="exportConfig()"><span class="mi" style="font-size:14px;margin-right:3px">download</span>Export</button>
+                  <label class="btn btn-ghost btn-sm" style="cursor:pointer"><span class="mi" style="font-size:14px;margin-right:3px">upload</span>Import<input type="file" accept=".json" style="display:none" onchange="importConfig(this)"></label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Overrides</span></div>
+            <div class="stn-body">
+              <div class="stn-row">
+                <div class="stn-label">Overrides JSON<small>Topic override rules</small></div>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-ghost btn-sm" onclick="exportOverrides()"><span class="mi" style="font-size:14px;margin-right:3px">download</span>Export</button>
+                  <label class="btn btn-ghost btn-sm" style="cursor:pointer"><span class="mi" style="font-size:14px;margin-right:3px">upload</span>Import<input type="file" accept=".json" style="display:none" onchange="importOverrides(this)"></label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Epics Cache</span></div>
+            <div class="stn-body">
+              <div class="stn-row">
+                <div class="stn-label">Cached epics<small id="epics-cache-meta">Loading…</small></div>
+                <button class="btn btn-ghost btn-sm" onclick="clearEpicsFromStorage();document.getElementById('epics-cache-meta').textContent='Cleared'"><span class="mi" style="font-size:14px;margin-right:3px">delete</span>Clear</button>
+              </div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Spin Plan Cache</span></div>
+            <div class="stn-body">
+              <div class="stn-row">
+                <div class="stn-label">Cached spin plan<small id="spin-cache-meta">Loading…</small></div>
+                <button class="btn btn-ghost btn-sm" onclick="clearSpinFromStorage();document.getElementById('spin-cache-meta').textContent='Cleared'"><span class="mi" style="font-size:14px;margin-right:3px">delete</span>Clear</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- == JIRA / API == -->
+        <div id="settings-config" class="settings-pane active">
+          <div class="stn-page-title">Jira / API</div>
+          <div class="stn-page-desc">Connection settings and field mappings used across all reports. All settings auto-save. To export, import, or reset config use <strong>Manage Data</strong>.</div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Connection</span></div>
+            <div class="stn-body">
+              <div class="stn-row">
+                <div class="stn-label">Base URL<small>Makes every ticket key a clickable link. Used for Jira API access.</small></div>
+                <input type="text" id="cfg-jira-url" placeholder="https://jira.company.com" oninput="cfgSet('jira_url',this.value);S.api.url=this.value.trim();const au=document.getElementById('api-url');if(au)au.value=this.value.trim();autoSaveCfg()">
+              </div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Field Mapping</span></div>
+            <div class="stn-body">
+              <div class="stn-row top">
+                <div class="stn-label">Column mappings<small>Map non-standard CSV column names to what the app expects. Applied on every CSV load.</small></div>
+                <div class="stn-ctrl">
+                  <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:4px;font-size:10px;font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;padding:0 2px;margin-bottom:4px">
+                    <span>Raw column (in your CSV)</span><span>Canonical name</span><span></span>
+                  </div>
+                  <div id="field-map-rows"></div>
+                  <div style="display:flex;gap:6px;margin-top:8px">
+                    <button class="btn btn-ghost btn-xs" onclick="addFieldMapRow()"><span class="mi" style="font-size:13px;margin-right:2px">add</span>Add mapping</button>
+                    <button class="btn btn-ghost btn-xs" onclick="addDefaultFieldMaps()">+ Common Jira defaults</button>
+                  </div>
+                </div>
+              </div>
+              <div class="stn-row">
+                <div class="stn-label">Detected columns<small>From your last CSV load</small></div>
+                <div id="field-map-detected" class="u-muted-xs">Load a CSV to see column names here.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- == APPEARANCE == -->
+        <div id="settings-appearance" class="settings-pane">
+          <div class="stn-page-title">Appearance</div>
+          <div class="stn-page-desc">Theme and font size apply across the whole app and persist in browser storage.</div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Display</span></div>
+            <div class="stn-body">
+              <div class="stn-row">
+                <div class="stn-label">Color theme<small>Light or dark background</small></div>
+                <div><button class="btn btn-ghost btn-sm" id="app-theme-btn" onclick="appToggleTheme()">Switch to Light</button></div>
+              </div>
+              <div class="stn-row">
+                <div class="stn-label">Font size<small>Applies to the whole app</small></div>
+                <div class="u-flex-10">
+                  <button class="btn btn-ghost btn-xs" onclick="appChangeFontSize(-1)">&#8722;</button>
+                  <span id="app-pref-fontsize-val" style="font-family:var(--mono);font-size:var(--fs-xs);color:var(--a1);min-width:28px;text-align:center">13px</span>
+                  <button class="btn btn-ghost btn-xs" onclick="appChangeFontSize(1)">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- == WEEKLY DIGEST == -->
+        <div id="settings-weekly" class="settings-pane">
+          <div class="stn-page-title">Weekly Digest</div>
+          <div class="stn-page-desc">Controls which tickets appear in the Weekly Digest report.</div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Component Filters</span></div>
+            <div class="stn-hint">Backend components are excluded. User-facing components and always-include keywords bypass exclusions.</div>
+            <div class="stn-body">
+              <div class="stn-row">
+                <div class="stn-label">Backend Components<small>Excluded from report</small></div>
+                <div id="tags-backend" class="tag-box" onclick="focusTagIn(this)"><input class="tag-in" placeholder="add component..." onkeydown="tagKeydown(event,this,'backend_components')"></div>
+              </div>
+              <div class="stn-row">
+                <div class="stn-label">User-Facing Components<small>Included in report</small></div>
+                <div id="tags-userfacing" class="tag-box" onclick="focusTagIn(this)"><input class="tag-in" placeholder="add component..." onkeydown="tagKeydown(event,this,'user_facing_components')"></div>
+              </div>
+              <div class="stn-row">
+                <div class="stn-label">Always-Include Keywords<small>e.g. dxs, gats — matches the label field or any substring of summary, epic, labels, components; bypasses all exclusions</small></div>
+                <div id="tags-always-labels" class="tag-box" onclick="focusTagIn(this)"><input class="tag-in" placeholder="add keyword..." onkeydown="tagKeydown(event,this,'always_include_labels')"></div>
+              </div>
+              <div class="stn-row">
+                <div class="stn-label">Excluded Keywords<small>In summary / epic / labels</small></div>
+                <div id="tags-exclkw" class="tag-box" onclick="focusTagIn(this)"><input class="tag-in" placeholder="add keyword..." onkeydown="tagKeydown(event,this,'excluded_summary_keywords')"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- == END OF SPRINT == -->
+        <div id="settings-eos" class="settings-pane">
+          <div class="stn-page-title">End of Sprint</div>
+          <div class="stn-page-desc">Per-project report title and MTL story point range for the EOS cover sheet.</div>
+          <div class="stn-section">
+            <div class="stn-section-hdr" style="display:flex;align-items:center">
+              <span class="stn-section-title" style="width:56px">Project</span>
+              <span class="stn-section-title" style="flex:1;padding-left:12px">Report Title</span>
+              <span class="stn-section-title" style="width:120px;padding-left:12px">MTL Points</span>
+            </div>
+            <div class="stn-body" id="eos-proj-fields"></div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">AI Summary Prompt</span></div>
+            <div class="stn-hint">When enabled, each topic section in the EOS report gets a copy button that bundles this prompt with the ticket list — ready to paste into an AI tool for summary generation.</div>
+            <div class="stn-body" style="padding:12px 16px">
+              <label class="row" style="gap:6px;align-items:center;margin-bottom:10px">
+                <input type="checkbox" id="cfg-eos-ai-enabled" onchange="S.cfg.eos_ai_prompt_enabled=this.checked;autoSaveCfg()">
+                <span>Show AI prompt copy button on EOS topic sections</span>
+              </label>
+              <textarea id="cfg-eos-ai-prompt" rows="6" style="width:100%;font-size:var(--fs-xs);font-family:var(--mono);resize:vertical" onchange="S.cfg.eos_ai_prompt=this.value;autoSaveCfg()" placeholder="Enter your AI prompt template..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- == PMR == -->
+        <div id="settings-pmr" class="settings-pane">
+          <div class="stn-page-title">PMR</div>
+          <div class="stn-page-desc">Monthly Program Review — classification, topic groups, and slide layouts.</div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Document Classification</span></div>
+            <div class="stn-hint">Values are managed in <strong>Data &amp; Routing → Classification</strong>. Start typing to filter and press Enter to select.</div>
+            <div class="stn-body">
+              <div class="stn-row" style="align-items:start">
+                <div class="stn-label">Highest Classification<small>Cover sheet header</small></div>
+                <div id="cls-sel-high-pmr" class="cls-selector-wrap"></div>
+              </div>
+              <div class="stn-row" style="align-items:start">
+                <div class="stn-label">Header / Footer<small>Top &amp; bottom of every page</small></div>
+                <div id="cls-sel-hdrf-pmr" class="cls-selector-wrap"></div>
+              </div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Classification</span></div>
+            <div class="stn-hint">Issue types bucketed as New Features or Bug Fixes. Everything else is an Improvement.</div>
+            <div class="stn-body">
+              <div class="stn-row">
+                <div class="stn-label">New Feature types<small>Issue type contains</small></div>
+                <div class="tag-box" id="tags-pmr-features" onclick="focusTagIn(this)"><input class="tag-in" placeholder="e.g. story..." onkeydown="tagKeydown(event,this,'pmr_feature_types')"></div>
+              </div>
+              <div class="stn-row">
+                <div class="stn-label">Bug types<small>Issue type contains</small></div>
+                <div class="tag-box" id="tags-pmr-bugs" onclick="focusTagIn(this)"><input class="tag-in" placeholder="e.g. bug..." onkeydown="tagKeydown(event,this,'pmr_bug_types')"></div>
+              </div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Topic Groups</span></div>
+            <div class="stn-body" style="padding:12px 16px">
+              <div id="pmr-groups-editor"></div>
+              <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addPmrGroup()"><span class="mi" style="font-size:13px;margin-right:2px">add</span>Add Group</button>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Slide Layouts per Topic</span></div>
+            <div class="stn-body" style="padding:12px 16px">
+              <div id="pmr-layouts-editor"></div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Integrated Milestone Roadmap</span></div>
+            <div class="stn-hint">Tier-based roadmap slide sourced from the spin plan. Pick the months or quarters to show, toggle which milestones appear, and optionally add a zoomed second slide.</div>
+            <div class="stn-body" style="padding:12px 16px">
+              <div id="pmr-roadmap-editor"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- == SPIN STATUS == -->
+        <div id="settings-spin" class="settings-pane">
+          <div class="stn-page-title">Spin Plan</div>
+          <div class="stn-page-desc">Display preferences for the Spin Plan report.</div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Default View</span></div>
+            <div class="stn-body">
+              <div class="stn-row" style="align-items:center">
+                <div class="stn-label">Opens as<small>Which view loads by default</small></div>
+                <div class="spin-view-pill" id="spin-pref-view-pill">
+                  <button class="spin-pill-btn" data-view="list" onclick="spinSavePrefView('list')"><span class="mi" style="font-size:14px;margin-right:3px">format_list_bulleted</span>List</button>
+                  <button class="spin-pill-btn" data-view="col" onclick="spinSavePrefView('col')"><span class="mi" style="font-size:14px;margin-right:3px">view_week</span>Column</button>
+                  <button class="spin-pill-btn" data-view="spin" onclick="spinSavePrefView('spin')"><span class="mi" style="font-size:14px;margin-right:3px">account_tree</span>Spin</button>
+                </div>
+                <input type="hidden" id="spin-pref-view" value="list">
+              </div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Column View</span></div>
+            <div class="stn-body">
+              <div class="stn-row">
+                <div class="stn-label">Epics per column<small>Max visible before &ldquo;show more&rdquo; reveals the rest</small></div>
+                <select id="spin-pref-epics" onchange="spinSavePref('epicCount',parseInt(this.value))">
+                  <option value="3">3</option><option value="5">5</option><option value="8">8</option>
+                  <option value="10">10</option><option value="0">All</option>
+                </select>
+              </div>
+              <div class="stn-row">
+                <div class="stn-label">Sprints per epic<small>Rows shown in the Sprints tab of each epic card</small></div>
+                <select id="spin-pref-sprints" onchange="spinSavePref('sprintCount',parseInt(this.value))">
+                  <option value="3">3</option><option value="5">5</option><option value="8">8</option>
+                  <option value="10">10</option><option value="16">All</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Story Table</span></div>
+            <div class="stn-body">
+              <div class="stn-row">
+                <div class="stn-label">Default sort<small>Initial sort column for story tables</small></div>
+                <select id="spin-pref-sort" onchange="spinSavePref('defaultSort',this.value)">
+                  <option value="key">Key</option>
+                  <option value="status">Status</option>
+                  <option value="sprint">Sprint</option>
+                  <option value="assignee">Assignee</option>
+                  <option value="pts">Points</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- == SPRINT METRICS == -->
+        <div id="settings-sprint" class="settings-pane">
+          <div class="stn-page-title">Sprint Plan/Report</div>
+          <div class="stn-page-desc">Cover sheet metadata, contract details, classification, and roles for the Sprint Plan/Report.</div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Classification</span></div>
+            <div class="stn-hint">Values are managed in <strong>Data &amp; Routing → Classification</strong>. Start typing to filter and press Enter to select.</div>
+            <div class="stn-body">
+              <div class="stn-row" style="align-items:start">
+                <div class="stn-label">Highest Classification<small>Cover sheet header</small></div>
+                <div id="cls-sel-high-sprint" class="cls-selector-wrap"></div>
+              </div>
+              <div class="stn-row" style="align-items:start">
+                <div class="stn-label">Header / Footer<small>Top &amp; bottom of every page</small></div>
+                <div id="cls-sel-hdrf-sprint" class="cls-selector-wrap"></div>
+              </div>
+              <div class="stn-row" style="align-items:start">
+                <div class="stn-label">Portion Marking<small>Applied to report sections</small></div>
+                <div id="cls-sel-portion-sprint" class="cls-selector-wrap"></div>
+              </div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Report Metadata</span></div>
+            <div class="stn-body">
+              <div class="stn-row"><div class="stn-label">Report Title</div><input type="text" id="cfg-rpt-title" placeholder="Agile Acquisition Sprint Package" oninput="cfgSet('sprint_report_title',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Cover Sheet Title</div><input type="text" id="cfg-cover-title" placeholder="Agile Acquisition Sprint Comprehensive Plan" oninput="cfgSet('sprint_cover_title',this.value);autoSaveCfg()"></div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Prepared For</span></div>
+            <div class="stn-body">
+              <div class="stn-row"><div class="stn-label">Name / Org</div><input type="text" id="cfg-pfor-name" placeholder="e.g. MPO" oninput="cfgSet('prepared_for_name',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Address Line 1</div><input type="text" id="cfg-pfor-addr1" oninput="cfgSet('prepared_for_addr1',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Address Line 2</div><input type="text" id="cfg-pfor-addr2" oninput="cfgSet('prepared_for_addr2',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">City / State / ZIP</div><input type="text" id="cfg-pfor-csz" oninput="cfgSet('prepared_for_csz',this.value);autoSaveCfg()"></div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Prepared By</span></div>
+            <div class="stn-body">
+              <div class="stn-row"><div class="stn-label">Name</div><input type="text" id="cfg-pby-name" placeholder="e.g. Jane Smith" oninput="cfgSet('prepared_by_name',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Org</div><input type="text" id="cfg-pby-org" placeholder="e.g. NIS / CODEX Division" oninput="cfgSet('prepared_by_org',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Address Line 1</div><input type="text" id="cfg-pby-addr1" oninput="cfgSet('prepared_by_addr1',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Address Line 2</div><input type="text" id="cfg-pby-addr2" oninput="cfgSet('prepared_by_addr2',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">City / State / ZIP</div><input type="text" id="cfg-pby-csz" oninput="cfgSet('prepared_by_csz',this.value);autoSaveCfg()"></div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Contract Defaults</span></div>
+            <div class="stn-body">
+              <div class="stn-row"><div class="stn-label">BT DO Line</div><input type="text" id="cfg-bt" oninput="cfgSet('bt_do_line',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Report Number</div><input type="text" id="cfg-rpt-num" placeholder="Leave blank if not applicable" oninput="cfgSet('report_number',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Contract Number</div><input type="text" id="cfg-contract" oninput="cfgSet('contract_number',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">CDRL Numbers</div><input type="text" id="cfg-cdrl" oninput="cfgSet('cdrl_number',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">DID Numbers<small>Cover sheet</small></div><input type="text" id="cfg-did" oninput="cfgSet('did_numbers',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Sprint Plan #<small>Tab 3 DID</small></div><input type="text" id="cfg-num-plan" oninput="cfgSet('num_plan',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Sprint Report #<small>Tab 4 DID</small></div><input type="text" id="cfg-num-report" oninput="cfgSet('num_report',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">User Stories #<small>Tab 5 DID</small></div><input type="text" id="cfg-num-stories" oninput="cfgSet('num_stories',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Incidents #<small>Tabs 6 &amp; 7 DID</small></div><input type="text" id="cfg-num-incident" oninput="cfgSet('num_incident',this.value);autoSaveCfg()"></div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Roles</span></div>
+            <div class="stn-body">
+              <div class="stn-row"><div class="stn-label">Project Owner</div><div style="display:flex;gap:6px"><input type="text" id="cfg-po-name" placeholder="Name" style="flex:2" oninput="cfgSetRole(0,'name',this.value);autoSaveCfg()"><input type="text" id="cfg-po-id" placeholder="ID" style="flex:1" oninput="cfgSetRole(0,'id',this.value);autoSaveCfg()"></div></div>
+              <div class="stn-row"><div class="stn-label">Technical Lead</div><div style="display:flex;gap:6px"><input type="text" id="cfg-tl-name" placeholder="Name" style="flex:2" oninput="cfgSetRole(1,'name',this.value);autoSaveCfg()"><input type="text" id="cfg-tl-id" placeholder="ID" style="flex:1" oninput="cfgSetRole(1,'id',this.value);autoSaveCfg()"></div></div>
+              <div class="stn-row"><div class="stn-label">Gov't Approver</div><div style="display:flex;gap:6px"><input type="text" id="cfg-ga-name" placeholder="Name" style="flex:2" oninput="cfgSetRole(2,'name',this.value);autoSaveCfg()"><input type="text" id="cfg-ga-id" placeholder="ID" style="flex:1" oninput="cfgSetRole(2,'id',this.value);autoSaveCfg()"></div></div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Schedule Blurbs</span></div>
+            <div class="stn-hint">Fill the &ldquo;Information&rdquo; sheet in the Sprint XLSX export.</div>
+            <div class="stn-body">
+              <div class="stn-row"><div class="stn-label">Blurb 1</div><input type="text" id="sb1" placeholder="TBD" oninput="S.cfg.schedule_blurbs[0]=this.value;autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Blurb 2</div><input type="text" id="sb2" placeholder="TBD" oninput="S.cfg.schedule_blurbs[1]=this.value;autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Blurb 3</div><input type="text" id="sb3" placeholder="TBD" oninput="S.cfg.schedule_blurbs[2]=this.value;autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Blurb 4</div><input type="text" id="sb4" placeholder="TBD" oninput="S.cfg.schedule_blurbs[3]=this.value;autoSaveCfg()"></div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Release Labels</span></div>
+            <div class="stn-body">
+              <div class="stn-row"><div class="stn-label">Graph Analytics Label</div><input type="text" id="cfg-ga-release-lbl" placeholder="Graph Analytics Release Number" oninput="cfgSet('graph_analytics_release_label',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">Graph Analytics Blurb</div><input type="text" id="cfg-ga-release-blurb" placeholder="TBD" oninput="cfgSet('graph_analytics_blurb',this.value);autoSaveCfg()"></div>
+              <div class="stn-row"><div class="stn-label">AFX Release Label</div><input type="text" id="cfg-afx-release-lbl" placeholder="AFX Release Number" oninput="cfgSet('afx_release_label',this.value);autoSaveCfg()"></div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Excluded People</span></div>
+            <div class="stn-hint">Excluded from Sprint Plan/Report calculations only.</div>
+            <div class="stn-body" style="padding:12px 16px">
+              <div style="display:flex;gap:6px;margin-bottom:10px">
+                <input type="text" id="excl-manual-in" placeholder="username or display name..." style="flex:1" onkeydown="if(event.key==='Enter')addExcludedManual()">
+                <button class="btn btn-primary btn-sm" onclick="addExcludedManual()">Add</button>
+              </div>
+              <div style="font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Pick from loaded CSVs <span style="font-weight:400;text-transform:none;letter-spacing:0" id="assignee-csv-count"></span></div>
+              <div id="assignee-list" class="assignee-list"></div>
+              <div style="font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px">Currently Excluded</div>
+              <div id="excluded-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- == TOPICS == -->
+        <div id="settings-topics" class="settings-pane">
+          <div class="stn-page-title">Topics</div>
+          <div class="stn-page-desc">Define how tickets route to report sections. Evaluated in order: Epic Key &#8594; Exact Phrase &#8594; Exclude check &#8594; Keyword. Lowest tier_rank wins.</div>
+          <div style="margin-bottom:12px">
+            <button class="btn btn-primary btn-sm" onclick="addTopic()"><span class="mi" style="font-size:13px;margin-right:2px">add</span>Add Topic</button>
+          </div>
+          <div id="topics-list"></div>
+        </div>
+
+        <!-- == RULE OVERRIDES == -->
+        <div id="settings-overrides" class="settings-pane">
+          <div class="stn-page-title">Rule Overrides</div>
+          <div class="stn-page-desc">Custom matching rules added from Unmatched tabs in reports. Merged into topic config and applied on every run.</div>
+          <div class="stn-section">
+            <div class="stn-section-hdr">
+              <span class="stn-section-title">Saved Overrides</span>
+              <div style="margin-left:auto;display:flex;gap:6px">
+                
+                <button class="btn btn-ghost btn-xs" onclick="clearOverrides()"><span class="mi" style="font-size:14px;margin-right:3px">delete_sweep</span>Clear All</button>
+              </div>
+            </div>
+            <div class="stn-body" style="padding:12px 16px">
+              <div id="overrides-list"></div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- == CLASSIFICATION == -->
+        <div id="settings-classification" class="settings-pane">
+          <div class="stn-page-title">Classification</div>
+          <div class="stn-page-desc">Define the available classification values for your organisation. Each list is used wherever that field appears — type to filter, press Enter or click a suggestion to select.</div>
+
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Manage Available Values</span></div>
+            <div class="stn-hint">Add or remove values for each classification type. These lists power the selectors in Sprint Plan/Report and PMR settings.</div>
+            <div class="stn-body">
+              <div class="stn-row top">
+                <div class="stn-label">Portion Markings<small>Inline paragraph markers, e.g. (U), (S)</small></div>
+                <div id="tags-portion-marking" class="tag-box" onclick="focusTagIn(this)"><input class="tag-in" placeholder="type and press Enter to add..." onkeydown="tagKeydown(event,this,'portion_markings')"></div>
+              </div>
+              <div class="stn-row top">
+                <div class="stn-label">Header / Footer<small>Full page classification line</small></div>
+                <div id="tags-hdr-footer" class="tag-box" onclick="focusTagIn(this)"><input class="tag-in" placeholder="type and press Enter to add..." onkeydown="tagKeydown(event,this,'hdr_footer_classifications')"></div>
+              </div>
+              <div class="stn-row top">
+                <div class="stn-label">Highest Classification<small>Cover sheet / document level</small></div>
+                <div id="tags-class-highest" class="tag-box" onclick="focusTagIn(this)"><input class="tag-in" placeholder="type and press Enter to add..." onkeydown="tagKeydown(event,this,'classification_presets')"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Active Selections</span></div>
+            <div class="stn-hint">Select one value from each list. Used in all exports. Start typing to filter suggestions.</div>
+            <div class="stn-body">
+              <div class="stn-row" style="align-items:start">
+                <div class="stn-label">Portion Marking<small>Applied to report sections</small></div>
+                <div id="cls-sel-portion" class="cls-selector-wrap"></div>
+              </div>
+              <div class="stn-row" style="align-items:start">
+                <div class="stn-label">Header / Footer<small>Top &amp; bottom of every page</small></div>
+                <div id="cls-sel-hdrf" class="cls-selector-wrap"></div>
+              </div>
+              <div class="stn-row" style="align-items:start">
+                <div class="stn-label">Highest Classification<small>Cover sheet header</small></div>
+                <div id="cls-sel-high" class="cls-selector-wrap"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- == SPRINT CALENDAR == -->
+        <div id="settings-calendar" class="settings-pane">
+          <div class="stn-page-title">Sprint Calendar</div>
+          <div class="stn-page-desc">Maps sprint IDs to date ranges. Used across all reports to auto-detect current and previous sprints. Format: <code style="font-family:var(--mono);font-size:var(--fs-xs)">YY.Q.S</code></div>
+          <div class="stn-section">
+            <div class="stn-section-hdr">
+              <span class="stn-section-title">Calendar</span>
+              <div style="margin-left:auto;display:flex;gap:6px">
+                <button class="btn btn-ghost btn-xs" onclick="expandAllSprintQuarters()"><span class="mi" style="font-size:13px;margin-right:2px">unfold_more</span>Expand All</button>
+                <button class="btn btn-ghost btn-xs" onclick="collapseAllSprintQuarters()"><span class="mi" style="font-size:13px;margin-right:2px">unfold_less</span>Collapse All</button>
+                <button class="btn btn-ghost btn-xs" onclick="addSprintRow()"><span class="mi" style="font-size:13px;margin-right:2px">add</span>Add Sprint</button>
+              </div>
+            </div>
+            <div class="stn-body" style="padding:12px 16px">
+              <div id="sprint-cal-rows"></div>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Sprint Prefixes</span></div>
+            <div class="stn-hint">Project prefixes used in Jira sprint names (e.g. &ldquo;DX 26.2.6&rdquo;). RCR resolves to RC automatically.</div>
+            <div class="stn-body" style="padding:12px 16px">
+              <div id="sprint-prefix-rows"></div>
+              <button class="btn btn-ghost btn-xs" style="margin-top:8px" onclick="addSprintPrefixRow()"><span class="mi" style="font-size:13px;margin-right:2px">add</span>Add Prefix</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- end settings-content -->
+    </div><!-- end settings-modal-body -->
+  </div><!-- end settings-modal -->
+</div><!-- end settings-overlay -->
+
+<!-- MODALS -->
+<!-- JIRA FETCH MODAL -->
+<div class="modal-overlay" id="fetch-modal">
+  <div class="modal">
+    <h2>Fetch from Jira</h2>
+    <div class="sub">Pull issues or epics directly into the app using a JQL query.</div>
+    <div class="field-row" style="margin-bottom:12px">
+      <div class="fl">Fetch Type</div>
+      <select id="fetch-type" style="width:100%">
+        <option value="issues">Issues (replaces issues CSV)</option>
+        <option value="epics">Epics (replaces epics CSV)</option>
+      </select>
+    </div>
+    <div class="field-row" style="margin-bottom:12px">
+      <div class="fl">JQL Query<small>Preset options:</small></div>
+      <div class="col" style="gap:6px">
+        <select onchange="if(this.value)document.getElementById('fetch-jql').value=this.value" style="width:100%">
+          <option value="">— Quick presets —</option>
+          <option value="project in (DX, LX, RCR) AND updated >= -30d ORDER BY updated DESC">Updated in last 30 days</option>
+          <option value="project in (DX, LX, RCR) AND updated >= -90d ORDER BY updated DESC">Updated in last 90 days</option>
+          <option value="project in (DX, LX, RCR) AND sprint in openSprints() ORDER BY updated DESC">Open sprints only</option>
+          <option value="project in (DX, LX, RCR) AND sprint in openSprints() OR sprint in closedSprints() AND updated >= -14d ORDER BY updated DESC">Current + recent sprints</option>
+          <option value="issuetype = Epic AND project in (DX, LX, RCR) ORDER BY key ASC">All epics (DX/LX/RC)</option>
+        </select>
+        <textarea id="fetch-jql" rows="3" style="font-family:var(--mono);font-size:11.5px;resize:vertical" placeholder="project in (DX, LX, RCR) AND updated >= -30d ORDER BY updated DESC"></textarea>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--mu);margin-bottom:10px">Large queries are paginated automatically (100 per page).</div>
+    <div id="fetch-status" style="font-size:12px;color:var(--mu);min-height:18px;margin-bottom:8px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeFetchModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="runJiraFetch()"><span class="mi" style="font-size:14px;margin-right:3px">download</span>Fetch</button>
+    </div>
+  </div>
+</div>
+
+<!-- OVERRIDE MODAL -->
+<div class="modal-overlay" id="modal-override">
+  <div class="modal">
+    <h2>Create Matching Rule</h2>
+    <div class="sub" id="modal-ticket-info"></div>
+    <div class="field-row" style="margin-bottom:12px">
+      <div class="fl">Target Topic</div>
+      <select id="modal-topic-select" style="width:100%"></select>
+    </div>
+    <div class="field-row" style="margin-bottom:12px">
+      <div class="fl">Rule Type</div>
+      <select id="modal-rule-type" onchange="updateModalRuleInput()" style="width:100%">
+        <option value="keyword">Add keyword to target topic</option>
+        <option value="exact_phrase">Add exact phrase to target topic</option>
+        <option value="epic_key">Add epic key to target topic</option>
+        <option value="exclude_keyword">Add exclude keyword to a different topic (stop it matching there)</option>
+      </select>
+    </div>
+    <div id="modal-rule-hint" class="hint mb8"></div>
+    <div id="modal-extra-topic-row" style="display:none" class="field-row mb8">
+      <div class="fl">Topic to Exclude From</div>
+      <select id="modal-excl-topic" style="width:100%"></select>
+    </div>
+    <div class="field-row">
+      <div class="fl">Value</div>
+      <input type="text" id="modal-rule-value" placeholder="">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-purple btn-sm" onclick="applyOverride()">Apply Rule & Rerun</button>
+    </div>
+  </div>
+</div>
+<!-- OVERRIDE MODAL -->
+<!-- FETCH MODAL -->
+<div class="modal-overlay" id="modal-fetch">
+  <div class="modal" style="max-width:560px">
+    <h2>Fetch from Jira</h2>
+    <div class="sub">Pull issues directly into the app. Large queries may take a moment.</div>
+    <div class="field-row" style="margin-bottom:10px">
+      <div class="fl">Query Type</div>
+      <select id="jql-mode" onchange="updateJqlPreview();document.getElementById('jql-days-row').style.display=this.value==='updated'?'grid':'none';document.getElementById('jql-sprint-row').style.display=this.value==='sprint'?'grid':'none';document.getElementById('jql-custom-row').style.display=this.value==='custom'?'grid':'none'">
+        <option value="updated">Updated in last N days</option>
+        <option value="sprint">By sprint name</option>
+        <option value="custom">Custom JQL</option>
+      </select>
+    </div>
+    <div class="field-row" id="jql-days-row" style="margin-bottom:10px">
+      <div class="fl">Days back</div>
+      <input type="text" id="jql-days" value="14" style="width:80px" oninput="updateJqlPreview()">
+    </div>
+    <div class="field-row" id="jql-sprint-row" style="display:none;margin-bottom:10px">
+      <div class="fl">Sprint name</div>
+      <input type="text" id="jql-sprint" placeholder="e.g. 26.2.5" oninput="updateJqlPreview()">
+    </div>
+    <div class="field-row" id="jql-custom-row" style="display:none;margin-bottom:10px">
+      <div class="fl">JQL</div>
+      <input type="text" id="jql-custom" placeholder="project = DX AND updated >= -7d" oninput="updateJqlPreview()">
+    </div>
+    <div class="hint" style="margin-bottom:12px">
+      <span style="font-size:10px;color:var(--mu);display:block;margin-bottom:3px">JQL PREVIEW</span>
+      <code id="jql-preview" style="font-family:var(--mono);font-size:11px;color:var(--a1);word-break:break-all"></code>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin-bottom:14px">
+      <input type="checkbox" id="fetch-epics-too" checked>
+      Also fetch Epics (replaces Epics CSV)
+    </label>
+    <div id="modal-fetch-status" style="font-size:12px;color:var(--mu);min-height:18px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeFetchModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="executeFetch()"><span class="mi" style="font-size:14px;margin-right:3px">download</span>Fetch Issues</button>
+    </div>
+  </div>
+</div>
+
+
+
+</div>
+
+  </div><!-- end content -->
+</div><!-- end main -->
