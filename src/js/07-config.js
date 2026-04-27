@@ -107,6 +107,81 @@ function loadEpicsFromStorage() {
     return { rows, filename: meta.filename || 'epics (cached)', count: slim.length };
   } catch(e) { return null; }
 }
+// ── Spin History — persist multiple spin period datasets ─────────
+// Each spin is stored separately in localStorage keyed by a unique ID.
+// S.cfg.spin_history holds the metadata (label, date, count).
+// The user can switch between spins without re-uploading CSVs.
+const SPIN_HIST_PREFIX = 'jira_rs_spin_hist_';
+
+function saveSpinToHistory(label) {
+  const rows = S.files.spin;
+  if (!rows || !rows.length) { alert('Load a spin plan CSV first.'); return; }
+  if (!S.cfg.spin_history) S.cfg.spin_history = [];
+  const id = 'sh_' + Date.now();
+  // Slim the rows (same as saveSpinToStorage)
+  const slim = rows.map(r => {
+    const o = {};
+    const keep = ['Issue key','Key','Issue Type','Hierarchy','Title','Summary','Status',
+      'Assignee','Parent','Parent Key','Epic Link','Epic link',
+      'Labels','Components','Priority','Due date',
+      'Target start date','Target Start Date','Target end date','Target End Date',
+      'Resolved','Updated','Comment'];
+    keep.forEach(k => { if (r[k] !== undefined) o[k] = r[k]; });
+    Object.keys(r).forEach(k => {
+      const kl = k.toLowerCase();
+      if (kl.includes('sprint') || kl.includes('block') || kl.includes('is blocked'))
+        o[k] = r[k];
+    });
+    return o;
+  });
+  try {
+    localStorage.setItem(SPIN_HIST_PREFIX + id, JSON.stringify(slim));
+  } catch(e) {
+    alert('Could not save — localStorage may be full. Try clearing old spins.');
+    return;
+  }
+  S.cfg.spin_history.push({
+    id, label: label || 'Spin ' + S.cfg.spin_history.length,
+    ts: new Date().toISOString(),
+    filename: S.fileNames?.spin || '',
+    count: slim.length
+  });
+  autoSaveCfg();
+  return id;
+}
+
+function loadSpinFromHistory(id) {
+  try {
+    const raw = localStorage.getItem(SPIN_HIST_PREFIX + id);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+function deleteSpinFromHistory(id) {
+  localStorage.removeItem(SPIN_HIST_PREFIX + id);
+  if (S.cfg.spin_history) {
+    S.cfg.spin_history = S.cfg.spin_history.filter(h => h.id !== id);
+    autoSaveCfg();
+  }
+}
+
+function switchToHistoricalSpin(id) {
+  const rows = loadSpinFromHistory(id);
+  if (!rows || !rows.length) { alert('Spin data not found in storage.'); return; }
+  const meta = (S.cfg.spin_history || []).find(h => h.id === id);
+  S.files.spin = rows;
+  if (!S.fileNames) S.fileNames = {};
+  S.fileNames.spin = meta ? meta.label : 'Historical spin';
+  S.fileNames._spinFromCache = true;
+  S._fileRegistry = S._fileRegistry || {};
+  S._fileRegistry[S.fileNames.spin] = { type: 'spin', rows, file: { name: S.fileNames.spin } };
+  S.spin._activeHistoryId = id;
+  updateStatusBar();
+  if (typeof runSpinEngine === 'function') runSpinEngine(rows);
+  if (typeof runSpin === 'function') runSpin();
+}
+
 // ── Spin plan localStorage persistence (mirrors epics pattern) ──
 function saveSpinToStorage(rows, filename) {
   try {

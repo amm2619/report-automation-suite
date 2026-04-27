@@ -44,12 +44,20 @@ function openConfluencePicker(opts) {
   });
 }
 
-function openEOSConfluencePicker() {
-  // Regenerate from the live DOM so user-typed summaries are included
+function openEOSConfluencePicker(quickCopy) {
   refreshEOSConfluenceTexts();
   const texts = S.eosConfluenceTexts || {};
   const available = Object.keys(texts);
   if (!available.length) { alert('Run the EOS report first.'); return; }
+  // Quick-copy: if called with quickCopy=true or only one project, skip the picker
+  if (quickCopy || available.length === 1) {
+    const markup = available.map(p => texts[p] || '').join('\n\n').trim();
+    copyTextWithFallback(markup, null, 0).then(() => {
+      const bar = document.querySelector('#rptf1 .rpt-bar .copy-status');
+      if (bar) { bar.textContent = 'Copied all'; setTimeout(() => { bar.textContent = ''; }, 2000); }
+    });
+    return;
+  }
 
   // Build the picker with an extra toggle for empty topics
   let overlay = document.getElementById('eos-conf-picker');

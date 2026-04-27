@@ -96,6 +96,25 @@ function processCsvLoad(type, file, text) {
 
   updateStatusBar();
 
+  // CSV column health check — log found/missing columns for debugging
+  if (rows.length) {
+    const cols = new Set(Object.keys(rows[0]).map(c => c.toLowerCase()));
+    const expected = {
+      issues: ['issue key','summary','status','issue type','assignee','epic link','labels','components','sprint','created','updated','resolved'],
+      epics:  ['issue key','summary','status','project key'],
+      spin:   ['hierarchy','title','issue key','parent','status','target end date'],
+    };
+    const want = expected[type];
+    if (want) {
+      const missing = want.filter(c => !cols.has(c) && ![...cols].some(k => k.includes(c)));
+      if (missing.length) {
+        console.warn('[CSV Health] ' + type + ': missing columns:', missing.join(', '));
+        console.log('[CSV Health] ' + type + ': found columns:', [...cols].join(', '));
+        if (fl) fl.textContent += ' — missing: ' + missing.join(', ');
+      }
+    }
+  }
+
   if (type === 'issues') {
     refreshAssigneePicker();
     if (rows.length) {

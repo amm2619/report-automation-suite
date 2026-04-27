@@ -430,7 +430,7 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
   // Header — neutral (no accent stripe), Cambria title. Reuses the same
   // dimensions as addHeader for visual consistency with the rest of the deck.
   rect(s, 0, HDR_Y, W, HDR_H, C.navy);
-  text(s, '(U) ' + title, { x:0.20, y:HDR_Y, w:W-0.4, h:HDR_H, valign:'middle', fontSize:22, bold:true, color:'FFFFFF', fontFace:'Cambria' });
+  text(s, '(U) ' + title, { x:0.20, y:HDR_Y, w:W-0.4, h:HDR_H, valign:'middle', fontSize:22, bold:true, color:'FFFFFF', fontFace:F.heading });
   rect(s, 0, BAR_Y, W, BAR_H, C.border);
 
   // Layout geometry (inches)
@@ -444,7 +444,7 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
     ? pmrRoadmapMonthsForSlide(slide) : [];
   if (!months.length) {
     text(s, '(Roadmap has no valid month range — check Integrated Roadmap settings.)',
-      { x:areaX, y:BODY_Y+0.2, w:W-padL-padR, h:0.5, fontSize:13, color:C.muted, fontFace:'Cambria' });
+      { x:areaX, y:BODY_Y+0.2, w:W-padL-padR, h:0.5, fontSize:13, color:C.muted, fontFace:F.heading });
     return;
   }
   // Year strip is extra header space when the range crosses a year boundary
@@ -460,7 +460,7 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
   if (!hasYearBreak) {
     text(s, String(slide.year || months[0].year || ''), {
       x: areaX, y: BODY_Y - 0.02, w: areaW, h: 0.24,
-      fontSize: 12, bold: true, color: C.muted, fontFace:'Cambria', align:'center'
+      fontSize: 12, bold: true, color: C.muted, fontFace:F.heading, align:'center'
     });
   } else {
     // Walk year bands and draw a tag per contiguous stretch
@@ -474,7 +474,7 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
         rect(s, bx, BODY_Y + 0.02, bw, yearStripH - 0.02, C.cardLt);
         text(s, String(months[bandStart].year), {
           x: bx, y: BODY_Y + 0.02, w: bw, h: yearStripH - 0.02,
-          fontSize: 10, bold: true, color: C.text, fontFace:'Cambria',
+          fontSize: 10, bold: true, color: C.text, fontFace:F.heading,
           align:'center', valign:'middle'
         });
         bandStart = i;
@@ -488,7 +488,7 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
     rect(s, cx, areaY, thickness, areaH, m.yearBreak ? C.text : C.border);
     text(s, m.label, {
       x: cx, y: BODY_Y + 0.22 + yearStripH, w: colW, h: 0.20,
-      fontSize: 10, bold: true, color: C.muted, fontFace:'Cambria', align:'center'
+      fontSize: 10, bold: true, color: C.muted, fontFace:F.heading, align:'center'
     });
   });
   // Closing vertical gridline on the right edge
@@ -511,7 +511,7 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
     // Tier label in the left gutter
     text(s, t, {
       x: areaX - 0.40, y: tierY[t] + (h/2) - 0.14, w: 0.36, h: 0.28,
-      fontSize: 13, bold: true, color: C.text, fontFace:'Cambria', align:'right', valign:'middle'
+      fontSize: 13, bold: true, color: C.text, fontFace:F.heading, align:'right', valign:'middle'
     });
   });
 
@@ -590,7 +590,7 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
       text(s, prodLetter, {
         x: it.cx - (diamondSize/2), y: cy - 0.10,
         w: diamondSize, h: 0.20,
-        fontSize: 10, bold: true, color: 'FFFFFF', fontFace:'Cambria',
+        fontSize: 10, bold: true, color: 'FFFFFF', fontFace:F.heading,
         align:'center', valign:'middle'
       });
       // Label below the diamond — word-aware, 2 lines for emphasized tier
@@ -600,7 +600,7 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
       text(s, lines.join('\n'), {
         x: it.cx - (labelW/2), y: cy + (diamondSize/2) + 0.02,
         w: labelW, h: labelH,
-        fontSize: 8, color: C.text, fontFace:'Cambria',
+        fontSize: 8, color: C.text, fontFace:F.heading,
         align:'center', valign:'top', wrap: true
       });
     });
@@ -617,7 +617,7 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
       text(s, '+' + cl.count, {
         x: cl.x - (badgeSize/2), y: cy - 0.10,
         w: badgeSize, h: 0.20,
-        fontSize: 9, bold: true, color: 'FFFFFF', fontFace:'Cambria',
+        fontSize: 9, bold: true, color: 'FFFFFF', fontFace:F.heading,
         align:'center', valign:'middle'
       });
     });
@@ -630,7 +630,7 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
   rect(s, panelX, panelY, panelW, 0.24, C.navy);
   text(s, 'NEXT STEPS', {
     x: panelX + 0.08, y: panelY, w: panelW - 0.16, h: 0.24,
-    fontSize: 10, bold: true, color: 'FFFFFF', fontFace:'Cambria', valign:'middle'
+    fontSize: 10, bold: true, color: 'FFFFFF', fontFace:F.heading, valign:'middle'
   });
   const sorted = milestones.slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const rowY0 = panelY + 0.32;
@@ -648,12 +648,12 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
     const d = (mile.date || '').slice(5); // MM-DD
     text(s, d, {
       x: panelX + 0.22, y: ry, w: 0.46, h: rowH,
-      fontSize: 9, bold: true, color: C.text, fontFace:'Cambria', valign:'middle'
+      fontSize: 9, bold: true, color: C.text, fontFace:F.heading, valign:'middle'
     });
     // Tier tag
     text(s, mile.tier || '', {
       x: panelX + 0.68, y: ry, w: 0.26, h: rowH,
-      fontSize: 8, bold: true, color: C.muted, fontFace:'Cambria', valign:'middle'
+      fontSize: 8, bold: true, color: C.muted, fontFace:F.heading, valign:'middle'
     });
     // Label — word-aware single-line truncation
     const lblLines = (typeof pmrRoadmapTruncLabel === 'function')
@@ -661,13 +661,13 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
       : [fit(mile.label || '', 32)];
     text(s, lblLines[0] || '', {
       x: panelX + 0.94, y: ry, w: panelW - 1.02, h: rowH,
-      fontSize: 9, color: C.text, fontFace:'Cambria', valign:'middle'
+      fontSize: 9, color: C.text, fontFace:F.heading, valign:'middle'
     });
   });
   if (sorted.length > maxRows) {
     text(s, '+' + (sorted.length - maxRows) + ' more…', {
       x: panelX + 0.08, y: panelY + areaH - 0.24, w: panelW - 0.16, h: 0.20,
-      fontSize: 8, italic: true, color: C.muted, fontFace:'Cambria', valign:'middle'
+      fontSize: 8, italic: true, color: C.muted, fontFace:F.heading, valign:'middle'
     });
   }
 
@@ -688,14 +688,14 @@ function _pmrAddIntegratedRoadmapSlide(pres, ctx, sd) {
     }
     text(s, it.l, {
       x: lx + 0.16, y: legendY, w: 1.10, h: 0.22,
-      fontSize: 9, color: C.text, fontFace:'Cambria', valign:'middle'
+      fontSize: 9, color: C.text, fontFace:F.heading, valign:'middle'
     });
     lx += 1.30;
   });
   // Product key on the right end of the legend
   text(s, 'D=DataXplorer · L=LinkXplorer · R=Rollercoaster · X=Cross', {
     x: areaX + 5.3, y: legendY, w: areaW - 5.3, h: 0.22,
-    fontSize: 8, color: C.muted, fontFace:'Cambria', valign:'middle', align:'right'
+    fontSize: 8, color: C.muted, fontFace:F.heading, valign:'middle', align:'right'
   });
 }
 
@@ -1281,7 +1281,7 @@ function _pmrCtx(pres) {
     gold:'B87800', green:'0A7A4A', red:'C0392B', blue2:'0060B0', amber:'F5A800',
     text:'1A1E28', muted:'5A6070', subtle:'8899BB', divider:'D4CFC8', fouoBg:'007A33',
   };
-  const F = { body:'Calibri', mono:'Courier New' };
+  const F = { body:'Calibri', mono:'Courier New', heading:'Cambria' };
   const W = 13.333, H = 7.5, FOUO_H = 0.22, HDR_Y = 0.22, HDR_H = 0.82;
   const BAR_Y = HDR_Y + HDR_H, BAR_H = 0.05;
   const BODY_Y = BAR_Y + BAR_H + 0.1, M = 0.26;

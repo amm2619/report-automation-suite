@@ -25,6 +25,20 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     document.querySelectorAll('.rpt-frame.fullscreen').forEach(el=>fullscreenReport(el.id));
   }
+  // Ctrl+Enter — generate / advance wizard
+  if(e.ctrlKey && e.key==='Enter'){
+    e.preventDefault();
+    const genBtn=document.querySelector('.wiz-content .btn-primary');
+    if(genBtn) genBtn.click();
+  }
+  // Ctrl+Shift+C — copy for Confluence (EOS or PMR)
+  if(e.ctrlKey && e.shiftKey && e.key==='C'){
+    e.preventDefault();
+    if(typeof openEOSConfluencePicker==='function' && document.getElementById('rptf1'))
+      openEOSConfluencePicker(true);
+    else if(typeof copyPmrNarrative==='function' && document.getElementById('rptf2'))
+      copyPmrNarrative();
+  }
 });
 
 window.addEventListener('DOMContentLoaded',()=>{

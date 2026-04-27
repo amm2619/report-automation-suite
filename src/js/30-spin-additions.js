@@ -492,6 +492,7 @@ function spinDrilldown(type) {
       complete: { t: 'Complete Stories', s: 'Done / Closed / Resolved',                        items: allStories.filter(s => spinIsDone(s.status)),     extra: null },
       behind:   { t: 'Behind Schedule',  s: 'Past sprint end, not done',                       items: allStories.filter(s => spinIsBehind(s)),           extra: (s) => `<span style="font-size:var(--fs-xs);color:var(--a4)">${esc(s.sprint ? sprintToSpin(s.sprint) : 'no sprint')}</span>` },
       blocked:  { t: 'Blocked Stories',  s: 'Status = Blocked',                               items: allStories.filter(s => spinStatusCategory(s.status) === 'blocked'), extra: null },
+      orphans:  { t: 'Orphan Stories',   s: 'No epic parent resolved — check Parent column',   items: S.spin._orphanStories || [], extra: (s) => `<span style="font-size:var(--fs-xs);color:var(--a4)">parent: ${esc(s.parentKey || s.epicLink || '—')}</span>` },
     };
     const cfg = cfgMap[type];
     if (!cfg) return;
@@ -669,9 +670,18 @@ function spinUpdateSummaryBar() {
 
   const diagParts = [`${gStats.total} stories under ${epicsWithKids} epics`];
   if (epicsEmpty) diagParts.push(`${epicsEmpty} epics empty`);
-  if (orphanStories > 0) diagParts.push(`${orphanStories} orphan stories`);
+  if (orphanStories > 0) diagParts.push(`<span style="cursor:pointer;text-decoration:underline" onclick="spinDrilldown('orphans')">${orphanStories} orphan stories ›</span>`);
+  // Store orphan list so drilldown can show them
+  S.spin._orphanStories = orphanStories > 0
+    ? allStoryIssues.filter(s => {
+        const node = S.spin._nodeMap[s.key];
+        if (!node) return true;
+        const parent = s.epicLink ? S.spin._nodeMap[s.epicLink] : null;
+        return !parent;
+      })
+    : [];
   const diagCls = orphanStories > 0 ? 'color:var(--a4)' : 'color:var(--mu)';
-  const diagLine = `<div style="font-size:var(--fs-xs);${diagCls};padding:0 4px 8px;display:flex;gap:6px;align-items:center"><span class="mi" style="font-size:12px">info</span>${esc(diagParts.join(' · '))}</div>`;
+  const diagLine = `<div style="font-size:var(--fs-xs);${diagCls};padding:0 4px 8px;display:flex;gap:6px;align-items:center"><span class="mi" style="font-size:12px">info</span>${diagParts.join(' · ')}</div>`;
 
   const bar = `<div class="spin-sum-bar" style="margin-bottom:14px">
     <div class="sc clickable" onclick="spinDrilldown('programs')" title="All programs"><div class="sv c-blue">${programs}</div><div class="sl">${spinIssueIcon('Program',11)} Programs ›</div></div>
