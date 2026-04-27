@@ -548,6 +548,10 @@ function populateConfigFields(){
   const aiEn = document.getElementById('cfg-eos-ai-enabled');
   if (aiEn) aiEn.checked = S.cfg.eos_ai_prompt_enabled !== false;
   setVal('cfg-eos-ai-prompt', S.cfg.eos_ai_prompt || '');
+  // PMR AI prompt
+  const pmrAiEn = document.getElementById('cfg-pmr-ai-enabled');
+  if (pmrAiEn) pmrAiEn.checked = S.cfg.pmr_ai_prompt_enabled !== false;
+  setVal('cfg-pmr-ai-prompt', S.cfg.pmr_ai_prompt || '');
   // Roles
   const roles=S.cfg.roles||[];
   setVal('cfg-po-name', roles[0]?.name||''); setVal('cfg-po-id', roles[0]?.id||'');

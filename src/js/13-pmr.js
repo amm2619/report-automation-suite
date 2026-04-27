@@ -323,7 +323,14 @@ function renderSlide(header,subheaders,layout,base,isGroup){
   const ctx=sid.replace(/^pmr-slide-/,''); // stable slug derived from slide header; passed down explicitly
   // blufBox hoisted here — single definition shared by all layout branches
   const blufBox=(slug)=>`<div class="bluf-field pmr-bluf" id="pmrbluf-${slug}" contenteditable="true" data-pmr-bluf="${slug}" data-placeholder="Enter narrative..." style="margin:4px 0 10px"></div>`;
-  let html=`<div class="slide" id="${sid}" data-pmr-layout="${esc(layout||'simple_list')}"><h2>(U) ${esc(header)}</h2>`;
+  // AI prompt button — store the topic's tickets so copyPmrAiPrompt can read them
+  const allTix = subheaders.flatMap(s => s.tickets);
+  if (!S._pmrSlideTickets) S._pmrSlideTickets = {};
+  S._pmrSlideTickets[sid] = allTix;
+  const aiBtn = (S.cfg.pmr_ai_prompt_enabled !== false && allTix.length)
+    ? `<button class="btn btn-ghost btn-xs" style="margin-left:auto;flex-shrink:0" onclick="copyPmrAiPrompt('${esc(sid)}')" title="Copy AI prompt + tickets to clipboard"><span class="mi" style="font-size:13px;margin-right:2px">auto_awesome</span>AI</button>`
+    : '';
+  let html=`<div class="slide" id="${sid}" data-pmr-layout="${esc(layout||'simple_list')}"><div style="display:flex;align-items:center;gap:6px"><h2 style="margin:0">(U) ${esc(header)}</h2>${aiBtn}</div>`;
   // Top-level narrative box always present — appears below the slide title
   html+=blufBox(ctx);
   // feature_improvement_bug and mission_support_other layouts: always pool tickets,
@@ -472,6 +479,35 @@ async function copyPmrUnmatched(proj) {
   try {
     await navigator.clipboard.writeText(text);
     const btn = document.getElementById('pmr-um-copy-' + proj.toLowerCase());
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<span class="mi" style="font-size:13px;margin-right:2px">check</span>Copied';
+      setTimeout(() => { btn.innerHTML = orig; }, 1500);
+    }
+  } catch(e) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+}
+
+// Copy the AI prompt + ticket list for a PMR topic slide to clipboard.
+async function copyPmrAiPrompt(slideId) {
+  const tickets = S._pmrSlideTickets && S._pmrSlideTickets[slideId];
+  if (!tickets || !tickets.length) return;
+  const prompt = S.cfg.pmr_ai_prompt || '';
+  const slideEl = document.getElementById(slideId);
+  const header = slideEl ? (slideEl.querySelector('h2')?.textContent || '').replace(/^\(U\)\s*/i, '').trim() : slideId;
+  const lines = [`Topic: ${header}`, '', 'Tickets this reporting period:'];
+  tickets.forEach(t => {
+    lines.push(`- ${t.issue_key}: ${t.summary} [${t.status}] (${t.story_points || 0} pts)`);
+  });
+  const text = prompt + '\n\n' + lines.join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    const btn = event && event.target.closest('button');
     if (btn) {
       const orig = btn.innerHTML;
       btn.innerHTML = '<span class="mi" style="font-size:13px;margin-right:2px">check</span>Copied';
