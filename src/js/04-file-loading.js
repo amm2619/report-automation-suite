@@ -101,8 +101,8 @@ function processCsvLoad(type, file, text) {
     const cols = new Set(Object.keys(rows[0]).map(c => c.toLowerCase()));
     const expected = {
       issues: ['issue key','summary','status','issue type','assignee','epic link','labels','components','sprint','created','updated','resolved'],
-      epics:  ['issue key','summary','status','project key'],
-      spin:   ['hierarchy','title','issue key','parent','status','target end date'],
+      epics:  ['issue key','summary'],
+      spin:   ['hierarchy','issue key','parent','status'],
     };
     const want = expected[type];
     if (want) {

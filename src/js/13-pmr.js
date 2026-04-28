@@ -396,7 +396,6 @@ function renderSlide(header,subheaders,layout,base,isGroup,layoutKey){
     if (grp) {
       nfTickets = (grp.topic_ids || []).flatMap(tid => S._pmrFutureByTopic[tid] || []);
     }
-    if (project) nfTickets = nfTickets.filter(t => t.project_bucket === project);
   }
   const nfAutoText = nfTickets.length ? nfTickets.map(t => t.summary).join('\n') : '';
   if (!S._pmrNearFutureTickets) S._pmrNearFutureTickets = {};
