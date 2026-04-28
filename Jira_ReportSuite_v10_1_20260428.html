@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- Material Icons: self-hosted inline SVG sprite -->
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ReportSuite v10.0</title>
+<title>ReportSuite v10.1</title>
 <style>
 
 :root{
@@ -782,6 +782,11 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
 /* Each pane uses .stn-section (card), .stn-section-title, .stn-row */
 .stn-section{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
 .stn-section-hdr{padding:10px 16px;border-bottom:1px solid var(--bd);background:var(--s3);display:flex;align-items:center;gap:8px}
+.stn-section.collapsible .stn-section-hdr{cursor:pointer;user-select:none}
+.stn-section.collapsible .stn-section-hdr::before{content:'';display:inline-block;width:7px;height:7px;border-right:2px solid var(--mu);border-bottom:2px solid var(--mu);transform:rotate(45deg);transition:transform .15s;margin-right:2px;flex-shrink:0}
+.stn-section.collapsible.is-collapsed .stn-section-hdr{border-bottom-color:transparent}
+.stn-section.collapsible.is-collapsed .stn-section-hdr::before{transform:rotate(-45deg)}
+.stn-section.is-collapsed > :not(.stn-section-hdr){display:none}
 .stn-section-title{font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mu)}
 .stn-section-desc{font-size:var(--fs-xs);color:var(--di);margin-top:2px}
 .stn-body{padding:0}.stn-body>div:last-child{border-bottom:none!important}
@@ -1407,7 +1412,7 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
             </div>
           </div>
           <div class="stn-section">
-            <div class="stn-section-hdr"><span class="stn-section-title">Classification</span></div>
+            <div class="stn-section-hdr"><span class="stn-section-title">Issue Buckets</span></div>
             <div class="stn-hint">Issue types bucketed as New Features or Bug Fixes (everything else is an Improvement). Mission Support keywords match the ticket summary, epic name, labels, or components.</div>
             <div class="stn-body">
               <div class="stn-row">
@@ -1424,35 +1429,42 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
               </div>
             </div>
           </div>
-          <div class="stn-section">
-            <div class="stn-section-hdr"><span class="stn-section-title">Topic Groups</span></div>
+          <div class="stn-section collapsible is-collapsed">
+            <div class="stn-section-hdr" onclick="toggleStnSection(this)"><span class="stn-section-title">Topic Groups</span></div>
             <div class="stn-body" style="padding:12px 16px">
               <div id="pmr-groups-editor"></div>
               <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addPmrGroup()"><span class="mi" style="font-size:13px;margin-right:2px">add</span>Add Group</button>
             </div>
           </div>
-          <div class="stn-section">
-            <div class="stn-section-hdr"><span class="stn-section-title">Slide Layouts per Topic</span></div>
+          <div class="stn-section collapsible is-collapsed">
+            <div class="stn-section-hdr" onclick="toggleStnSection(this)"><span class="stn-section-title">Slide Layouts per Topic</span></div>
             <div class="stn-body" style="padding:12px 16px">
               <div id="pmr-layouts-editor"></div>
             </div>
           </div>
-          <div class="stn-section">
-            <div class="stn-section-hdr"><span class="stn-section-title">PPTX Slide Selection</span></div>
+          <div class="stn-section collapsible is-collapsed">
+            <div class="stn-section-hdr" onclick="toggleStnSection(this)"><span class="stn-section-title">PPTX Slide Selection</span></div>
             <div class="stn-hint">Choose which structural slides to include in the downloaded PPTX. Content slides (per-topic) are always included.</div>
             <div class="stn-body" style="padding:12px 16px">
               <div id="pmr-slide-toggles"></div>
             </div>
           </div>
           <div class="stn-section">
-            <div class="stn-section-hdr"><span class="stn-section-title">AI Narrative Prompt</span></div>
-            <div class="stn-hint">When enabled, each topic section in the PMR report gets a copy button that bundles this prompt with the topic's ticket list — ready to paste into an AI tool for narrative generation.</div>
+            <div class="stn-section-hdr"><span class="stn-section-title">AI Narrative Prompt — Paragraph of Past</span></div>
+            <div class="stn-hint">Bundled with the per-topic ticket list when you click the Past-period AI button on a slide. Should produce a 2&ndash;3 sentence past-tense narrative for the reporting period.</div>
             <div class="stn-body" style="padding:12px 16px">
               <label class="row" style="gap:6px;align-items:center;margin-bottom:10px">
                 <input type="checkbox" id="cfg-pmr-ai-enabled" onchange="S.cfg.pmr_ai_prompt_enabled=this.checked;autoSaveCfg()">
-                <span>Show AI prompt copy button on PMR topic sections</span>
+                <span>Show AI prompt copy buttons on PMR topic sections</span>
               </label>
-              <textarea id="cfg-pmr-ai-prompt" rows="6" style="width:100%;font-size:var(--fs-xs);font-family:var(--mono);resize:vertical" onchange="S.cfg.pmr_ai_prompt=this.value;autoSaveCfg()" placeholder="Enter your AI prompt template..."></textarea>
+              <textarea id="cfg-pmr-ai-prompt" rows="6" style="width:100%;font-size:var(--fs-xs);font-family:var(--mono);resize:vertical" onchange="S.cfg.pmr_ai_prompt=this.value;autoSaveCfg()" placeholder="Enter your past-period AI prompt template..."></textarea>
+            </div>
+          </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">AI Narrative Prompt — Near-Future Bullets</span></div>
+            <div class="stn-hint">Bundled with the per-topic near-future ticket list when you click the Near-Future AI button. Should produce a short bulleted list of planned work for the upcoming period.</div>
+            <div class="stn-body" style="padding:12px 16px">
+              <textarea id="cfg-pmr-ai-prompt-nf" rows="6" style="width:100%;font-size:var(--fs-xs);font-family:var(--mono);resize:vertical" onchange="S.cfg.pmr_ai_prompt_near_future=this.value;autoSaveCfg()" placeholder="Enter your near-future AI prompt template..."></textarea>
             </div>
           </div>
         </div>
@@ -1931,7 +1943,7 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
 //
 // ==========================================================
 
-const APP_VERSION='v10.0';
+const APP_VERSION='v10.1';
 
 // ============================================================
 // STATE
@@ -1973,6 +1985,7 @@ const S = {
     eos_ai_prompt: 'You are summarizing Jira tickets for a government contract sprint review briefing. Create a summary that is easy to read out loud. Use a single paragraph, less than 300 words. Do not include ticket numbers. Combine similar tasks into cohesive statements. Every sentence must start with the portion marking (U).\n\nFor completed work, start with: "(U) During this sprint, the team..."\nFor planned work, start with: "(U) For the next sprint, the team plans to..."',
     pmr_ai_prompt_enabled: true,
     pmr_ai_prompt: 'You are writing the narrative section of a monthly Program Management Review (PMR) for a government contract. For each topic below, write a concise 2-3 sentence paragraph summarizing the work completed this reporting period. Write in past tense, third person ("the team"). Focus on outcomes and progress, not individual tickets. Combine related work into cohesive statements. Do not mention ticket numbers. Start every sentence with the portion marking (U). If a topic has no completed work, write "(U) No reportable activity this period."',
+    pmr_ai_prompt_near_future: 'You are writing the Near-Future Tasks bullets on a slide of a monthly Program Management Review (PMR) for a government contract. For the topic below, produce 3-5 short bullets summarizing the planned work for the upcoming reporting period. Each bullet must be a single concise phrase (under 12 words), in future tense, third person ("the team plans to..."). Combine related tickets into one bullet. Do not include ticket numbers. Start every bullet with the portion marking (U). Output only the bullets, one per line, with no leading dash or asterisk.',
     // Slide template geometry — editable via Tools → Slide Templates.
     // Each layout type has its own set of dimensions (inches). The PPTX
     // helpers read from here instead of hardcoded constants.
@@ -3424,6 +3437,14 @@ function _migrateCfg(){
     };
   }
 
+  // Backfill the near-future AI prompt for configs saved before that
+  // textarea existed in settings. Older configs only had the past-paragraph
+  // prompt; the near-future copy button used to derive its prompt by
+  // word-replacing the past one, which produced awkward output.
+  if (!S.cfg.pmr_ai_prompt_near_future) {
+    S.cfg.pmr_ai_prompt_near_future = 'You are writing the Near-Future Tasks bullets on a slide of a monthly Program Management Review (PMR) for a government contract. For the topic below, produce 3-5 short bullets summarizing the planned work for the upcoming reporting period. Each bullet must be a single concise phrase (under 12 words), in future tense, third person ("the team plans to..."). Combine related tickets into one bullet. Do not include ticket numbers. Start every bullet with the portion marking (U). Output only the bullets, one per line, with no leading dash or asterisk.';
+  }
+
   // Strip phantom 7th sprints (e.g. 26.2.7 = Mar 26–31) left over from older defaults.
   // Identify them by a sprint id ending in `.7` AND a duration shorter than a real 14-day sprint.
   if(Array.isArray(S.cfg.sprint_calendar) && S.cfg.sprint_calendar.length){
@@ -3512,10 +3533,11 @@ function populateConfigFields(){
   const aiEn = document.getElementById('cfg-eos-ai-enabled');
   if (aiEn) aiEn.checked = S.cfg.eos_ai_prompt_enabled !== false;
   setVal('cfg-eos-ai-prompt', S.cfg.eos_ai_prompt || '');
-  // PMR AI prompt
+  // PMR AI prompts (past paragraph + near-future bullets)
   const pmrAiEn = document.getElementById('cfg-pmr-ai-enabled');
   if (pmrAiEn) pmrAiEn.checked = S.cfg.pmr_ai_prompt_enabled !== false;
   setVal('cfg-pmr-ai-prompt', S.cfg.pmr_ai_prompt || '');
+  setVal('cfg-pmr-ai-prompt-nf', S.cfg.pmr_ai_prompt_near_future || '');
   // Roles
   const roles=S.cfg.roles||[];
   setVal('cfg-po-name', roles[0]?.name||''); setVal('cfg-po-id', roles[0]?.id||'');
@@ -4598,6 +4620,12 @@ function renderSprintCal(){
   });
 }
 
+// Toggle a collapsible settings card. The header is the click target;
+// CSS handles hiding everything except the header when .is-collapsed.
+function toggleStnSection(hdr){
+  const sec = hdr && hdr.closest('.stn-section');
+  if (sec) sec.classList.toggle('is-collapsed');
+}
 function toggleSprintQuarter(qid){
   const body=document.getElementById(qid+'-body');
   const chev=document.getElementById(qid+'-chev');
@@ -6295,8 +6323,11 @@ async function copyPmrNearFutureAiPrompt(slideId) {
   if (!tickets || !tickets.length) return;
   const slideEl = document.getElementById(slideId);
   const header = slideEl ? (slideEl.querySelector('h2')?.textContent || '').replace(/^\(U\)\s*/i, '').trim() : slideId;
-  const prompt = S.cfg.pmr_ai_prompt || '';
-  const nfPrompt = prompt.replace(/completed/gi, 'planned').replace(/past tense/gi, 'future tense').replace('"the team..."', '"the team plans to..."');
+  // Use the dedicated near-future prompt from settings. Falls back to a
+  // word-swapped version of the past-paragraph prompt only if a user has
+  // explicitly cleared the near-future textarea.
+  const nfPrompt = (S.cfg.pmr_ai_prompt_near_future || '').trim()
+    || (S.cfg.pmr_ai_prompt || '').replace(/completed/gi, 'planned').replace(/past tense/gi, 'future tense').replace('"the team..."', '"the team plans to..."');
   const lines = [`Topic: ${header} — Near-Future / Planned Work`, ''];
   lines.push('Planned tickets for next sprint:');
   tickets.forEach(t => lines.push(`- ${t.summary}`));
@@ -8858,7 +8889,7 @@ function buildStandaloneHtml(title, bodyContent){
   var css=":root{--bg:#070910;--s1:#0c0f18;--s2:#111520;--s3:#171c2a;--s4:#1d2336;--bd:#1f2840;--bd2:#2b3652;--a1:#5b9cf6;--a1d:rgba(91,156,246,.09);--a1b:rgba(91,156,246,.2);--a2:#a07cf5;--a2d:rgba(160,124,245,.09);--a2b:rgba(160,124,245,.2);--a3:#3ecf8e;--a3d:rgba(62,207,142,.08);--a3b:rgba(62,207,142,.2);--a4:#f5a741;--a4d:rgba(245,167,65,.08);--a4b:rgba(245,167,65,.2);--a5:#f56b6b;--a5d:rgba(245,107,107,.08);--a5b:rgba(245,107,107,.2);--tx:#dde4f5;--mu:#6b7a9c;--di:#384060;--mono:'Consolas','Cascadia Code','Menlo',monospace;--sans:'Segoe UI','Inter','Arial',sans-serif;--r:8px;--r2:5px;--fs-base:13px;--fs-sm:12px;--fs-xs:11px;--fs-lg:14px;--fs-xl:16px}*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(--fs-base);line-height:1.55;padding:28px 32px 80px;min-height:100vh}a{color:var(--a1);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap}.bd-done{background:var(--a3d);color:var(--a3)}.bd-blk{background:var(--a5d);color:var(--a5)}.bd-prog{background:var(--a1d);color:var(--a1)}.bd-rev{background:var(--a4d);color:var(--a4)}.bd-open{background:var(--s4);color:var(--mu)}.nstr{color:var(--di);font-style:italic;font-size:var(--fs-sm);padding:3px 0}.rpt-frame{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:18px;max-width:1200px;margin-left:auto;margin-right:auto}.rpt-bar{background:var(--s2);border-bottom:1px solid var(--bd);padding:9px 14px;display:flex;align-items:center;justify-content:space-between}.rbd-row{display:flex;gap:5px}.rbd{width:8px;height:8px;border-radius:50%}.rbd-r{background:#ff7b7b}.rbd-y{background:#ffb347}.rbd-g{background:#4dd89a}.rpt-bar-fn{font-family:var(--mono);font-size:var(--fs-xs);color:var(--mu)}.rpt-body{padding:22px 26px}.rpt-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px;margin-bottom:20px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;border-left:4px solid var(--a1)}.rpt-hdr h1{font-size:17px;font-weight:600;color:var(--tx)}.rpt-hdr .rsub{font-size:var(--fs-xs);color:var(--mu);margin-top:3px}.r-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:18px}.r-tab{padding:8px 15px;font-size:var(--fs-sm);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-tab:hover{color:var(--tx)}.r-tab.active{color:var(--a1);border-bottom-color:var(--a1)}.r-panel{display:none}.r-panel.active{display:block}.r-tabs-sticky{position:sticky;top:0;z-index:10;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-tabs-sticky .r-tab{padding:8px 14px}.r-subtabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:14px}.r-subtab{padding:6px 13px;font-size:var(--fs-xs);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-subtab:hover{color:var(--tx)}.r-subtab.active{color:var(--a2);border-bottom-color:var(--a2)}.r-sub-panel{display:none}.r-sub-panel.active{display:block}.r-subtabs-sticky{position:sticky;top:37px;z-index:9;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-subtabs-sticky .r-subtab{padding:6px 12px}.r-card{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:14px 18px;margin-bottom:10px}.r-card.l1{border-left:3px solid var(--a1)}.r-card.l2{border-left:3px solid var(--a2)}.r-card.l3{border-left:3px solid var(--a3)}.r-card.lw{border-left:3px solid var(--a4)}.r-card.lr{border-left:3px solid var(--a5)}.r-card h3{font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}.stats-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.stat{background:var(--s3);border:1px solid var(--bd);border-radius:5px;padding:10px 15px}.stat .sv{font-size:20px;font-weight:600;color:var(--a1)}.stat .sl{font-size:var(--fs-xs);color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.tw{overflow-x:auto;border-radius:5px;border:1px solid var(--bd);margin:8px 0}.rt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);background:var(--s2)}.rt thead th{background:var(--s3);color:var(--mu);padding:8px 11px;font-weight:600;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}.rt tbody td{padding:7px 11px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--tx)}.rt tbody tr:last-child td{border-bottom:none}.tk-c{font-family:var(--mono);font-size:var(--fs-xs);color:var(--a1);white-space:nowrap}.bluf-label{display:block;font-size:var(--fs-xs);font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.bluf-field{padding:4px 0;font-size:var(--fs-sm);line-height:1.6;color:var(--tx);min-height:20px}.bluf-field:empty::before{content:attr(data-placeholder);color:var(--di)}.conf-pre{background:#04060c;color:#9bbbd4;border:1px solid var(--bd);border-radius:5px;padding:12px 14px;font-family:var(--mono);font-size:var(--fs-xs);line-height:1.7;white-space:pre;overflow:auto;max-height:400px;margin-top:8px}.slide{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--a2);border-radius:8px;padding:16px 20px;margin-bottom:14px}.slide h2{font-size:var(--fs-base);font-weight:600;color:var(--a2);margin-bottom:10px}.slide h3{font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 5px}.agenda-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:3px}.agenda-list li{padding:6px 13px;border-left:2px solid var(--bd);font-size:var(--fs-sm);border-radius:0 5px 5px 0}.agenda-list li.has{border-left-color:var(--a3);color:var(--tx);background:var(--a3d)}.agenda-list li.nstr{border-left-color:var(--di);color:var(--mu);font-style:italic}.ptabs{margin-bottom:12px}.ptab{display:inline-block;padding:4px 12px;border-radius:var(--r2);font-size:var(--fs-sm);font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--s3);color:var(--mu);margin:0 4px 4px 0}.ptab.active{background:var(--a1d);color:var(--a1);border-color:var(--a1b)}.muted{color:var(--mu)}.mono{font-family:var(--mono)}";
   var inlineJS="function switchRtab(btn){\n  var rtabs=btn.parentElement;\n  var idx=Array.from(rtabs.children).indexOf(btn);\n  rtabs.querySelectorAll('.r-tab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=rtabs.parentElement;\n  cont.querySelectorAll(':scope > .r-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchRstab(btn){\n  var stabs=btn.parentElement;\n  var idx=Array.from(stabs.children).indexOf(btn);\n  stabs.querySelectorAll('.r-subtab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=stabs.parentElement;\n  cont.querySelectorAll(':scope > .r-sub-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchPtab(btn,proj){\n  var cont=btn.closest('.ptabs').parentElement;\n  cont.querySelectorAll('.ptab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  cont.querySelectorAll('[data-ptab-panel]').forEach(function(p){\n    p.style.display=p.dataset.ptabPanel===proj?'block':'none';\n  });\n}\nfunction filterDbg(inp,tableId){\n  var val=inp.value.toLowerCase().trim();\n  var tbody=document.querySelector('#'+tableId+' tbody');\n  if(!tbody) return;\n  tbody.querySelectorAll('tr').forEach(function(tr){\n    tr.style.display=(!val||tr.textContent.toLowerCase().includes(val))?'':'none';\n  });\n}\ndocument.addEventListener('click',function(e){\n  var a=e.target.closest('.agenda-list a');\n  if(a){e.preventDefault();var t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'});}\n});";
   return '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">\n'
-    + '<title>ReportSuite v10.0</title>\n'
+    + '<title>ReportSuite v10.1</title>\n'
     + '<style>'+css+'</style>\n'
     + '</head>\n<body style="margin:0;padding:0">\n'
     + bodyContent
