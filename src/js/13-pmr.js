@@ -386,39 +386,25 @@ function renderSlide(header,subheaders,layout,base,isGroup,layoutKey){
     ? `<select class="pmr-layout-sel" style="font-size:10px;padding:2px 6px;background:var(--s3);border:1px solid var(--bd);color:var(--mu);border-radius:3px;cursor:pointer;flex-shrink:0" onchange="pmrSwitchLayout('${esc(layoutKey)}',this.value)" title="Change slide layout">${layoutOpts.map(o=>'<option value="'+o+'"'+(o===layout?' selected':'')+'>'+layoutLabels[o]+'</option>').join('')}</select>`
     : '';
   let html=`<div class="slide" id="${sid}" data-pmr-layout="${esc(layout||'simple_list')}"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><h2 style="margin:0">(U) ${esc(header)}</h2><span style="flex:1"></span>${layoutSel}${aiBtns}</div>`;
-  // Near-Future Tasks — auto-populated from future sprint tickets, editable
-  // Look up future tickets for this topic (or group's topic_ids)
+  // Near-Future Tasks — computed now but rendered AFTER the content sections
   let nfTickets = [];
   if (S._pmrFutureByTopic) {
     if (layoutKey && S._pmrFutureByTopic[layoutKey]) {
       nfTickets = S._pmrFutureByTopic[layoutKey];
     }
-    // For groups, merge all topic_ids
     const grp = (S.cfg.pmr_groups || []).find(g => g.group_id === layoutKey);
     if (grp) {
       nfTickets = (grp.topic_ids || []).flatMap(tid => S._pmrFutureByTopic[tid] || []);
     }
     if (project) nfTickets = nfTickets.filter(t => t.project_bucket === project);
   }
-  const nfAutoText = nfTickets.length
-    ? nfTickets.map(t => t.summary).join('\n')
-    : '';
-  // Store for near-future AI prompt
+  const nfAutoText = nfTickets.length ? nfTickets.map(t => t.summary).join('\n') : '';
   if (!S._pmrNearFutureTickets) S._pmrNearFutureTickets = {};
   S._pmrNearFutureTickets[sid] = nfTickets;
   const nfAiBtn = (S.cfg.pmr_ai_prompt_enabled !== false && nfTickets.length)
     ? `<button class="btn btn-ghost btn-xs" onclick="copyPmrNearFutureAiPrompt('${esc(sid)}')" title="Copy AI prompt for near-future tasks"><span class="mi" style="font-size:13px;margin-right:2px">auto_awesome</span>AI</button>`
     : '';
-  html+=`<div style="margin:8px 0 6px"><div class="bluf-label" style="color:var(--a4);display:flex;align-items:center;gap:6px">Near-Future Tasks ${nfAiBtn}</div>${blufBox(ctx+'-nearfuture')}</div>`;
-  // If auto-text is available and the field is empty, pre-fill it after render
-  if (nfAutoText) {
-    setTimeout(() => {
-      const el = document.getElementById('pmrbluf-' + ctx + '-nearfuture');
-      if (el && !el.textContent.trim()) el.textContent = nfAutoText;
-    }, 100);
-  }
-  // feature_improvement_bug and mission_support_other layouts: always pool tickets,
-  // never show per-topic sub-headers (DX4/DX Improvements or LX5/LX Improvements collapse into one list)
+  // Content sections first
   const poolLayouts=['feature_improvement_bug','mission_support_other'];
   if(isGroup&&subheaders.length>1&&!poolLayouts.includes(layout)){
     subheaders.forEach(sh=>{
@@ -429,6 +415,14 @@ function renderSlide(header,subheaders,layout,base,isGroup,layoutKey){
     });
   } else {
     html+=renderSlideLayout(subheaders.flatMap(s=>s.tickets),layout,base,ctx,blufBox);
+  }
+  // Near-Future Tasks at the bottom
+  html+=`<div style="margin:12px 0 6px"><div class="bluf-label" style="color:var(--a4);display:flex;align-items:center;gap:6px">Near-Future Tasks ${nfAiBtn}</div>${blufBox(ctx+'-nearfuture')}</div>`;
+  if (nfAutoText) {
+    setTimeout(() => {
+      const el = document.getElementById('pmrbluf-' + ctx + '-nearfuture');
+      if (el && !el.textContent.trim()) el.textContent = nfAutoText;
+    }, 100);
   }
   return html+'</div>';
 }
