@@ -56,6 +56,40 @@ function runPMR(){
     });
   });
 
+  // Find future sprint tickets — these auto-populate the near-future panel.
+  // "Future" = sprints in the month AFTER the selected PMR month.
+  const nextMonthStart = new Date(endDt);
+  nextMonthStart.setUTCDate(1);
+  nextMonthStart.setUTCMonth(nextMonthStart.getUTCMonth() + 1);
+  const nextMonthEnd = new Date(nextMonthStart);
+  nextMonthEnd.setUTCMonth(nextMonthEnd.getUTCMonth() + 1);
+  nextMonthEnd.setUTCDate(0); // last day of next month
+  const futureSprintsInNextMonth = new Set(
+    cal.filter(sc => {
+      const spStart = new Date(sc.start+'T00:00:00Z');
+      const spEnd   = new Date(sc.end  +'T23:59:59Z');
+      return spStart <= nextMonthEnd && spEnd >= nextMonthStart;
+    }).map(sc => sc.sprint.toLowerCase().trim())
+  );
+  const futureTickets = S.allTickets.filter(t => {
+    if (!t.epic_link) return false;
+    const ticketSprints = t.sprints || [t.sprint || ''];
+    return ticketSprints.some(s => {
+      const sn = (s || '').toLowerCase().trim();
+      return [...futureSprintsInNextMonth].some(fs => sn === fs || sn.endsWith(' ' + fs) || sn.includes(fs));
+    });
+  });
+  // Group future tickets by topic for near-future panel content
+  S._pmrFutureByTopic = {};
+  futureTickets.forEach(t => {
+    const {best} = findBestMatch(t, S.topics);
+    if (best) {
+      const key = best.topic_id;
+      if (!S._pmrFutureByTopic[key]) S._pmrFutureByTopic[key] = [];
+      S._pmrFutureByTopic[key].push(t);
+    }
+  });
+
   const topicMap={};
   S.topics.forEach(t=>topicMap[t.topic_id]=[]);
   const allTraces=[];
@@ -352,8 +386,37 @@ function renderSlide(header,subheaders,layout,base,isGroup,layoutKey){
     ? `<select class="pmr-layout-sel" style="font-size:10px;padding:2px 6px;background:var(--s3);border:1px solid var(--bd);color:var(--mu);border-radius:3px;cursor:pointer;flex-shrink:0" onchange="pmrSwitchLayout('${esc(layoutKey)}',this.value)" title="Change slide layout">${layoutOpts.map(o=>'<option value="'+o+'"'+(o===layout?' selected':'')+'>'+layoutLabels[o]+'</option>').join('')}</select>`
     : '';
   let html=`<div class="slide" id="${sid}" data-pmr-layout="${esc(layout||'simple_list')}"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><h2 style="margin:0">(U) ${esc(header)}</h2><span style="flex:1"></span>${layoutSel}${aiBtns}</div>`;
-  // Near-Future Tasks box — editable field that maps to the dark panel on the right side of the PPTX slide
-  html+=`<div style="margin:8px 0 6px"><div class="bluf-label" style="color:var(--a4)">Near-Future Tasks</div>${blufBox(ctx+'-nearfuture')}</div>`;
+  // Near-Future Tasks — auto-populated from future sprint tickets, editable
+  // Look up future tickets for this topic (or group's topic_ids)
+  let nfTickets = [];
+  if (S._pmrFutureByTopic) {
+    if (layoutKey && S._pmrFutureByTopic[layoutKey]) {
+      nfTickets = S._pmrFutureByTopic[layoutKey];
+    }
+    // For groups, merge all topic_ids
+    const grp = (S.cfg.pmr_groups || []).find(g => g.group_id === layoutKey);
+    if (grp) {
+      nfTickets = (grp.topic_ids || []).flatMap(tid => S._pmrFutureByTopic[tid] || []);
+    }
+    if (project) nfTickets = nfTickets.filter(t => t.project_bucket === project);
+  }
+  const nfAutoText = nfTickets.length
+    ? nfTickets.map(t => t.summary).join('\n')
+    : '';
+  // Store for near-future AI prompt
+  if (!S._pmrNearFutureTickets) S._pmrNearFutureTickets = {};
+  S._pmrNearFutureTickets[sid] = nfTickets;
+  const nfAiBtn = (S.cfg.pmr_ai_prompt_enabled !== false && nfTickets.length)
+    ? `<button class="btn btn-ghost btn-xs" onclick="copyPmrNearFutureAiPrompt('${esc(sid)}')" title="Copy AI prompt for near-future tasks"><span class="mi" style="font-size:13px;margin-right:2px">auto_awesome</span>AI</button>`
+    : '';
+  html+=`<div style="margin:8px 0 6px"><div class="bluf-label" style="color:var(--a4);display:flex;align-items:center;gap:6px">Near-Future Tasks ${nfAiBtn}</div>${blufBox(ctx+'-nearfuture')}</div>`;
+  // If auto-text is available and the field is empty, pre-fill it after render
+  if (nfAutoText) {
+    setTimeout(() => {
+      const el = document.getElementById('pmrbluf-' + ctx + '-nearfuture');
+      if (el && !el.textContent.trim()) el.textContent = nfAutoText;
+    }, 100);
+  }
   // feature_improvement_bug and mission_support_other layouts: always pool tickets,
   // never show per-topic sub-headers (DX4/DX Improvements or LX5/LX Improvements collapse into one list)
   const poolLayouts=['feature_improvement_bug','mission_support_other'];
@@ -514,6 +577,35 @@ function pmrMoveTicket(issueKey, targetSection) {
   S._pmrSectionOverrides[issueKey] = targetSection;
   // Re-run PMR to reflect the change
   if (typeof runPMR === 'function') runPMR();
+}
+
+// Copy AI prompt for the near-future tasks panel — titles only
+async function copyPmrNearFutureAiPrompt(slideId) {
+  const tickets = S._pmrNearFutureTickets && S._pmrNearFutureTickets[slideId];
+  if (!tickets || !tickets.length) return;
+  const slideEl = document.getElementById(slideId);
+  const header = slideEl ? (slideEl.querySelector('h2')?.textContent || '').replace(/^\(U\)\s*/i, '').trim() : slideId;
+  const prompt = S.cfg.pmr_ai_prompt || '';
+  const nfPrompt = prompt.replace(/completed/gi, 'planned').replace(/past tense/gi, 'future tense').replace('"the team..."', '"the team plans to..."');
+  const lines = [`Topic: ${header} — Near-Future / Planned Work`, ''];
+  lines.push('Planned tickets for next sprint:');
+  tickets.forEach(t => lines.push(`- ${t.summary}`));
+  const text = nfPrompt + '\n\n' + lines.join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    const btn = event && event.target.closest('button');
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<span class="mi" style="font-size:13px;margin-right:2px">check</span>Copied';
+      setTimeout(() => { btn.innerHTML = orig; }, 1500);
+    }
+  } catch(e) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
 }
 
 function renderSlideLayout(tickets,layout,base,ctx,blufBox){
@@ -679,10 +771,37 @@ async function copyPmrAiPrompt(slideId, project) {
   const slideEl = document.getElementById(slideId);
   const header = slideEl ? (slideEl.querySelector('h2')?.textContent || '').replace(/^\(U\)\s*/i, '').trim() : slideId;
   const scope = project ? ` (${project})` : '';
-  const lines = [`Topic: ${header}${scope}`, '', 'Tickets this reporting period:'];
+
+  // Bucket tickets the same way the slide does — titles only, no keys/status/points
+  const ftypes = S.cfg.pmr_feature_types || ['story','user request','new feature'];
+  const btypes = S.cfg.pmr_bug_types || ['bug','defect'];
+  if (!S._pmrSectionOverrides) S._pmrSectionOverrides = {};
+  const b = { improvements:[], features:[], bugs:[] };
   tickets.forEach(t => {
-    lines.push(`- ${t.issue_key}: ${t.summary} [${t.status}] (${t.story_points || 0} pts)`);
+    const override = S._pmrSectionOverrides[t.issue_key];
+    if (override) { b[override]?.push(t); return; }
+    const it = t.issue_type.toLowerCase();
+    if (ftypes.some(f => it.includes(f))) b.features.push(t);
+    else if (btypes.some(f => it.includes(f))) b.bugs.push(t);
+    else b.improvements.push(t);
   });
+
+  const lines = [`Topic: ${header}${scope}`, ''];
+  if (b.improvements.length) {
+    lines.push('Improvements:');
+    b.improvements.forEach(t => lines.push(`- ${t.summary}`));
+    lines.push('');
+  }
+  if (b.features.length) {
+    lines.push('New Features:');
+    b.features.forEach(t => lines.push(`- ${t.summary}`));
+    lines.push('');
+  }
+  if (b.bugs.length) {
+    lines.push('Bug Fixes:');
+    b.bugs.forEach(t => lines.push(`- ${t.summary}`));
+    lines.push('');
+  }
   const text = prompt + '\n\n' + lines.join('\n');
   try {
     await navigator.clipboard.writeText(text);

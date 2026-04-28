@@ -235,6 +235,7 @@ function renderConfigUI(){
 
   renderPmrGroups();
   renderPmrLayouts();
+  renderPmrSlideToggles();
   renderSpinHistoryList();
   renderFieldMapRows();
   renderClassPresets();
@@ -997,6 +998,29 @@ function collapseAllSprintQuarters(){ _setAllSprintQuarters(false); }
 function addSprintRow(){
   S.cfg.sprint_calendar.push({sprint:'',start:'',end:''});
   renderSprintCal();
+}
+
+// ── PMR PPTX Slide Toggles ──────────────────────────────────
+function renderPmrSlideToggles() {
+  const el = document.getElementById('pmr-slide-toggles');
+  if (!el) return;
+  if (!S.cfg.pmr_pptx_slides) S.cfg.pmr_pptx_slides = {};
+  const slides = [
+    { key:'title',        label:'Title / Cover Slide' },
+    { key:'agenda',       label:'Presentation Agenda' },
+    { key:'kudos',        label:'Kudos (placeholder)' },
+    { key:'actions',      label:'Actions (placeholder)' },
+    { key:'tier_dividers', label:'Tier Divider Slides' },
+    { key:'roadmap',      label:'Integrated Milestone Roadmap' },
+    { key:'closing',      label:'Conclusion Slide' },
+  ];
+  el.innerHTML = slides.map(s => {
+    const checked = S.cfg.pmr_pptx_slides[s.key] !== false;
+    return `<label class="row" style="gap:6px;align-items:center;padding:4px 0;cursor:pointer">
+      <input type="checkbox" ${checked?'checked':''} onchange="S.cfg.pmr_pptx_slides['${s.key}']=this.checked;autoSaveCfg()">
+      <span style="font-size:var(--fs-sm)">${s.label}</span>
+    </label>`;
+  }).join('');
 }
 
 // ── Spin History management (Settings → Spin Plan) ──────────

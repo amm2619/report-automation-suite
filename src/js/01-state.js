@@ -166,6 +166,17 @@ const S = {
         cardBg: 'FFFFFF',     // card fill
       }
     },
+    // Which structural slides to include in the PPTX download.
+    // Content slides (per-topic) are always included.
+    pmr_pptx_slides: {
+      title: true,        // Title / cover slide
+      agenda: true,       // Presentation Agenda
+      kudos: false,       // Kudos (placeholder)
+      actions: false,     // Actions (placeholder)
+      tier_dividers: true,// Tier divider slides (T0, T1, T2, T3)
+      roadmap: true,      // Integrated Milestone Roadmap
+      closing: false,     // Conclusion slide
+    },
     pmr_title: '(U) Xplorer Suite PMR',
     pmr_groups: [
       { group_id: 'dx_modernization', header: 'Tier 1: Priority 2: Tool Modernization: DX', topic_ids: ['dx4','dx_improvements'] },

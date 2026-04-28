@@ -50,7 +50,7 @@ function _pmrAddNearFuturePanel(pres, ctx, s, sd, topY) {
   const nfBodyFontSize = _tpl('near_future', 'bodyFontSize', 10);
   text(s, 'NEAR-FUTURE', {
     x: panelX + 0.16, y: topY + 0.1, w: panelW - 0.3, h: 0.24,
-    fontSize: nfTitleFontSize, bold: true, color: 'FFFFFF', fontFace: F.mono
+    fontSize: nfTitleFontSize, bold: true, color: 'FFFFFF', fontFace: F.label
   });
   text(s, 'TASKS', {
     x: panelX + 0.16, y: topY + 0.34, w: panelW - 0.3, h: 0.44,
@@ -131,7 +131,7 @@ function _pmrAddFibSlide(pres, ctx, sd) {
     rect(s, x, y, w, h, C.card);
     s.addShape(pres.ShapeType.rect, { x, y, w, h, fill:{type:'noFill'}, line:{color:C.border, width:bdr} });
     rect(s, x, y, w, 0.048, color);
-    text(s, label, { x:x+0.14, y:y+0.06, w:w-0.28, h:0.22, fontSize:lblFs, bold:true, color:color, fontFace:F.mono });
+    text(s, label, { x:x+0.14, y:y+0.06, w:w-0.28, h:0.22, fontSize:lblFs, bold:true, color:color, fontFace:F.label });
     const narr = section && section.narrative ? section.narrative : '(no narrative)';
     text(s, narr, { x:x+0.14, y:y+0.34, w:w-0.28, h:h-0.50, fontSize:narFs, color:C.text, valign:'top', wrap:true });
   }
@@ -263,7 +263,7 @@ function _pmrAddMissionSupportSlide(pres, ctx, sd) {
     const cx = contentX + ci * (colW + colGap);
     rect(s, cx, topY, colW, headerH, C.cardLt);
     rect(s, cx, topY + headerH - 0.03, colW, 0.03, col.color);
-    text(s, col.label, { x:cx, y:topY, w:colW, h:headerH, fontSize:msHdrFs, bold:true, color:C.text, fontFace:F.mono, align:'center', valign:'middle' });
+    text(s, col.label, { x:cx, y:topY, w:colW, h:headerH, fontSize:msHdrFs, bold:true, color:C.text, fontFace:F.label, align:'center', valign:'middle' });
   });
 
   // Product rows
@@ -313,18 +313,18 @@ function _pmrAddTitleSlide(pres, ctx, meta, data) {
   text(s, 'Monthly Progress Report', { x:0.36, y:3.14, w:lpW-0.56, h:0.45, fontSize:subFs, color:C.subtle });
   if (meta.workPeriod) {
     text(s, [
-      { text:'WORK PERIOD  ', options:{ fontSize:12, bold:true, color:'6A7A8A', fontFace:F.mono } },
+      { text:'WORK PERIOD  ', options:{ fontSize:12, bold:true, color:'6A7A8A', fontFace:F.label } },
       { text: meta.workPeriod, options:{ fontSize:16, bold:true, color:'FFFFFF' } },
     ], { x:0.36, y:3.72, w:lpW-0.26, h:0.36 });
   }
   text(s, [
-    { text:'SUBMITTED  ', options:{ fontSize:12, bold:true, color:'6A7A8A', fontFace:F.mono } },
+    { text:'SUBMITTED  ', options:{ fontSize:12, bold:true, color:'6A7A8A', fontFace:F.label } },
     { text: meta.submitted, options:{ fontSize:14, color:'FFFFFF' } },
   ], { x:0.36, y:4.84, w:lpW-0.26, h:0.36 });
 
   // Right side
   const rx = lpW + 0.918;
-  text(s, 'XPLORER SUITE', { x:rx, y:0.45, w:5, h:0.38, fontSize:11, bold:true, color:'5A6070', fontFace:F.mono });
+  text(s, 'XPLORER SUITE', { x:rx, y:0.45, w:5, h:0.38, fontSize:11, bold:true, color:'5A6070', fontFace:F.label });
   rect(s, rx+0.1, 0.88, 4.99, 0.022, C.border);
   text(s, [
     { text:'Program Management', options:{ fontSize:rtFs, bold:true, color:'1E2736', breakLine:true } },
@@ -334,7 +334,7 @@ function _pmrAddTitleSlide(pres, ctx, meta, data) {
   function chip(y, label, value) {
     rect(s, rx, y, 4.5, 0.456, 'FFFFFF');
     rect(s, rx, y, 0.03, 0.454, C.cyan);
-    text(s, label, { x:rx+0.067, y:y, w:1.2, h:0.456, fontSize:chipLblFs, bold:true, color:'5A6070', fontFace:F.mono, valign:'middle' });
+    text(s, label, { x:rx+0.067, y:y, w:1.2, h:0.456, fontSize:chipLblFs, bold:true, color:'5A6070', fontFace:F.label, valign:'middle' });
     text(s, value, { x:rx+1.3, y:y, w:3.1, h:0.456, fontSize:chipFs, color:'1E2736', valign:'middle' });
   }
   chip(2.75, 'PERIOD',  meta.monthLong || meta.monthLabel || '—');
@@ -363,7 +363,7 @@ function _pmrAddAgendaSlide(pres, ctx, data) {
     let y = BODY_Y + 0.05;
     rect(s, x, y, half, headerH, C.navy);
     rect(s, x, y, 0.032, headerH, C.cyan);
-    text(s, 'TOPICS', { x:x+0.10, y:y, w:half-0.14, h:headerH, fontSize:hdrFs, bold:true, color:'FFFFFF', fontFace:F.mono, valign:'middle' });
+    text(s, 'TOPICS', { x:x+0.10, y:y, w:half-0.14, h:headerH, fontSize:hdrFs, bold:true, color:'FFFFFF', fontFace:F.label, valign:'middle' });
     y += headerH + 0.005;
     const maxY = H - FOUO_H - itemH - 0.1;
     items.forEach(item => {
@@ -729,7 +729,7 @@ function _pmrAddSimpleListSlide(pres, ctx, sd) {
   rect(s, x, y, w, h, C.card);
   s.addShape(pres.ShapeType.rect, { x, y, w, h, fill:{type:'noFill'}, line:{color:C.border, width:slBdr} });
   rect(s, x, y, w, 0.048, C.cyan);
-  text(s, 'NARRATIVE', { x:x+0.18, y:y+0.06, w:w-0.36, h:0.22, fontSize:slLblFs, bold:true, color:C.cyan, fontFace:F.mono });
+  text(s, 'NARRATIVE', { x:x+0.18, y:y+0.06, w:w-0.36, h:0.22, fontSize:slLblFs, bold:true, color:C.cyan, fontFace:F.label });
   const narr = sd.topNarrative || (sd.sections[0] && sd.sections[0].narrative) || '(no narrative provided)';
   text(s, narr, { x:x+0.18, y:y+0.34, w:w-0.36, h:h*0.85, fontSize:slNarFs, color:C.text, valign:'top', wrap:true });
 }
@@ -1281,7 +1281,7 @@ function _pmrCtx(pres) {
     gold:'B87800', green:'0A7A4A', red:'C0392B', blue2:'0060B0', amber:'F5A800',
     text:'1A1E28', muted:'5A6070', subtle:'8899BB', divider:'D4CFC8', fouoBg:'007A33',
   };
-  const F = { body:'Calibri', mono:'Courier New', heading:'Cambria' };
+  const F = { body:'Calibri', label:'Calibri', heading:'Cambria', fouo:'Calibri' };
   const W = 13.333, H = 7.5, FOUO_H = 0.22, HDR_Y = 0.22, HDR_H = 0.82;
   const BAR_Y = HDR_Y + HDR_H, BAR_H = 0.05;
   const BODY_Y = BAR_Y + BAR_H + 0.1, M = 0.26;
@@ -1289,9 +1289,9 @@ function _pmrCtx(pres) {
   const text = (s,t,opts) => s.addText(typeof t === 'string' ? t : t, Object.assign({ margin:0, fontFace:F.body }, opts));
   function addFOUO(s) {
     rect(s, 0, 0, W, FOUO_H, C.fouoBg);
-    text(s, 'UNCLASSIFIED // FOR OFFICIAL USE ONLY', { x:0,y:0,w:W,h:FOUO_H, align:'center', valign:'middle', fontSize:8, bold:true, color:'FFFFFF', charSpacing:2.5, fontFace:F.mono });
+    text(s, 'UNCLASSIFIED // FOR OFFICIAL USE ONLY', { x:0,y:0,w:W,h:FOUO_H, align:'center', valign:'middle', fontSize:8, bold:true, color:'FFFFFF', charSpacing:2.5, fontFace:F.label });
     rect(s, 0, H - FOUO_H, W, FOUO_H, C.fouoBg);
-    text(s, 'UNCLASSIFIED // FOR OFFICIAL USE ONLY', { x:0,y:H-FOUO_H,w:W,h:FOUO_H, align:'center', valign:'middle', fontSize:8, bold:true, color:'FFFFFF', charSpacing:2.5, fontFace:F.mono });
+    text(s, 'UNCLASSIFIED // FOR OFFICIAL USE ONLY', { x:0,y:H-FOUO_H,w:W,h:FOUO_H, align:'center', valign:'middle', fontSize:8, bold:true, color:'FFFFFF', charSpacing:2.5, fontFace:F.label });
   }
   function addHeader(s, title, accent) {
     accent = accent || C.cyan;
