@@ -185,6 +185,28 @@ function runSpin() {
   // Epic names are resolved after tree build by walking the hierarchy.
   const issues = spinRows.map(row => normSpinCsvIssue(row));
 
+  // ── Status overlay: use the issues CSV as the source of truth for status.
+  // The spin plan (Jira Plans export) often drops Done tickets from subsequent
+  // exports, making everything look "open". If the issues CSV is loaded, any
+  // ticket that exists in both gets its status, story points, and resolved
+  // date from the issues CSV instead.
+  if (S.allTickets && S.allTickets.length) {
+    const issuesByKey = {};
+    S.allTickets.forEach(t => { if (t.issue_key) issuesByKey[t.issue_key] = t; });
+    let overlaid = 0;
+    issues.forEach(i => {
+      const match = issuesByKey[i.key];
+      if (match) {
+        i.status = match.status || i.status;
+        i.points = match.story_points || i.points;
+        if (match.resolved_dt && !i.resolvedDt) i.resolvedDt = match.resolved_dt;
+        if (match.sprint && !i.sprint) { i.sprint = match.sprint; i.sprints = match.sprints || [match.sprint]; }
+        overlaid++;
+      }
+    });
+    if (overlaid) console.log('[Spin] Status overlay: ' + overlaid + ' tickets enriched from issues CSV');
+  }
+
   // Pre-resolve calendar entries
   const cal = S.cfg.sprint_calendar || [];
   issues.forEach(i => {
