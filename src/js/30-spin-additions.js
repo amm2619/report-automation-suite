@@ -452,8 +452,8 @@ function spinDrilldown(type) {
       <thead><tr>${spinMkSortTh('Proj',0,tId)}${spinMkSortTh('Key',1,tId)}${spinMkSortTh('Summary',2,tId)}${spinMkSortTh('Progress',3,tId)}</tr></thead>
       <tbody>${rows}</tbody></table></div>`;
     title = 'All Epics'; sub = `${allEpics.length} epics`;
-  } else if (type === 'programs' || type === 'strategies') {
-    const level = type === 'programs' ? 'program' : 'strategy';
+  } else if (type === 'programs' || type === 'strategies' || type === 'initiatives') {
+    const level = type === 'initiatives' ? 'initiative' : type === 'programs' ? 'program' : 'strategy';
     const items = S.spin.issues.filter(i => spinClassifyLevel(i.issueType) === level);
     const tId = 'spin-drill-' + type;
     const rows = items.sort((a,b) => ({DX:0,LX:1,RC:2}[a.project]??3)-({DX:0,LX:1,RC:2}[b.project]??3)||a.key.localeCompare(b.key)).map(prog => {
@@ -484,7 +484,7 @@ function spinDrilldown(type) {
       </tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`;
-    title = type === 'programs' ? 'Programs' : 'Strategies';
+    title = type === 'initiatives' ? 'Initiatives' : type === 'programs' ? 'Programs' : 'Strategies';
     sub = `${items.length} ${type}`;
   } else {
     const cfgMap = {
@@ -655,6 +655,7 @@ function spinUpdateSummaryBar() {
   const allEpics = S.spin.issues.filter(i => spinClassifyLevel(i.issueType) === 'epic');
   const strategies = S.spin.issues.filter(i => spinClassifyLevel(i.issueType) === 'strategy').length;
   const programs = S.spin.issues.filter(i => spinClassifyLevel(i.issueType) === 'program').length;
+  const initiatives = S.spin.issues.filter(i => spinClassifyLevel(i.issueType) === 'initiative').length;
   const pctCls = gStats.pct >= 67 ? 'c-green' : gStats.pct >= 34 ? 'c-amber' : 'c-red';
 
   // Diagnostic: count how many epics have stories (tree resolution health)
@@ -685,6 +686,7 @@ function spinUpdateSummaryBar() {
 
   const bar = `<div class="spin-sum-bar" style="margin-bottom:14px">
     <div class="sc clickable" onclick="spinDrilldown('programs')" title="All programs"><div class="sv c-blue">${programs}</div><div class="sl">${spinIssueIcon('Program',11)} Programs ›</div></div>
+    <div class="sc clickable" onclick="spinDrilldown('initiatives')" title="All initiatives"><div class="sv c-blue">${initiatives}</div><div class="sl">${spinIssueIcon('Initiative',11)} Initiatives ›</div></div>
     <div class="sc clickable" onclick="spinDrilldown('epics')" title="All epics"><div class="sv c-blue">${allEpics.length}</div><div class="sl">${spinIssueIcon('Epic',11)} Epics ›</div></div>
     <div class="sc clickable" onclick="spinDrilldown('stories')" title="All stories"><div class="sv c-blue">${gStats.total}</div><div class="sl">${spinIssueIcon('Story',11)} Stories ›</div></div>
     <div class="sc clickable" onclick="spinDrilldown('complete')" title="Complete stories"><div class="sv c-green">${gStats.done}</div><div class="sl"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" style="vertical-align:middle"><rect width="16" height="16" rx="3" fill="#36B37E"/><path d="M4 8l3 3 5-5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg> Complete ›</div></div>

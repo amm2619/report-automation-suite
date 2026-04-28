@@ -95,7 +95,8 @@ const SPIN_ISSUE_ICONS = {
   task:     `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" focusable="false" aria-hidden="true"><rect fill="#2684FF" width="16" height="16" rx="3"/><path d="M4 8l3 3 5-5" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   subtask:  `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" focusable="false" aria-hidden="true"><rect fill="#2684FF" width="16" height="16" rx="3" opacity=".7"/><path d="M4.5 8.5l2.5 2.5L11 6" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   strategy: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" focusable="false" aria-hidden="true"><rect fill="#00B8D9" width="16" height="16" rx="3"/><circle cx="8" cy="8" r="4" stroke="#fff" stroke-width="1.5" fill="none"/><circle cx="8" cy="8" r="1.5" fill="#fff"/></svg>`,
-  program:  `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" focusable="false" aria-hidden="true"><rect fill="#FF8B00" width="16" height="16" rx="3"/><rect x="3" y="4.5" width="4" height="2" rx="1" fill="#fff"/><rect x="3" y="7.5" width="7" height="2" rx="1" fill="#fff"/><rect x="3" y="10" width="5" height="1.5" rx=".75" fill="#fff"/></svg>`,
+  program:    `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" focusable="false" aria-hidden="true"><rect fill="#FF8B00" width="16" height="16" rx="3"/><rect x="3" y="4.5" width="4" height="2" rx="1" fill="#fff"/><rect x="3" y="7.5" width="7" height="2" rx="1" fill="#fff"/><rect x="3" y="10" width="5" height="1.5" rx=".75" fill="#fff"/></svg>`,
+  initiative: `<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" focusable="false" aria-hidden="true"><rect fill="#00C7E6" width="16" height="16" rx="3"/><path d="M8 3v10M4 7l4-4 4 4" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
 };
 
 function spinIssueIcon(it, size) {
@@ -108,6 +109,7 @@ function spinIssueIcon(it, size) {
     : (t === 'sub-task' || t === 'subtask') ? 'subtask'
     : t === 'strategy' ? 'strategy'
     : t === 'program' ? 'program'
+    : t === 'initiative' ? 'initiative'
     : null;
   if (!key) return '';
   const svg = SPIN_ISSUE_ICONS[key];
