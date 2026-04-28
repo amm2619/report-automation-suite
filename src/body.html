@@ -580,6 +580,16 @@
               </div>
             </div>
           </div>
+          <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Spin History</span></div>
+            <div class="stn-hint">Save snapshots of spin plan data by quarter. Load a past spin to compare progress over time.</div>
+            <div class="stn-body" style="padding:12px 16px">
+              <div class="row" style="gap:6px;margin-bottom:10px">
+                <button class="btn btn-ghost btn-xs" onclick="spinSettingsSaveToHistory()"><span class="mi" style="font-size:13px;margin-right:2px">save</span>Save Current Spin</button>
+              </div>
+              <div id="spin-history-list"></div>
+            </div>
+          </div>
         </div>
 
         <!-- == SPRINT METRICS == -->

@@ -235,6 +235,7 @@ function renderConfigUI(){
 
   renderPmrGroups();
   renderPmrLayouts();
+  renderSpinHistoryList();
   renderFieldMapRows();
   renderClassPresets();
 }
@@ -997,4 +998,48 @@ function addSprintRow(){
   S.cfg.sprint_calendar.push({sprint:'',start:'',end:''});
   renderSprintCal();
 }
+
+// ── Spin History management (Settings → Spin Plan) ──────────
+function renderSpinHistoryList() {
+  const el = document.getElementById('spin-history-list');
+  if (!el) return;
+  const history = S.cfg.spin_history || [];
+  if (!history.length) {
+    el.innerHTML = '<div class="u-muted-xs">No saved spins. Load a spin plan CSV and click Save Current Spin.</div>';
+    return;
+  }
+  el.innerHTML = history.map((h, i) => {
+    const d = h.ts ? new Date(h.ts).toLocaleDateString() : '';
+    return `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--bd);align-items:center;gap:8px">
+      <span style="font-weight:600;font-size:var(--fs-sm);color:var(--tx);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(h.label)}</span>
+      <span class="u-muted-xs" style="flex-shrink:0">${h.count} rows · ${d}</span>
+      <button class="btn btn-ghost btn-xs" onclick="spinSettingsLoadFromHistory('${esc(h.id)}')" title="Load this spin"><span class="mi" style="font-size:13px">play_arrow</span></button>
+      <button class="btn btn-red btn-xs" onclick="spinSettingsDeleteFromHistory('${esc(h.id)}',${i})" title="Delete"><span class="mi" style="font-size:13px">delete</span></button>
+    </div>`;
+  }).join('');
+}
+
+function spinSettingsSaveToHistory() {
+  const label = prompt('Label for this spin (e.g., "Spin 2 — Q2 FY26"):');
+  if (!label) return;
+  const id = saveSpinToHistory(label);
+  if (id) {
+    renderSpinHistoryList();
+    alert('Saved: ' + label);
+  }
+}
+
+function spinSettingsLoadFromHistory(id) {
+  switchToHistoricalSpin(id);
+  alert('Loaded. Go to Spin Plan to see the data.');
+}
+
+function spinSettingsDeleteFromHistory(id, idx) {
+  const h = (S.cfg.spin_history || [])[idx];
+  if (!h) return;
+  if (!confirm('Delete "' + h.label + '"?')) return;
+  deleteSpinFromHistory(id);
+  renderSpinHistoryList();
+}
+
 

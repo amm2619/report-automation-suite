@@ -88,66 +88,11 @@ function spinSetSpinPref(key, val) {
   }
 }
 
-// Spin history bar — dropdown to switch between saved spins + save button
-function spinHistoryBarHtml() {
-  const history = S.cfg.spin_history || [];
-  const activeId = S.spin._activeHistoryId || '';
-  let opts = '<option value="">Current</option>';
-  history.forEach(h => {
-    const sel = h.id === activeId ? ' selected' : '';
-    const d = h.ts ? new Date(h.ts).toLocaleDateString() : '';
-    opts += `<option value="${esc(h.id)}"${sel}>${esc(h.label)} (${h.count} rows, ${d})</option>`;
-  });
-  return `<select style="font-size:var(--fs-xs);padding:2px 6px;background:var(--s3);border:1px solid var(--bd);color:var(--tx);border-radius:3px;max-width:200px" onchange="spinSwitchHistory(this.value)" title="Switch spin period">${opts}</select>`
-    + `<button class="btn btn-ghost btn-xs" onclick="spinSaveToHistory()" title="Save current spin to history"><span class="mi" style="font-size:13px;margin-right:2px">save</span>Save Spin</button>`
-    + (history.length ? `<button class="btn btn-ghost btn-xs" onclick="spinManageHistory()" title="Manage saved spins"><span class="mi" style="font-size:13px">delete_sweep</span></button>` : '');
-}
-
-function spinSaveToHistory() {
-  const label = prompt('Label for this spin (e.g., "Spin 2 — 26.2.1–26.2.6"):');
-  if (!label) return;
-  const id = saveSpinToHistory(label);
-  if (id) {
-    S.spin._activeHistoryId = id;
-    if (typeof runSpin === 'function') runSpin();
-  }
-}
-
-function spinSwitchHistory(id) {
-  if (!id) {
-    // Switch back to current (live loaded) spin
-    S.spin._activeHistoryId = '';
-    const cached = loadSpinFromStorage();
-    if (cached) {
-      S.files.spin = cached.rows;
-      if (!S.fileNames) S.fileNames = {};
-      S.fileNames.spin = cached.filename;
-      updateStatusBar();
-      if (typeof runSpinEngine === 'function') runSpinEngine(cached.rows);
-      if (typeof runSpin === 'function') runSpin();
-    }
-    return;
-  }
-  switchToHistoricalSpin(id);
-}
-
-function spinManageHistory() {
-  const history = S.cfg.spin_history || [];
-  if (!history.length) { alert('No saved spins.'); return; }
-  const list = history.map((h, i) => `${i + 1}. ${h.label} (${h.count} rows)`).join('\n');
-  const idx = prompt('Saved spins:\n\n' + list + '\n\nEnter number to delete (or cancel):');
-  if (!idx) return;
-  const i = parseInt(idx, 10) - 1;
-  if (i >= 0 && i < history.length) {
-    const h = history[i];
-    if (confirm('Delete "' + h.label + '"?')) {
-      deleteSpinFromHistory(h.id);
-      if (S.spin._activeHistoryId === h.id) {
-        S.spin._activeHistoryId = '';
-      }
-      if (typeof runSpin === 'function') runSpin();
-    }
-  }
+// Filter spin plan views by project
+function spinFilterByProject(proj) {
+  S.spin.filterProject = proj || '';
+  spinSavePref('filterProject', proj || '');
+  if (typeof runSpin === 'function') runSpin();
 }
 
 function renderSpinReport() {
@@ -251,7 +196,10 @@ function runSpin() {
         <button class="spin-pill-btn${S.spin.view === 'col' ? ' active' : ''}" data-view="col" onclick="spinSetView('col')"><span class="mi" style="font-size:14px;margin-right:3px">view_week</span>Column</button>
         <button class="spin-pill-btn${S.spin.view === 'spin' ? ' active' : ''}" data-view="spin" onclick="spinSetView('spin')"><span class="mi" style="font-size:14px;margin-right:3px">account_tree</span>Spin</button>
       </div>
-      ${spinHistoryBarHtml()}
+      <div class="spin-view-pill">
+        <button class="spin-pill-btn${!S.spin.filterProject ? ' active' : ''}" onclick="spinFilterByProject('')">All</button>
+        ${projects.map(p => `<button class="spin-pill-btn${S.spin.filterProject===p ? ' active' : ''}" onclick="spinFilterByProject('${esc(p)}')">${esc(p)}</button>`).join('')}
+      </div>
       <button class="btn btn-ghost btn-xs fs-btn" onclick="fullscreenReport('spin-rpt-frame')" title="Fullscreen (Esc to exit)"><span class="mi">open_in_full</span></button>
     </div>
   </div>
