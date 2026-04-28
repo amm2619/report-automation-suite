@@ -12800,7 +12800,33 @@ function runSpin() {
 
   // Normalize issues — single Jira Plans CSV, no separate epics file needed.
   // Epic names are resolved after tree build by walking the hierarchy.
-  const issues = spinRows.map(row => normSpinCsvIssue(row));
+  let issues = spinRows.map(row => normSpinCsvIssue(row));
+
+  // ── Merge historical spins: load all saved spin snapshots and merge
+  // their issues into the current set. This lets the matrix view show
+  // filled data across Q1, Q2, Q3 etc. even if the current CSV only
+  // covers the latest quarter.
+  // Dedup by key: current spin wins for structural fields (parent, hierarchy),
+  // but if a key only exists in a historical spin it gets added.
+  const history = S.cfg.spin_history || [];
+  if (history.length) {
+    const currentKeys = new Set(issues.map(i => i.key));
+    let merged = 0;
+    history.forEach(h => {
+      const rows = loadSpinFromHistory(h.id);
+      if (!rows || !rows.length) return;
+      const histIssues = rows.map(r => normSpinCsvIssue(r));
+      histIssues.forEach(hi => {
+        if (!currentKeys.has(hi.key)) {
+          hi._fromHistory = h.label || h.id;
+          issues.push(hi);
+          currentKeys.add(hi.key);
+          merged++;
+        }
+      });
+    });
+    if (merged) console.log('[Spin] Merged ' + merged + ' issues from ' + history.length + ' historical spin(s)');
+  }
 
   // ── Status overlay: use the issues CSV as the source of truth for status.
   // The spin plan (Jira Plans export) often drops Done tickets from subsequent
