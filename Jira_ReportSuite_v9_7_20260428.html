@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- Material Icons: self-hosted inline SVG sprite -->
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ReportSuite v9.6</title>
+<title>ReportSuite v9.7</title>
 <style>
 
 :root{
@@ -1931,7 +1931,7 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
 //
 // ==========================================================
 
-const APP_VERSION='v9.6';
+const APP_VERSION='v9.7';
 
 // ============================================================
 // STATE
@@ -1983,6 +1983,14 @@ const S = {
         cardBorder: 0.75,     // border width in pt
         narFontSize: 13,      // narrative text font size
         labelFontSize: 11,    // section label font size
+      },
+      mission_support_aiml_508: {
+        // Same 1-left + 2-right card geometry as FIB.
+        leftWidthPct: 0.58,
+        rightGap: 0.15,
+        cardBorder: 0.75,
+        narFontSize: 13,
+        labelFontSize: 11,
       },
       project_split: {
         tagW: 1.10,           // product tag block width
@@ -2119,6 +2127,11 @@ const S = {
     // labels | components) to classify a ticket into the Mission Support
     // bucket on mission_support_other layouts. Anything else falls into Other.
     pmr_mission_support_types: ['mission support','sustainment','dxs','lxs','rcs'],
+    // Same kind of match_blob substring list, used by the
+    // mission_support_aiml_508 layout to peel AI/ML and 508 tickets out of
+    // the Mission Support pool. 508 wins over AI/ML on overlap.
+    pmr_aiml_types: ['ai/ml','ai-ml','ai ml','aiml','machine learning'],
+    pmr_508_types: ['508','accessibility','wcag'],
     // improvement = anything not in feature or bug types
     field_map: [
       {raw:'Custom field (Epic Name)',   canonical:'Epic Name'},
@@ -3387,6 +3400,16 @@ function _migrateCfg(){
   if(!S.cfg.jira_url && S.cfg.jira_base_url) S.cfg.jira_url = S.cfg.jira_base_url;
   delete S.cfg.jira_base_url;
 
+  // Backfill the mission_support_aiml_508 template block on configs saved
+  // before that layout existed, so the slide-template editor shows fields
+  // instead of an empty section.
+  if (S.cfg.pmr_slide_templates && !S.cfg.pmr_slide_templates.mission_support_aiml_508) {
+    S.cfg.pmr_slide_templates.mission_support_aiml_508 = {
+      leftWidthPct: 0.58, rightGap: 0.15, cardBorder: 0.75,
+      narFontSize: 13, labelFontSize: 11
+    };
+  }
+
   // Strip phantom 7th sprints (e.g. 26.2.7 = Mar 26–31) left over from older defaults.
   // Identify them by a sprint id ending in `.7` AND a duration shorter than a real 14-day sprint.
   if(Array.isArray(S.cfg.sprint_calendar) && S.cfg.sprint_calendar.length){
@@ -3894,7 +3917,7 @@ function addPmrGroup(){
 }
 function renderPmrLayouts(){
   const el=document.getElementById('pmr-layouts-editor'); if(!el) return;
-  const options=['simple_list','feature_improvement_bug','project_split_3','project_split_2','mission_support_other'];
+  const options=['simple_list','feature_improvement_bug','project_split_3','project_split_2','mission_support_other','mission_support_aiml_508'];
   const items=[...S.topics.map(t=>({id:t.topic_id,label:t.header})),...S.cfg.pmr_groups.map(g=>({id:g.group_id,label:g.header}))];
   el.innerHTML=`<div class="tw"><table class="rt"><thead><tr><th>Topic / Group</th><th>Layout</th></tr></thead><tbody>${
     items.map(it=>`<tr><td style="font-size:var(--fs-xs)">${esc(it.label)}</td><td>
@@ -5989,8 +6012,8 @@ function renderSlide(header,subheaders,layout,base,isGroup,layoutKey){
     }
   }
   // Layout picker dropdown — lets the user switch slide type without going to Settings
-  const layoutOpts = ['simple_list','feature_improvement_bug','project_split_3','project_split_2','mission_support_other'];
-  const layoutLabels = {simple_list:'Simple List',feature_improvement_bug:'Feature/Improvement/Bug',project_split_3:'Project Split (3)',project_split_2:'Project Split (2)',mission_support_other:'Mission Support Grid'};
+  const layoutOpts = ['simple_list','feature_improvement_bug','project_split_3','project_split_2','mission_support_other','mission_support_aiml_508'];
+  const layoutLabels = {simple_list:'Simple List',feature_improvement_bug:'Feature/Improvement/Bug',project_split_3:'Project Split (3)',project_split_2:'Project Split (2)',mission_support_other:'Mission Support Grid',mission_support_aiml_508:'Mission Support / AI-ML / 508'};
   const layoutSel = layoutKey
     ? `<select class="pmr-layout-sel" style="font-size:10px;padding:2px 6px;background:var(--s3);border:1px solid var(--bd);color:var(--mu);border-radius:3px;cursor:pointer;flex-shrink:0" onchange="pmrSwitchLayout('${esc(layoutKey)}',this.value)" title="Change slide layout">${layoutOpts.map(o=>'<option value="'+o+'"'+(o===layout?' selected':'')+'>'+layoutLabels[o]+'</option>').join('')}</select>`
     : '';
@@ -6020,7 +6043,7 @@ function renderSlide(header,subheaders,layout,base,isGroup,layoutKey){
   // their per-section boxes; this top box becomes their optional intro strip.
   html+=`<div class="bluf-label" style="color:var(--a1);display:flex;align-items:center;gap:6px">Narrative</div>${blufBox(ctx)}`;
   // Content sections first
-  const poolLayouts=['feature_improvement_bug','mission_support_other'];
+  const poolLayouts=['feature_improvement_bug','mission_support_other','mission_support_aiml_508'];
   if(isGroup&&subheaders.length>1&&!poolLayouts.includes(layout)){
     subheaders.forEach(sh=>{
       if(!sh.tickets.length) return;
@@ -6056,6 +6079,7 @@ function openSlideTemplateEditor() {
   const tpl = S.cfg.pmr_slide_templates || {};
   const sections = [
     { key: 'feature_improvement_bug', label: 'Feature / Improvement / Bug' },
+    { key: 'mission_support_aiml_508',label: 'Mission Support / AI-ML / 508' },
     { key: 'project_split',           label: 'Project Split (DX/LX/RC)' },
     { key: 'mission_support',         label: 'Mission Support Grid' },
     { key: 'simple_list',             label: 'Simple List' },
@@ -6264,6 +6288,26 @@ function renderSlideLayout(tickets,layout,base,ctx,blufBox){
     let h='';
     if(b.ms.length){ h+=`<h4>Mission Support</h4>${blufBox(ctx+'-ms')}${ticketList(b.ms,base)}`; }
     if(b.other.length){ h+=`<h4>Other</h4>${blufBox(ctx+'-other')}${ticketList(b.other,base)}`; }
+    return h||'<div class="nstr">NSTR</div>';
+  }
+  if(layout==='mission_support_aiml_508'){
+    const msTypes  =(S.cfg.pmr_mission_support_types||['mission support','sustainment']).map(s=>String(s).toLowerCase()).filter(Boolean);
+    const aimlTypes=(S.cfg.pmr_aiml_types||['ai/ml','ai-ml','ai ml','aiml','machine learning']).map(s=>String(s).toLowerCase()).filter(Boolean);
+    const a508Types=(S.cfg.pmr_508_types||['508','accessibility','wcag']).map(s=>String(s).toLowerCase()).filter(Boolean);
+    const b={ms:[],aiml:[],a508:[]};
+    // 508 wins over AI/ML wins over MS so a ticket flagged "508 ai/ml"
+    // doesn't double-count. Anything that matches none of the three buckets
+    // falls back to MS — same default as the other Mission Support layout.
+    tickets.forEach(t=>{
+      const bl=(t.match_blob||'').toLowerCase();
+      if (a508Types.some(x=>bl.includes(x))) b.a508.push(t);
+      else if (aimlTypes.some(x=>bl.includes(x))) b.aiml.push(t);
+      else b.ms.push(t);
+    });
+    let h='';
+    if(b.ms.length){   h+=`<h4>Mission Support</h4>${blufBox(ctx+'-ms')}${ticketList(b.ms,base)}`; }
+    if(b.aiml.length){ h+=`<h4>AI / ML</h4>${blufBox(ctx+'-aiml')}${ticketList(b.aiml,base)}`; }
+    if(b.a508.length){ h+=`<h4>508 Compliance</h4>${blufBox(ctx+'-508')}${ticketList(b.a508,base)}`; }
     return h||'<div class="nstr">NSTR</div>';
   }
   // simple_list — top-level blufBox is added by renderSlide; just render tickets here
@@ -8670,7 +8714,7 @@ function buildStandaloneHtml(title, bodyContent){
   var css=":root{--bg:#070910;--s1:#0c0f18;--s2:#111520;--s3:#171c2a;--s4:#1d2336;--bd:#1f2840;--bd2:#2b3652;--a1:#5b9cf6;--a1d:rgba(91,156,246,.09);--a1b:rgba(91,156,246,.2);--a2:#a07cf5;--a2d:rgba(160,124,245,.09);--a2b:rgba(160,124,245,.2);--a3:#3ecf8e;--a3d:rgba(62,207,142,.08);--a3b:rgba(62,207,142,.2);--a4:#f5a741;--a4d:rgba(245,167,65,.08);--a4b:rgba(245,167,65,.2);--a5:#f56b6b;--a5d:rgba(245,107,107,.08);--a5b:rgba(245,107,107,.2);--tx:#dde4f5;--mu:#6b7a9c;--di:#384060;--mono:'Consolas','Cascadia Code','Menlo',monospace;--sans:'Segoe UI','Inter','Arial',sans-serif;--r:8px;--r2:5px;--fs-base:13px;--fs-sm:12px;--fs-xs:11px;--fs-lg:14px;--fs-xl:16px}*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(--fs-base);line-height:1.55;padding:28px 32px 80px;min-height:100vh}a{color:var(--a1);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap}.bd-done{background:var(--a3d);color:var(--a3)}.bd-blk{background:var(--a5d);color:var(--a5)}.bd-prog{background:var(--a1d);color:var(--a1)}.bd-rev{background:var(--a4d);color:var(--a4)}.bd-open{background:var(--s4);color:var(--mu)}.nstr{color:var(--di);font-style:italic;font-size:var(--fs-sm);padding:3px 0}.rpt-frame{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:18px;max-width:1200px;margin-left:auto;margin-right:auto}.rpt-bar{background:var(--s2);border-bottom:1px solid var(--bd);padding:9px 14px;display:flex;align-items:center;justify-content:space-between}.rbd-row{display:flex;gap:5px}.rbd{width:8px;height:8px;border-radius:50%}.rbd-r{background:#ff7b7b}.rbd-y{background:#ffb347}.rbd-g{background:#4dd89a}.rpt-bar-fn{font-family:var(--mono);font-size:var(--fs-xs);color:var(--mu)}.rpt-body{padding:22px 26px}.rpt-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px;margin-bottom:20px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;border-left:4px solid var(--a1)}.rpt-hdr h1{font-size:17px;font-weight:600;color:var(--tx)}.rpt-hdr .rsub{font-size:var(--fs-xs);color:var(--mu);margin-top:3px}.r-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:18px}.r-tab{padding:8px 15px;font-size:var(--fs-sm);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-tab:hover{color:var(--tx)}.r-tab.active{color:var(--a1);border-bottom-color:var(--a1)}.r-panel{display:none}.r-panel.active{display:block}.r-tabs-sticky{position:sticky;top:0;z-index:10;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-tabs-sticky .r-tab{padding:8px 14px}.r-subtabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:14px}.r-subtab{padding:6px 13px;font-size:var(--fs-xs);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-subtab:hover{color:var(--tx)}.r-subtab.active{color:var(--a2);border-bottom-color:var(--a2)}.r-sub-panel{display:none}.r-sub-panel.active{display:block}.r-subtabs-sticky{position:sticky;top:37px;z-index:9;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-subtabs-sticky .r-subtab{padding:6px 12px}.r-card{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:14px 18px;margin-bottom:10px}.r-card.l1{border-left:3px solid var(--a1)}.r-card.l2{border-left:3px solid var(--a2)}.r-card.l3{border-left:3px solid var(--a3)}.r-card.lw{border-left:3px solid var(--a4)}.r-card.lr{border-left:3px solid var(--a5)}.r-card h3{font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}.stats-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.stat{background:var(--s3);border:1px solid var(--bd);border-radius:5px;padding:10px 15px}.stat .sv{font-size:20px;font-weight:600;color:var(--a1)}.stat .sl{font-size:var(--fs-xs);color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.tw{overflow-x:auto;border-radius:5px;border:1px solid var(--bd);margin:8px 0}.rt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);background:var(--s2)}.rt thead th{background:var(--s3);color:var(--mu);padding:8px 11px;font-weight:600;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}.rt tbody td{padding:7px 11px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--tx)}.rt tbody tr:last-child td{border-bottom:none}.tk-c{font-family:var(--mono);font-size:var(--fs-xs);color:var(--a1);white-space:nowrap}.bluf-label{display:block;font-size:var(--fs-xs);font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.bluf-field{padding:4px 0;font-size:var(--fs-sm);line-height:1.6;color:var(--tx);min-height:20px}.bluf-field:empty::before{content:attr(data-placeholder);color:var(--di)}.conf-pre{background:#04060c;color:#9bbbd4;border:1px solid var(--bd);border-radius:5px;padding:12px 14px;font-family:var(--mono);font-size:var(--fs-xs);line-height:1.7;white-space:pre;overflow:auto;max-height:400px;margin-top:8px}.slide{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--a2);border-radius:8px;padding:16px 20px;margin-bottom:14px}.slide h2{font-size:var(--fs-base);font-weight:600;color:var(--a2);margin-bottom:10px}.slide h3{font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 5px}.agenda-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:3px}.agenda-list li{padding:6px 13px;border-left:2px solid var(--bd);font-size:var(--fs-sm);border-radius:0 5px 5px 0}.agenda-list li.has{border-left-color:var(--a3);color:var(--tx);background:var(--a3d)}.agenda-list li.nstr{border-left-color:var(--di);color:var(--mu);font-style:italic}.ptabs{margin-bottom:12px}.ptab{display:inline-block;padding:4px 12px;border-radius:var(--r2);font-size:var(--fs-sm);font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--s3);color:var(--mu);margin:0 4px 4px 0}.ptab.active{background:var(--a1d);color:var(--a1);border-color:var(--a1b)}.muted{color:var(--mu)}.mono{font-family:var(--mono)}";
   var inlineJS="function switchRtab(btn){\n  var rtabs=btn.parentElement;\n  var idx=Array.from(rtabs.children).indexOf(btn);\n  rtabs.querySelectorAll('.r-tab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=rtabs.parentElement;\n  cont.querySelectorAll(':scope > .r-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchRstab(btn){\n  var stabs=btn.parentElement;\n  var idx=Array.from(stabs.children).indexOf(btn);\n  stabs.querySelectorAll('.r-subtab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=stabs.parentElement;\n  cont.querySelectorAll(':scope > .r-sub-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchPtab(btn,proj){\n  var cont=btn.closest('.ptabs').parentElement;\n  cont.querySelectorAll('.ptab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  cont.querySelectorAll('[data-ptab-panel]').forEach(function(p){\n    p.style.display=p.dataset.ptabPanel===proj?'block':'none';\n  });\n}\nfunction filterDbg(inp,tableId){\n  var val=inp.value.toLowerCase().trim();\n  var tbody=document.querySelector('#'+tableId+' tbody');\n  if(!tbody) return;\n  tbody.querySelectorAll('tr').forEach(function(tr){\n    tr.style.display=(!val||tr.textContent.toLowerCase().includes(val))?'':'none';\n  });\n}\ndocument.addEventListener('click',function(e){\n  var a=e.target.closest('.agenda-list a');\n  if(a){e.preventDefault();var t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'});}\n});";
   return '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">\n'
-    + '<title>ReportSuite v9.6</title>\n'
+    + '<title>ReportSuite v9.7</title>\n'
     + '<style>'+css+'</style>\n'
     + '</head>\n<body style="margin:0;padding:0">\n'
     + bodyContent
@@ -8982,6 +9026,56 @@ function _pmrAddFibSlide(pres, ctx, sd) {
   card(M, topY, leftW, bodyH, 'IMPROVEMENTS', C.blue2, sec.improvements);
   card(rightX, topY, rightW, rightH, 'NEW FEATURES', C.green, sec.features);
   card(rightX, topY + rightH + 0.15, rightW, rightH, 'BUG FIXES / BLOCKERS', C.red, sec.bugs);
+}
+
+// Mission Support / AI-ML / 508 — same 1-left + 2-right card layout as FIB
+// but with Mission Support full-height left, AI/ML top-right, 508 bottom-right.
+// Section labels are matched against the H4 headings emitted by the HTML
+// renderer ("Mission Support", "AI / ML", "508 Compliance").
+function _pmrAddMsAiml508Slide(pres, ctx, sd) {
+  const { C, F, W, H, FOUO_H, BODY_Y, M, rect, text, addHeader } = ctx;
+  const s = pres.addSlide();
+  s.background = { color: C.void };
+  addHeader(s, '(U) ' + sd.header, C.purple);
+  let topY = BODY_Y;
+  if (sd.topNarrative) {
+    rect(s, M, topY, W - M*2, 0.50, C.cardLt);
+    rect(s, M, topY, 0.04, 0.50, C.purple);
+    text(s, sd.topNarrative, { x:M+0.14, y:topY+0.05, w:W-M*2-0.22, h:0.40, fontSize:11, color:C.text, valign:'top', wrap:true });
+    topY += 0.60;
+  }
+  const sec = { ms:null, aiml:null, a508:null };
+  sd.sections.forEach(x => {
+    const l = (x.label || '').toLowerCase();
+    if (l.indexOf('508') >= 0) sec.a508 = x;
+    else if (/\bai\b|\bml\b|machine learning/.test(l)) sec.aiml = x;
+    else if (l.indexOf('mission') >= 0 || l.indexOf('support') >= 0 || l.indexOf('sustain') >= 0) sec.ms = x;
+  });
+  _pmrAddNearFuturePanel(pres, ctx, s, sd, topY);
+  const nfW = _tpl('near_future', 'panelW', 2.67);
+  const nfG = _tpl('near_future', 'panelGap', 0.26);
+  const contentW = W - M*2 - nfW - nfG;
+  const leftPct = _tpl('mission_support_aiml_508', 'leftWidthPct', 0.58);
+  const rGap = _tpl('mission_support_aiml_508', 'rightGap', 0.15);
+  const bdr = _tpl('mission_support_aiml_508', 'cardBorder', 0.75);
+  const narFs = _tpl('mission_support_aiml_508', 'narFontSize', 13);
+  const lblFs = _tpl('mission_support_aiml_508', 'labelFontSize', 11);
+  const leftW = contentW * leftPct;
+  const rightX = M + leftW + rGap;
+  const rightW = contentW - leftW - rGap;
+  const bodyH = H - FOUO_H - topY - 0.1;
+  const rightH = (bodyH - rGap) / 2;
+  function card(x, y, w, h, label, color, section) {
+    rect(s, x, y, w, h, C.card);
+    s.addShape(pres.ShapeType.rect, { x, y, w, h, fill:{type:'noFill'}, line:{color:C.border, width:bdr} });
+    rect(s, x, y, w, 0.048, color);
+    text(s, label, { x:x+0.14, y:y+0.06, w:w-0.28, h:0.22, fontSize:lblFs, bold:true, color:color, fontFace:F.label });
+    const narr = section && section.narrative ? section.narrative : '(no narrative)';
+    text(s, narr, { x:x+0.14, y:y+0.34, w:w-0.28, h:h-0.50, fontSize:narFs, color:C.text, valign:'top', wrap:true });
+  }
+  card(M, topY, leftW, bodyH, 'MISSION SUPPORT', C.purple, sec.ms);
+  card(rightX, topY, rightW, rightH, 'AI / ML', C.cyan, sec.aiml);
+  card(rightX, topY + rightH + 0.15, rightW, rightH, '508 COMPLIANCE', C.green, sec.a508);
 }
 
 // Project split — mirrors BAMBOOTIGER slide 10 (stacked product rows)
@@ -9550,6 +9644,7 @@ function _pmrAddContentSlide(pres, ctx, sd) {
     case 'project_split_3':          _pmrAddProjectSlide(pres, ctx, sd, ['DataXplorer','LinkXplorer','Rollercoaster']); break;
     case 'project_split_2':          _pmrAddProjectSlide(pres, ctx, sd, ['DataXplorer','Rollercoaster']); break;
     case 'mission_support_other':    _pmrAddMissionSupportSlide(pres, ctx, sd); break;
+    case 'mission_support_aiml_508': _pmrAddMsAiml508Slide(pres, ctx, sd); break;
     case 'integrated_roadmap':       _pmrAddIntegratedRoadmapSlide(pres, ctx, sd); break;
     default:                         _pmrAddSimpleListSlide(pres, ctx, sd);
   }
