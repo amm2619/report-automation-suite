@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- Material Icons: self-hosted inline SVG sprite -->
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ReportSuite v9.8</title>
+<title>ReportSuite v9.9</title>
 <style>
 
 :root{
@@ -1931,7 +1931,7 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
 //
 // ==========================================================
 
-const APP_VERSION='v9.8';
+const APP_VERSION='v9.9';
 
 // ============================================================
 // STATE
@@ -6445,6 +6445,82 @@ async function copyPmrUnmatched(proj) {
 
 // Copy the AI prompt + ticket list for a PMR topic slide to clipboard.
 // Optional project filter scopes to a single project's tickets.
+// Bucket a flat ticket list the same way renderSlideLayout does for the given
+// layout. Returns [{label, tickets}] preserving on-screen section order.
+// copyPmrAiPrompt uses this so the categories pasted into the AI prompt
+// match what the slide actually shows after a layout switch.
+function _pmrBucketTicketsForLayout(tickets, layout) {
+  if (layout === 'feature_improvement_bug') {
+    const ftypes = S.cfg.pmr_feature_types || ['story','user request','new feature'];
+    const btypes = S.cfg.pmr_bug_types || ['bug','defect'];
+    if (!S._pmrSectionOverrides) S._pmrSectionOverrides = {};
+    const b = { improvements:[], features:[], bugs:[] };
+    tickets.forEach(t => {
+      const override = S._pmrSectionOverrides[t.issue_key];
+      if (override === 'features')     { b.features.push(t); return; }
+      if (override === 'bugs')         { b.bugs.push(t); return; }
+      if (override === 'improvements') { b.improvements.push(t); return; }
+      const it = (t.issue_type||'').toLowerCase();
+      if (ftypes.some(f => it.includes(f))) b.features.push(t);
+      else if (btypes.some(f => it.includes(f))) b.bugs.push(t);
+      else b.improvements.push(t);
+    });
+    return [
+      { label:'Improvements', tickets:b.improvements },
+      { label:'New Features', tickets:b.features },
+      { label:'Bug Fixes',    tickets:b.bugs },
+    ];
+  }
+  if (layout === 'mission_support_other') {
+    const msTypes = (S.cfg.pmr_mission_support_types||['mission support','sustainment']).map(s=>String(s).toLowerCase()).filter(Boolean);
+    const b = { ms:[], other:[] };
+    tickets.forEach(t => {
+      const bl = (t.match_blob||'').toLowerCase();
+      if (msTypes.some(x => bl.includes(x))) b.ms.push(t); else b.other.push(t);
+    });
+    return [
+      { label:'Mission Support', tickets:b.ms },
+      { label:'Other',           tickets:b.other },
+    ];
+  }
+  if (layout === 'mission_support_aiml_508') {
+    const msTypes   = (S.cfg.pmr_mission_support_types||['mission support','sustainment']).map(s=>String(s).toLowerCase()).filter(Boolean);
+    const aimlTypes = (S.cfg.pmr_aiml_types||['ai/ml','ai-ml','ai ml','aiml','machine learning']).map(s=>String(s).toLowerCase()).filter(Boolean);
+    const a508Types = (S.cfg.pmr_508_types||['508','accessibility','wcag']).map(s=>String(s).toLowerCase()).filter(Boolean);
+    const b = { ms:[], aiml:[], a508:[] };
+    tickets.forEach(t => {
+      const bl = (t.match_blob||'').toLowerCase();
+      if (a508Types.some(x => bl.includes(x))) b.a508.push(t);
+      else if (aimlTypes.some(x => bl.includes(x))) b.aiml.push(t);
+      else b.ms.push(t);
+    });
+    return [
+      { label:'Mission Support', tickets:b.ms },
+      { label:'AI / ML',         tickets:b.aiml },
+      { label:'508 Compliance',  tickets:b.a508 },
+    ];
+  }
+  if (layout === 'project_split_3') {
+    const b = { DX:[], LX:[], RC:[] };
+    tickets.forEach(t => { if (b[t.project_bucket]) b[t.project_bucket].push(t); });
+    return [
+      { label:'DataXplorer',   tickets:b.DX },
+      { label:'LinkXplorer',   tickets:b.LX },
+      { label:'Rollercoaster', tickets:b.RC },
+    ];
+  }
+  if (layout === 'project_split_2') {
+    const b = { DX:[], RC:[] };
+    tickets.forEach(t => { if (b[t.project_bucket]) b[t.project_bucket].push(t); });
+    return [
+      { label:'DataXplorer',   tickets:b.DX },
+      { label:'Rollercoaster', tickets:b.RC },
+    ];
+  }
+  // simple_list and any unknown layout — single uncategorized bucket
+  return [{ label:'Tickets', tickets: tickets.slice() }];
+}
+
 async function copyPmrAiPrompt(slideId, project) {
   let tickets = S._pmrSlideTickets && S._pmrSlideTickets[slideId];
   if (!tickets || !tickets.length) return;
@@ -6453,38 +6529,20 @@ async function copyPmrAiPrompt(slideId, project) {
   const prompt = S.cfg.pmr_ai_prompt || '';
   const slideEl = document.getElementById(slideId);
   const header = slideEl ? (slideEl.querySelector('h2')?.textContent || '').replace(/^\(U\)\s*/i, '').trim() : slideId;
+  const layout = slideEl ? (slideEl.getAttribute('data-pmr-layout') || 'simple_list') : 'simple_list';
   const scope = project ? ` (${project})` : '';
 
-  // Bucket tickets the same way the slide does — titles only, no keys/status/points
-  const ftypes = S.cfg.pmr_feature_types || ['story','user request','new feature'];
-  const btypes = S.cfg.pmr_bug_types || ['bug','defect'];
-  if (!S._pmrSectionOverrides) S._pmrSectionOverrides = {};
-  const b = { improvements:[], features:[], bugs:[] };
-  tickets.forEach(t => {
-    const override = S._pmrSectionOverrides[t.issue_key];
-    if (override) { b[override]?.push(t); return; }
-    const it = t.issue_type.toLowerCase();
-    if (ftypes.some(f => it.includes(f))) b.features.push(t);
-    else if (btypes.some(f => it.includes(f))) b.bugs.push(t);
-    else b.improvements.push(t);
-  });
+  // Bucket tickets the same way renderSlideLayout does for this layout so the
+  // categories in the copied prompt match what's actually on the slide.
+  const buckets = _pmrBucketTicketsForLayout(tickets, layout);
 
   const lines = [`Topic: ${header}${scope}`, ''];
-  if (b.improvements.length) {
-    lines.push('Improvements:');
-    b.improvements.forEach(t => lines.push(`- ${t.summary}`));
+  buckets.forEach(b => {
+    if (!b.tickets.length) return;
+    lines.push(b.label + ':');
+    b.tickets.forEach(t => lines.push(`- ${t.summary}`));
     lines.push('');
-  }
-  if (b.features.length) {
-    lines.push('New Features:');
-    b.features.forEach(t => lines.push(`- ${t.summary}`));
-    lines.push('');
-  }
-  if (b.bugs.length) {
-    lines.push('Bug Fixes:');
-    b.bugs.forEach(t => lines.push(`- ${t.summary}`));
-    lines.push('');
-  }
+  });
   const text = prompt + '\n\n' + lines.join('\n');
   try {
     await navigator.clipboard.writeText(text);
@@ -8743,7 +8801,7 @@ function buildStandaloneHtml(title, bodyContent){
   var css=":root{--bg:#070910;--s1:#0c0f18;--s2:#111520;--s3:#171c2a;--s4:#1d2336;--bd:#1f2840;--bd2:#2b3652;--a1:#5b9cf6;--a1d:rgba(91,156,246,.09);--a1b:rgba(91,156,246,.2);--a2:#a07cf5;--a2d:rgba(160,124,245,.09);--a2b:rgba(160,124,245,.2);--a3:#3ecf8e;--a3d:rgba(62,207,142,.08);--a3b:rgba(62,207,142,.2);--a4:#f5a741;--a4d:rgba(245,167,65,.08);--a4b:rgba(245,167,65,.2);--a5:#f56b6b;--a5d:rgba(245,107,107,.08);--a5b:rgba(245,107,107,.2);--tx:#dde4f5;--mu:#6b7a9c;--di:#384060;--mono:'Consolas','Cascadia Code','Menlo',monospace;--sans:'Segoe UI','Inter','Arial',sans-serif;--r:8px;--r2:5px;--fs-base:13px;--fs-sm:12px;--fs-xs:11px;--fs-lg:14px;--fs-xl:16px}*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(--fs-base);line-height:1.55;padding:28px 32px 80px;min-height:100vh}a{color:var(--a1);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap}.bd-done{background:var(--a3d);color:var(--a3)}.bd-blk{background:var(--a5d);color:var(--a5)}.bd-prog{background:var(--a1d);color:var(--a1)}.bd-rev{background:var(--a4d);color:var(--a4)}.bd-open{background:var(--s4);color:var(--mu)}.nstr{color:var(--di);font-style:italic;font-size:var(--fs-sm);padding:3px 0}.rpt-frame{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:18px;max-width:1200px;margin-left:auto;margin-right:auto}.rpt-bar{background:var(--s2);border-bottom:1px solid var(--bd);padding:9px 14px;display:flex;align-items:center;justify-content:space-between}.rbd-row{display:flex;gap:5px}.rbd{width:8px;height:8px;border-radius:50%}.rbd-r{background:#ff7b7b}.rbd-y{background:#ffb347}.rbd-g{background:#4dd89a}.rpt-bar-fn{font-family:var(--mono);font-size:var(--fs-xs);color:var(--mu)}.rpt-body{padding:22px 26px}.rpt-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px;margin-bottom:20px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;border-left:4px solid var(--a1)}.rpt-hdr h1{font-size:17px;font-weight:600;color:var(--tx)}.rpt-hdr .rsub{font-size:var(--fs-xs);color:var(--mu);margin-top:3px}.r-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:18px}.r-tab{padding:8px 15px;font-size:var(--fs-sm);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-tab:hover{color:var(--tx)}.r-tab.active{color:var(--a1);border-bottom-color:var(--a1)}.r-panel{display:none}.r-panel.active{display:block}.r-tabs-sticky{position:sticky;top:0;z-index:10;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-tabs-sticky .r-tab{padding:8px 14px}.r-subtabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:14px}.r-subtab{padding:6px 13px;font-size:var(--fs-xs);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-subtab:hover{color:var(--tx)}.r-subtab.active{color:var(--a2);border-bottom-color:var(--a2)}.r-sub-panel{display:none}.r-sub-panel.active{display:block}.r-subtabs-sticky{position:sticky;top:37px;z-index:9;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-subtabs-sticky .r-subtab{padding:6px 12px}.r-card{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:14px 18px;margin-bottom:10px}.r-card.l1{border-left:3px solid var(--a1)}.r-card.l2{border-left:3px solid var(--a2)}.r-card.l3{border-left:3px solid var(--a3)}.r-card.lw{border-left:3px solid var(--a4)}.r-card.lr{border-left:3px solid var(--a5)}.r-card h3{font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}.stats-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.stat{background:var(--s3);border:1px solid var(--bd);border-radius:5px;padding:10px 15px}.stat .sv{font-size:20px;font-weight:600;color:var(--a1)}.stat .sl{font-size:var(--fs-xs);color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.tw{overflow-x:auto;border-radius:5px;border:1px solid var(--bd);margin:8px 0}.rt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);background:var(--s2)}.rt thead th{background:var(--s3);color:var(--mu);padding:8px 11px;font-weight:600;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}.rt tbody td{padding:7px 11px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--tx)}.rt tbody tr:last-child td{border-bottom:none}.tk-c{font-family:var(--mono);font-size:var(--fs-xs);color:var(--a1);white-space:nowrap}.bluf-label{display:block;font-size:var(--fs-xs);font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.bluf-field{padding:4px 0;font-size:var(--fs-sm);line-height:1.6;color:var(--tx);min-height:20px}.bluf-field:empty::before{content:attr(data-placeholder);color:var(--di)}.conf-pre{background:#04060c;color:#9bbbd4;border:1px solid var(--bd);border-radius:5px;padding:12px 14px;font-family:var(--mono);font-size:var(--fs-xs);line-height:1.7;white-space:pre;overflow:auto;max-height:400px;margin-top:8px}.slide{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--a2);border-radius:8px;padding:16px 20px;margin-bottom:14px}.slide h2{font-size:var(--fs-base);font-weight:600;color:var(--a2);margin-bottom:10px}.slide h3{font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 5px}.agenda-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:3px}.agenda-list li{padding:6px 13px;border-left:2px solid var(--bd);font-size:var(--fs-sm);border-radius:0 5px 5px 0}.agenda-list li.has{border-left-color:var(--a3);color:var(--tx);background:var(--a3d)}.agenda-list li.nstr{border-left-color:var(--di);color:var(--mu);font-style:italic}.ptabs{margin-bottom:12px}.ptab{display:inline-block;padding:4px 12px;border-radius:var(--r2);font-size:var(--fs-sm);font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--s3);color:var(--mu);margin:0 4px 4px 0}.ptab.active{background:var(--a1d);color:var(--a1);border-color:var(--a1b)}.muted{color:var(--mu)}.mono{font-family:var(--mono)}";
   var inlineJS="function switchRtab(btn){\n  var rtabs=btn.parentElement;\n  var idx=Array.from(rtabs.children).indexOf(btn);\n  rtabs.querySelectorAll('.r-tab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=rtabs.parentElement;\n  cont.querySelectorAll(':scope > .r-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchRstab(btn){\n  var stabs=btn.parentElement;\n  var idx=Array.from(stabs.children).indexOf(btn);\n  stabs.querySelectorAll('.r-subtab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=stabs.parentElement;\n  cont.querySelectorAll(':scope > .r-sub-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchPtab(btn,proj){\n  var cont=btn.closest('.ptabs').parentElement;\n  cont.querySelectorAll('.ptab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  cont.querySelectorAll('[data-ptab-panel]').forEach(function(p){\n    p.style.display=p.dataset.ptabPanel===proj?'block':'none';\n  });\n}\nfunction filterDbg(inp,tableId){\n  var val=inp.value.toLowerCase().trim();\n  var tbody=document.querySelector('#'+tableId+' tbody');\n  if(!tbody) return;\n  tbody.querySelectorAll('tr').forEach(function(tr){\n    tr.style.display=(!val||tr.textContent.toLowerCase().includes(val))?'':'none';\n  });\n}\ndocument.addEventListener('click',function(e){\n  var a=e.target.closest('.agenda-list a');\n  if(a){e.preventDefault();var t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'});}\n});";
   return '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">\n'
-    + '<title>ReportSuite v9.8</title>\n'
+    + '<title>ReportSuite v9.9</title>\n'
     + '<style>'+css+'</style>\n'
     + '</head>\n<body style="margin:0;padding:0">\n'
     + bodyContent
