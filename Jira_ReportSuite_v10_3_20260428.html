@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- Material Icons: self-hosted inline SVG sprite -->
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ReportSuite v10.2</title>
+<title>ReportSuite v10.3</title>
 <style>
 
 :root{
@@ -1943,7 +1943,7 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
 //
 // ==========================================================
 
-const APP_VERSION='v10.2';
+const APP_VERSION='v10.3';
 
 // ============================================================
 // STATE
@@ -2010,6 +2010,27 @@ const S = {
         rightGap: 0.26,
         cardBorder: 0.75,
         narFontSize: 13,
+        labelFontSize: 11,
+      },
+      stacked_topic_cards: {
+        // BAMBOOTIGER slide6: each topic card is full-width (10.15) with
+        // an 0.07 left vertical accent, big topic name on left (w=1.01),
+        // narrative on right (w=8.91). 0.08 vertical gap between cards.
+        tagW: 1.01,           // topic-name block width (in)
+        tagGap: 0.08,         // gap between tag and narrative
+        rowGap: 0.08,         // vertical gap between stacked rows
+        cardBorder: 0.75,
+        narFontSize: 12,
+        nameFontSize: 22,     // topic name big letters
+      },
+      priority_timeline: {
+        // BAMBOOTIGER slide11: 12-month grid header h=0.32, then 3 phase
+        // rows h=0.85 each, then 2 narrative cards h=2.96.
+        monthRowH: 0.32,
+        phaseRowH: 0.85,
+        phaseCount: 3,
+        cardH: 2.96,
+        narFontSize: 12,
         labelFontSize: 11,
       },
       project_split: {
@@ -3437,6 +3458,18 @@ function _migrateCfg(){
       narFontSize: 13, labelFontSize: 11
     };
   }
+  if (S.cfg.pmr_slide_templates && !S.cfg.pmr_slide_templates.stacked_topic_cards) {
+    S.cfg.pmr_slide_templates.stacked_topic_cards = {
+      tagW: 1.01, tagGap: 0.08, rowGap: 0.08,
+      cardBorder: 0.75, narFontSize: 12, nameFontSize: 22
+    };
+  }
+  if (S.cfg.pmr_slide_templates && !S.cfg.pmr_slide_templates.priority_timeline) {
+    S.cfg.pmr_slide_templates.priority_timeline = {
+      monthRowH: 0.32, phaseRowH: 0.85, phaseCount: 3,
+      cardH: 2.96, narFontSize: 12, labelFontSize: 11
+    };
+  }
 
   // Backfill the near-future AI prompt for configs saved before that
   // textarea existed in settings. Older configs only had the past-paragraph
@@ -3954,7 +3987,7 @@ function addPmrGroup(){
 }
 function renderPmrLayouts(){
   const el=document.getElementById('pmr-layouts-editor'); if(!el) return;
-  const options=['simple_list','feature_improvement_bug','improvement_feature_bug','project_split_3','project_split_2','mission_support_other','mission_support_aiml_508'];
+  const options=['simple_list','feature_improvement_bug','improvement_feature_bug','project_split_3','project_split_2','mission_support_other','mission_support_aiml_508','stacked_topic_cards','priority_timeline'];
   const items=[...S.topics.map(t=>({id:t.topic_id,label:t.header})),...S.cfg.pmr_groups.map(g=>({id:g.group_id,label:g.header}))];
   el.innerHTML=`<div class="tw"><table class="rt"><thead><tr><th>Topic / Group</th><th>Layout</th></tr></thead><tbody>${
     items.map(it=>`<tr><td style="font-size:var(--fs-xs)">${esc(it.label)}</td><td>
@@ -6093,8 +6126,8 @@ function renderSlide(header,subheaders,layout,base,isGroup,layoutKey){
     }
   }
   // Layout picker dropdown — lets the user switch slide type without going to Settings
-  const layoutOpts = ['simple_list','feature_improvement_bug','improvement_feature_bug','project_split_3','project_split_2','mission_support_other','mission_support_aiml_508'];
-  const layoutLabels = {simple_list:'Simple List',feature_improvement_bug:'Feature/Improvement/Bug',improvement_feature_bug:'Improvement/Feature/Bug',project_split_3:'Project Split (3)',project_split_2:'Project Split (2)',mission_support_other:'Mission Support Grid',mission_support_aiml_508:'Mission Support / AI-ML / 508'};
+  const layoutOpts = ['simple_list','feature_improvement_bug','improvement_feature_bug','project_split_3','project_split_2','mission_support_other','mission_support_aiml_508','stacked_topic_cards','priority_timeline'];
+  const layoutLabels = {simple_list:'Simple List',feature_improvement_bug:'Feature/Improvement/Bug',improvement_feature_bug:'Improvement/Feature/Bug',project_split_3:'Project Split (3)',project_split_2:'Project Split (2)',mission_support_other:'Mission Support Grid',mission_support_aiml_508:'Mission Support / AI-ML / 508',stacked_topic_cards:'Stacked Topic Cards',priority_timeline:'Priority Timeline'};
   const layoutSel = layoutKey
     ? `<select class="pmr-layout-sel" style="font-size:10px;padding:2px 6px;background:var(--s3);border:1px solid var(--bd);color:var(--mu);border-radius:3px;cursor:pointer;flex-shrink:0" onchange="pmrSwitchLayout('${esc(layoutKey)}',this.value)" title="Change slide layout">${layoutOpts.map(o=>'<option value="'+o+'"'+(o===layout?' selected':'')+'>'+layoutLabels[o]+'</option>').join('')}</select>`
     : '';
@@ -6132,7 +6165,18 @@ function renderSlide(header,subheaders,layout,base,isGroup,layoutKey){
   html+=`<div class="bluf-label" style="color:var(--a1);display:flex;align-items:center;gap:6px">Narrative</div>${blufBox(ctx)}`;
   // Content sections first
   const poolLayouts=['feature_improvement_bug','improvement_feature_bug','mission_support_other','mission_support_aiml_508'];
-  if(isGroup&&subheaders.length>1&&!poolLayouts.includes(layout)){
+  // stacked_topic_cards is special: each subheader becomes its own card row
+  // in the PPTX with topic name + per-topic narrative. Emit h4 (not h3) so
+  // _pmrExtractSlides treats them as sections (sd.sections), and add a
+  // per-topic blufBox between the heading and the ticket list.
+  if (layout === 'stacked_topic_cards' && isGroup && subheaders.length > 1) {
+    subheaders.forEach(sh => {
+      if (!sh.tickets.length) return;
+      const short = sh.header.split(':').pop().trim();
+      const slug = short.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'topic';
+      html += `<h4>${esc(short)}</h4>${blufBox(ctx + '-stk-' + slug)}${ticketList(sh.tickets, base)}`;
+    });
+  } else if(isGroup&&subheaders.length>1&&!poolLayouts.includes(layout)){
     subheaders.forEach(sh=>{
       if(!sh.tickets.length) return;
       const short=sh.header.split(':').pop().trim();
@@ -6169,6 +6213,8 @@ function openSlideTemplateEditor() {
     { key: 'feature_improvement_bug', label: 'Feature / Improvement / Bug' },
     { key: 'improvement_feature_bug', label: 'Improvement / Feature / Bug' },
     { key: 'mission_support_aiml_508',label: 'Mission Support / AI-ML / 508' },
+    { key: 'stacked_topic_cards',     label: 'Stacked Topic Cards' },
+    { key: 'priority_timeline',       label: 'Priority Timeline' },
     { key: 'project_split',           label: 'Project Split (DX/LX/RC)' },
     { key: 'mission_support',         label: 'Mission Support Grid' },
     { key: 'simple_list',             label: 'Simple List' },
@@ -6429,6 +6475,23 @@ function renderSlideLayout(tickets,layout,base,ctx,blufBox){
     if(b.a508.length){ h+=`<h4>508 Compliance</h4>${blufBox(ctx+'-508')}${ticketList(b.a508,base)}`; }
     return h||'<div class="nstr">NSTR</div>';
   }
+  if (layout === 'priority_timeline') {
+    // Mirrors BAMBOOTIGER slide 11. The visual chrome (12-month grid +
+    // 3 phase rows + 2 narrative cards) is rendered in the PPTX export;
+    // in the on-screen report we just emit the two narrative boxes the
+    // PPTX consumes (Deliverables = topNarrative, Near-Future = the
+    // existing near-future bluf added by renderSlide) and the ticket list.
+    let h = '';
+    h += `<h4>Deliverables This Period</h4>`;
+    h += `<div class="nstr" style="font-size:var(--fs-xs)">Use the slide-level Narrative box above for Deliverables. The Near-Future Tasks box below feeds the right-side card.</div>`;
+    h += ticketList(tickets, base);
+    return h;
+  }
+  if (layout === 'stacked_topic_cards') {
+    // Standalone (non-group) fallback. The richer per-topic version lives in
+    // renderSlide where we still have access to subheaders.
+    return ticketList(tickets, base);
+  }
   // simple_list — top-level blufBox is added by renderSlide; just render tickets here
   return ticketList(tickets,base);
 }
@@ -6608,6 +6671,16 @@ function _pmrBucketTicketsForLayout(tickets, layout) {
       { label:'DataXplorer',   tickets:b.DX },
       { label:'Rollercoaster', tickets:b.RC },
     ];
+  }
+  if (layout === 'priority_timeline') {
+    // Two-bucket prompt mirrors the slide's two narrative cards.
+    return [{ label:'Deliverables This Period', tickets: tickets.slice() }];
+  }
+  if (layout === 'stacked_topic_cards') {
+    // The per-topic split needs the group's subheaders, which the helper
+    // doesn't have. Fall through to a single bucket — the AI prompt button
+    // for this layout is best used per-section instead.
+    return [{ label:'Tickets', tickets: tickets.slice() }];
   }
   // simple_list and any unknown layout — single uncategorized bucket
   return [{ label:'Tickets', tickets: tickets.slice() }];
@@ -8893,7 +8966,7 @@ function buildStandaloneHtml(title, bodyContent){
   var css=":root{--bg:#070910;--s1:#0c0f18;--s2:#111520;--s3:#171c2a;--s4:#1d2336;--bd:#1f2840;--bd2:#2b3652;--a1:#5b9cf6;--a1d:rgba(91,156,246,.09);--a1b:rgba(91,156,246,.2);--a2:#a07cf5;--a2d:rgba(160,124,245,.09);--a2b:rgba(160,124,245,.2);--a3:#3ecf8e;--a3d:rgba(62,207,142,.08);--a3b:rgba(62,207,142,.2);--a4:#f5a741;--a4d:rgba(245,167,65,.08);--a4b:rgba(245,167,65,.2);--a5:#f56b6b;--a5d:rgba(245,107,107,.08);--a5b:rgba(245,107,107,.2);--tx:#dde4f5;--mu:#6b7a9c;--di:#384060;--mono:'Consolas','Cascadia Code','Menlo',monospace;--sans:'Segoe UI','Inter','Arial',sans-serif;--r:8px;--r2:5px;--fs-base:13px;--fs-sm:12px;--fs-xs:11px;--fs-lg:14px;--fs-xl:16px}*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(--fs-base);line-height:1.55;padding:28px 32px 80px;min-height:100vh}a{color:var(--a1);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap}.bd-done{background:var(--a3d);color:var(--a3)}.bd-blk{background:var(--a5d);color:var(--a5)}.bd-prog{background:var(--a1d);color:var(--a1)}.bd-rev{background:var(--a4d);color:var(--a4)}.bd-open{background:var(--s4);color:var(--mu)}.nstr{color:var(--di);font-style:italic;font-size:var(--fs-sm);padding:3px 0}.rpt-frame{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:18px;max-width:1200px;margin-left:auto;margin-right:auto}.rpt-bar{background:var(--s2);border-bottom:1px solid var(--bd);padding:9px 14px;display:flex;align-items:center;justify-content:space-between}.rbd-row{display:flex;gap:5px}.rbd{width:8px;height:8px;border-radius:50%}.rbd-r{background:#ff7b7b}.rbd-y{background:#ffb347}.rbd-g{background:#4dd89a}.rpt-bar-fn{font-family:var(--mono);font-size:var(--fs-xs);color:var(--mu)}.rpt-body{padding:22px 26px}.rpt-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px;margin-bottom:20px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;border-left:4px solid var(--a1)}.rpt-hdr h1{font-size:17px;font-weight:600;color:var(--tx)}.rpt-hdr .rsub{font-size:var(--fs-xs);color:var(--mu);margin-top:3px}.r-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:18px}.r-tab{padding:8px 15px;font-size:var(--fs-sm);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-tab:hover{color:var(--tx)}.r-tab.active{color:var(--a1);border-bottom-color:var(--a1)}.r-panel{display:none}.r-panel.active{display:block}.r-tabs-sticky{position:sticky;top:0;z-index:10;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-tabs-sticky .r-tab{padding:8px 14px}.r-subtabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:14px}.r-subtab{padding:6px 13px;font-size:var(--fs-xs);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-subtab:hover{color:var(--tx)}.r-subtab.active{color:var(--a2);border-bottom-color:var(--a2)}.r-sub-panel{display:none}.r-sub-panel.active{display:block}.r-subtabs-sticky{position:sticky;top:37px;z-index:9;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-subtabs-sticky .r-subtab{padding:6px 12px}.r-card{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:14px 18px;margin-bottom:10px}.r-card.l1{border-left:3px solid var(--a1)}.r-card.l2{border-left:3px solid var(--a2)}.r-card.l3{border-left:3px solid var(--a3)}.r-card.lw{border-left:3px solid var(--a4)}.r-card.lr{border-left:3px solid var(--a5)}.r-card h3{font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}.stats-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.stat{background:var(--s3);border:1px solid var(--bd);border-radius:5px;padding:10px 15px}.stat .sv{font-size:20px;font-weight:600;color:var(--a1)}.stat .sl{font-size:var(--fs-xs);color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.tw{overflow-x:auto;border-radius:5px;border:1px solid var(--bd);margin:8px 0}.rt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);background:var(--s2)}.rt thead th{background:var(--s3);color:var(--mu);padding:8px 11px;font-weight:600;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}.rt tbody td{padding:7px 11px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--tx)}.rt tbody tr:last-child td{border-bottom:none}.tk-c{font-family:var(--mono);font-size:var(--fs-xs);color:var(--a1);white-space:nowrap}.bluf-label{display:block;font-size:var(--fs-xs);font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.bluf-field{padding:4px 0;font-size:var(--fs-sm);line-height:1.6;color:var(--tx);min-height:20px}.bluf-field:empty::before{content:attr(data-placeholder);color:var(--di)}.conf-pre{background:#04060c;color:#9bbbd4;border:1px solid var(--bd);border-radius:5px;padding:12px 14px;font-family:var(--mono);font-size:var(--fs-xs);line-height:1.7;white-space:pre;overflow:auto;max-height:400px;margin-top:8px}.slide{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--a2);border-radius:8px;padding:16px 20px;margin-bottom:14px}.slide h2{font-size:var(--fs-base);font-weight:600;color:var(--a2);margin-bottom:10px}.slide h3{font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 5px}.agenda-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:3px}.agenda-list li{padding:6px 13px;border-left:2px solid var(--bd);font-size:var(--fs-sm);border-radius:0 5px 5px 0}.agenda-list li.has{border-left-color:var(--a3);color:var(--tx);background:var(--a3d)}.agenda-list li.nstr{border-left-color:var(--di);color:var(--mu);font-style:italic}.ptabs{margin-bottom:12px}.ptab{display:inline-block;padding:4px 12px;border-radius:var(--r2);font-size:var(--fs-sm);font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--s3);color:var(--mu);margin:0 4px 4px 0}.ptab.active{background:var(--a1d);color:var(--a1);border-color:var(--a1b)}.muted{color:var(--mu)}.mono{font-family:var(--mono)}";
   var inlineJS="function switchRtab(btn){\n  var rtabs=btn.parentElement;\n  var idx=Array.from(rtabs.children).indexOf(btn);\n  rtabs.querySelectorAll('.r-tab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=rtabs.parentElement;\n  cont.querySelectorAll(':scope > .r-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchRstab(btn){\n  var stabs=btn.parentElement;\n  var idx=Array.from(stabs.children).indexOf(btn);\n  stabs.querySelectorAll('.r-subtab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=stabs.parentElement;\n  cont.querySelectorAll(':scope > .r-sub-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchPtab(btn,proj){\n  var cont=btn.closest('.ptabs').parentElement;\n  cont.querySelectorAll('.ptab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  cont.querySelectorAll('[data-ptab-panel]').forEach(function(p){\n    p.style.display=p.dataset.ptabPanel===proj?'block':'none';\n  });\n}\nfunction filterDbg(inp,tableId){\n  var val=inp.value.toLowerCase().trim();\n  var tbody=document.querySelector('#'+tableId+' tbody');\n  if(!tbody) return;\n  tbody.querySelectorAll('tr').forEach(function(tr){\n    tr.style.display=(!val||tr.textContent.toLowerCase().includes(val))?'':'none';\n  });\n}\ndocument.addEventListener('click',function(e){\n  var a=e.target.closest('.agenda-list a');\n  if(a){e.preventDefault();var t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'});}\n});";
   return '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">\n'
-    + '<title>ReportSuite v10.2</title>\n'
+    + '<title>ReportSuite v10.3</title>\n'
     + '<style>'+css+'</style>\n'
     + '</head>\n<body style="margin:0;padding:0">\n'
     + bodyContent
@@ -9272,6 +9345,126 @@ function _pmrAddMsAiml508Slide(pres, ctx, sd) {
   card(M, topY, leftW, bodyH, 'MISSION SUPPORT', C.purple, sec.ms);
   card(rightX, topY, rightW, rightH, 'AI / ML', C.cyan, sec.aiml);
   card(rightX, topY + rightH + 0.15, rightW, rightH, '508 COMPLIANCE', C.green, sec.a508);
+}
+
+// Stacked Topic Cards — mirrors BAMBOOTIGER slide 6 (Strategic Surge):
+// each section in sd.sections becomes one full-width row, with a narrow
+// left tag block carrying the topic's short name in big letters and a
+// vertical accent strip, plus a wide narrative card on the right. Topic
+// accent colors cycle through a palette so each row reads distinctly.
+function _pmrAddStackedTopicCardsSlide(pres, ctx, sd) {
+  const { C, F, W, H, FOUO_H, BODY_Y, M, rect, text, addHeader } = ctx;
+  const s = pres.addSlide();
+  s.background = { color: C.void };
+  const accent = _pmrTierColor(_pmrSlideTier(sd));
+  addHeader(s, '(U) ' + sd.header, accent);
+  let topY = BODY_Y;
+  if (sd.topNarrative) {
+    rect(s, M, topY, W - M*2, 0.50, C.cardLt);
+    rect(s, M, topY, 0.04, 0.50, accent);
+    text(s, sd.topNarrative, { x:M+0.14, y:topY+0.05, w:W-M*2-0.22, h:0.40, fontSize:11, color:C.text, valign:'top', wrap:true });
+    topY += 0.60;
+  }
+  _pmrAddNearFuturePanel(pres, ctx, s, sd, topY);
+  const nfW = _tpl('near_future', 'panelW', 2.67);
+  const nfG = _tpl('near_future', 'panelGap', 0.27);
+  const contentW = W - M - nfW - nfG;
+  const tagW   = _tpl('stacked_topic_cards', 'tagW', 1.01);
+  const tagGap = _tpl('stacked_topic_cards', 'tagGap', 0.08);
+  const rowGap = _tpl('stacked_topic_cards', 'rowGap', 0.08);
+  const bdr    = _tpl('stacked_topic_cards', 'cardBorder', 0.75);
+  const narFs  = _tpl('stacked_topic_cards', 'narFontSize', 12);
+  const nameFs = _tpl('stacked_topic_cards', 'nameFontSize', 22);
+  // Topic accent palette — cycles per row so each topic reads distinctly.
+  const palette = [C.cyan, C.cyanDk, C.purple, C.green, C.gold, C.orange, C.magenta, C.blue2];
+  const sections = (sd.sections || []).filter(sec => sec.label || (sec.tickets && sec.tickets.length));
+  if (!sections.length) return;
+  const totalH = H - FOUO_H - topY - 0.10;
+  const rowH = (totalH - rowGap * (sections.length - 1)) / sections.length;
+  const narrX = M + tagW + tagGap;
+  const narrW = contentW - tagW - tagGap;
+  sections.forEach((sec, i) => {
+    const rowAccent = palette[i % palette.length];
+    const rY = topY + i * (rowH + rowGap);
+    // Tag block — white with vertical accent on the left, topic name centered
+    rect(s, M, rY, tagW, rowH, C.card);
+    rect(s, M, rY, 0.07, rowH, rowAccent);
+    const short = (sec.label || '').replace(/^(Tier\s*\d+\s*[:–-]\s*)?(Priority\s*\d+\s*[:–-]\s*)?/i,'').trim() || sec.label || 'TOPIC';
+    text(s, short.toUpperCase(), { x:M+0.05, y:rY, w:tagW-0.10, h:rowH, align:'center', valign:'middle', fontSize:nameFs, bold:true, color:rowAccent, fontFace:F.heading });
+    // Narrative card — top stripe + body
+    rect(s, narrX, rY, narrW, rowH, C.card);
+    s.addShape(pres.ShapeType.rect, { x:narrX, y:rY, w:narrW, h:rowH, fill:{type:'noFill'}, line:{color:C.border, width:bdr} });
+    rect(s, narrX, rY, narrW, 0.04, rowAccent);
+    const narr = sec.narrative ? sec.narrative : '(no narrative)';
+    text(s, narr, { x:narrX+0.18, y:rY+0.12, w:narrW-0.36, h:rowH-0.20, fontSize:narFs, color:C.text, valign:'top', wrap:true });
+  });
+}
+
+// Priority Timeline — mirrors BAMBOOTIGER slide 11 (per-topic month grid +
+// 3 phase rows + 2 narrative cards). The phase rows are placeholder
+// structure (no milestone data wired yet); the two narrative cards are
+// fed by sd.topNarrative ("DELIVERABLES THIS PERIOD") and sd.nearFuture
+// ("NEAR-FUTURE TASKS"). This slide doesn't use the side near-future
+// panel because the near-future content has its own bottom-right card.
+function _pmrAddPriorityTimelineSlide(pres, ctx, sd) {
+  const { C, F, W, H, FOUO_H, BODY_Y, M, rect, text, addHeader } = ctx;
+  const s = pres.addSlide();
+  s.background = { color: C.void };
+  const accent = _pmrTierColor(_pmrSlideTier(sd));
+  addHeader(s, '(U) ' + sd.header, accent);
+  const monthRowH = _tpl('priority_timeline', 'monthRowH', 0.32);
+  const phaseRowH = _tpl('priority_timeline', 'phaseRowH', 0.85);
+  const phaseCount = _tpl('priority_timeline', 'phaseCount', 3);
+  const cardH = _tpl('priority_timeline', 'cardH', 2.96);
+  const narFs = _tpl('priority_timeline', 'narFontSize', 12);
+  const lblFs = _tpl('priority_timeline', 'labelFontSize', 11);
+  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const nowMonth = new Date().getMonth(); // 0-indexed
+
+  // Month grid header — full content width, 12 even cells
+  let y = BODY_Y;
+  const gridX = M, gridW = W - M*2;
+  const cellW = gridW / 12;
+  rect(s, gridX, y, gridW, monthRowH, C.cardLt);
+  months.forEach((m, i) => {
+    const cx = gridX + i * cellW;
+    if (i > 0) rect(s, cx, y, 0.01, monthRowH, C.divider);
+    text(s, m, { x:cx, y:y, w:cellW, h:monthRowH, align:'center', valign:'middle', fontSize:11, bold:true, color:C.muted, fontFace:F.label, charSpacing:1 });
+    if (i === nowMonth) {
+      rect(s, cx, y, cellW, 0.03, accent);
+    }
+  });
+  // "▼ NOW" caption sitting just below the highlighted month cell
+  const nowX = gridX + nowMonth * cellW;
+  text(s, '▼ NOW', { x:nowX-0.20, y:y+monthRowH-0.02, w:cellW+0.40, h:0.18, align:'center', fontSize:9, bold:true, color:accent, fontFace:F.label, charSpacing:2 });
+
+  // Phase rows (placeholder structure — no milestone data wired)
+  const phaseColors = [C.green, C.cyan, C.gold, C.purple];
+  let py = y + monthRowH + 0.15;
+  const phaseTagW = 0.42;
+  for (let p = 0; p < phaseCount; p++) {
+    const pColor = phaseColors[p % phaseColors.length];
+    rect(s, gridX, py, phaseTagW, phaseRowH, C.card);
+    rect(s, gridX, py, 0.05, phaseRowH, pColor);
+    text(s, 'PH' + (p+1), { x:gridX, y:py, w:phaseTagW, h:phaseRowH, align:'center', valign:'middle', fontSize:14, bold:true, color:pColor, fontFace:F.label, charSpacing:1 });
+    // Hairline track running across the rest of the row
+    const trackX = gridX + phaseTagW + 0.06;
+    const trackW = W - M - trackX;
+    rect(s, trackX, py + phaseRowH*0.48, trackW, 0.02, C.divider);
+    py += phaseRowH + 0.04;
+  }
+
+  // Two narrative cards — DELIVERABLES THIS PERIOD (left) + NEAR-FUTURE TASKS (right)
+  const cy = py + 0.10;
+  const cardW = (gridW - 0.39) / 2;
+  function narrCard(cx, color, label, narr) {
+    rect(s, cx, cy, cardW, cardH, C.card);
+    rect(s, cx, cy, cardW, 0.05, color);
+    text(s, label, { x:cx+0.15, y:cy+0.05, w:cardW-0.30, h:0.24, fontSize:lblFs, bold:true, color:color, fontFace:F.label, charSpacing:1.5 });
+    text(s, narr || '(no narrative)', { x:cx+0.15, y:cy+0.34, w:cardW-0.30, h:cardH-0.44, fontSize:narFs, color:C.text, valign:'top', wrap:true });
+  }
+  narrCard(gridX, C.green, 'DELIVERABLES THIS PERIOD', sd.topNarrative);
+  narrCard(gridX + cardW + 0.39, C.gold, 'NEAR-FUTURE TASKS', sd.nearFuture);
 }
 
 // Project split — mirrors BAMBOOTIGER slide 10 (stacked product rows)
@@ -10039,6 +10232,8 @@ function _pmrAddContentSlide(pres, ctx, sd) {
     case 'project_split_2':          _pmrAddProjectSlide(pres, ctx, sd, ['DataXplorer','Rollercoaster']); break;
     case 'mission_support_other':    _pmrAddMissionSupportSlide(pres, ctx, sd); break;
     case 'mission_support_aiml_508': _pmrAddMsAiml508Slide(pres, ctx, sd); break;
+    case 'stacked_topic_cards':      _pmrAddStackedTopicCardsSlide(pres, ctx, sd); break;
+    case 'priority_timeline':        _pmrAddPriorityTimelineSlide(pres, ctx, sd); break;
     case 'integrated_roadmap':       _pmrAddIntegratedRoadmapSlide(pres, ctx, sd); break;
     default:                         _pmrAddSimpleListSlide(pres, ctx, sd);
   }
