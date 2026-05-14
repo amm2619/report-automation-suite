@@ -216,6 +216,27 @@ input[type=checkbox]{width:14px;height:14px;accent-color:var(--a1);cursor:pointe
 .eos-view-panel{display:none}
 .eos-view-panel.active{display:block}
 
+/* EOS demo/mission-first restructure */
+.eos-section-head{font-size:var(--fs-lg);font-weight:700;color:var(--tx);margin:18px 0 8px;display:flex;align-items:center;gap:7px}
+.eos-section-head .mi{font-size:18px}
+.eos-section-head.mission{color:var(--a3)}
+.eos-ops-divider{border:0;border-top:1px solid var(--bd);margin:22px 0 14px}
+.eos-ops-label{font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--di);margin-bottom:8px}
+.eos-ops{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--bd2);border-radius:8px;margin-bottom:10px;overflow:hidden}
+.eos-ops>summary{cursor:pointer;padding:10px 14px;font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);list-style:none;display:flex;align-items:center;gap:8px}
+.eos-ops>summary::-webkit-details-marker{display:none}
+.eos-ops>summary::before{content:'\25B8';font-size:11px;color:var(--mu);transition:transform .15s}
+.eos-ops[open]>summary::before{transform:rotate(90deg)}
+.eos-ops>summary:hover{color:var(--tx)}
+.eos-ops>summary .eos-ops-count{margin-left:auto;font-weight:600;color:var(--di);letter-spacing:0;text-transform:none}
+.eos-ops .eos-ops-body{padding:2px 14px 12px}
+.eos-tickets-demoted{opacity:.78;font-size:var(--fs-xs);margin-top:4px}
+.eos-tickets-demoted .eos-tickets-cap{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--di);margin:8px 0 2px}
+.eos-tickets-demoted .rt{font-size:var(--fs-xs)}
+.eos-statline{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r2);font-size:var(--fs-xs);color:var(--mu);margin-top:14px}
+.eos-statline .eos-statitem strong{color:var(--tx);font-weight:600}
+.eos-statline .eos-statsep{color:var(--di)}
+
 /* BLUF */
 
 
@@ -5186,18 +5207,34 @@ function runEOS(){
     const spfx={DX:'DX',LX:'LX',RCR:'RC',RC:'RC'}[proj]||proj;
     const isFirst=renderedCount===0;
 
-    // ── Report panel
+    // ── Report panel — mission/demo content leads, operational chrome
+    // (blocked work, prioritization, raw counts) is demoted below a divider.
+    // The `data-eos-addl` label values stay canonical so autosave/restore
+    // and the Confluence builder keep matching; only the visible heading
+    // text and on-screen ordering change.
     const eosBlufId=`bluf-eos-${proj.toLowerCase()}`;
+    // Renders one of the contenteditable "additional" sections. `label` is the
+    // canonical key (must not change); `displayTitle` is the audience-facing
+    // heading; `cls` picks the card accent.
+    const addlCard = (label, displayTitle, cls) => {
+      const slug = `eos-addl-${proj.toLowerCase()}-${label.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`;
+      return `<div class="r-card ${cls}">
+        <h3 style="text-transform:none;font-size:var(--fs-sm)">(U) ${esc(displayTitle)}</h3>
+        <div class="bluf-field" id="${slug}" contenteditable="true" data-placeholder="NSTR for this period." data-eos-addl="${esc(label)}" data-eos-proj="${esc(proj)}"></div>
+      </div>`;
+    };
+
     let rp=`<div style="font-size:var(--fs-lg);font-weight:600;color:var(--tx);margin-bottom:10px">${esc(meta.report_title)}</div>
-    <div style="margin-bottom:12px"><div class="bluf-label">BLUF</div><div class="bluf-field" id="${eosBlufId}" contenteditable="true" data-placeholder="Enter BLUF summary..."></div></div>
-    <div class="stats-row">
-      <div class="stat"><div class="sv">${countCur}</div><div class="sl">${spfx} ${cur}</div></div>
-      <div class="stat"><div class="sv">${countFut}</div><div class="sl">${spfx} ${fut}</div></div>
-      <div class="stat"><div class="sv">${blocked.length}</div><div class="sl">Blocked</div></div>
-      <div class="stat"><div class="sv">${unmatched.length}</div><div class="sl">Unmatched</div></div>
-    </div>`;
-    rp+=`<div class="r-card lw"><h3 style="color:var(--a4)">Blocked Work</h3>${ticketTable(blocked,base)}</div>`;
-    rp+=`<div class="muted" style="font-size:var(--fs-sm);margin-bottom:14px"><strong style="color:var(--tx)">MTL story points available:</strong> ${esc(meta.mtl_points)}</div>`;
+    <div style="margin-bottom:12px"><div class="bluf-label">BLUF</div><div class="bluf-field" id="${eosBlufId}" contenteditable="true" data-placeholder="Enter BLUF summary..."></div></div>`;
+
+    // ── Mission / demo sections lead
+    rp+=`<div class="eos-section-head mission"><span class="mi">slideshow</span>Demonstrations &amp; Outreach</div>`;
+    rp+=addlCard('Demonstrations', 'Demonstrations & Outreach', 'l3');
+    rp+=`<div class="eos-section-head mission"><span class="mi">group</span>What Users Are Asking For</div>`;
+    rp+=addlCard('User Engagement and New Requirements', 'What Users Are Asking For', 'l3');
+
+    // ── Sprint accomplishments — topic narratives lead, ticket tables demoted
+    rp+=`<div class="eos-section-head mission"><span class="mi">task_alt</span>Sprint Accomplishments</div>`;
     topics.forEach((topic,tidx)=>{
       const curr=results[topic.header].current;
       const futt=results[topic.header].future;
@@ -5209,27 +5246,33 @@ function runEOS(){
       if(!curr.length&&!futt.length){ rp+=`<div class="nstr">NSTR for this period.</div>`; }
       else {
         rp+=`<div style="margin-bottom:10px"><div class="bluf-label">Summary</div><div class="bluf-field" id="${topicSlug}" contenteditable="true" data-placeholder="Enter topic summary..."></div></div>`;
-        if(curr.length) rp+=`<h4 style="font-size:var(--fs-xs);color:var(--a1);margin:8px 0 4px">(U) Current Sprint</h4>${ticketTable(curr,base)}`;
-        if(futt.length) rp+=`<h4 style="font-size:var(--fs-xs);color:var(--a1);margin:8px 0 4px">(U) Future Sprint</h4>${ticketTable(futt,base)}`;
+        // Jira detail kept visible but demoted — smaller, muted, below the narrative.
+        rp+=`<div class="eos-tickets-demoted">`;
+        if(curr.length){ rp+=`<div class="eos-tickets-cap">Current Sprint — ${curr.length} ticket${curr.length!==1?'s':''}</div>${ticketTable(curr,base)}`; }
+        if(futt.length){ rp+=`<div class="eos-tickets-cap">Future Sprint — ${futt.length} ticket${futt.length!==1?'s':''}</div>${ticketTable(futt,base)}`; }
+        rp+=`</div>`;
       }
       rp+=`</div>`;
     });
 
-    // ── Prioritization / Upcoming (interactive section per project)
-    rp += buildEOSPrioritizationHtml(proj, cur, fut);
+    // ── Operational detail — demoted below a divider, collapsed by default
+    rp+=`<hr class="eos-ops-divider"><div class="eos-ops-label">Operational Detail</div>`;
+    rp+=`<details class="eos-ops"><summary>Blocked Work<span class="eos-ops-count">${blocked.length}</span></summary><div class="eos-ops-body">${ticketTable(blocked,base)}</div></details>`;
+    rp+=`<details class="eos-ops"><summary>Prioritization / Upcoming</summary><div class="eos-ops-body">${buildEOSPrioritizationHtml(proj, cur, fut)}</div></details>`;
+    rp+=addlCard('Deployments', 'Deployments', 'l1');
 
-    // ── Additional sections: Deployments, User Engagement, Demonstrations
-    // Each has a contenteditable text area. If empty, Confluence output
-    // shows italicized "NSTR for this period." Auto-saved via the EOS
-    // frame-level input listener (debounced).
-    const addlSections = ['Deployments', 'User Engagement and New Requirements', 'Demonstrations'];
-    addlSections.forEach(label => {
-      const slug = `eos-addl-${proj.toLowerCase()}-${label.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`;
-      rp += `<div class="r-card l2" style="margin-top:10px">
-        <h3 style="text-transform:none;font-size:var(--fs-sm);color:var(--a1)">(U) ${esc(label)}</h3>
-        <div class="bluf-field" id="${slug}" contenteditable="true" data-placeholder="NSTR for this period." data-eos-addl="${esc(label)}" data-eos-proj="${esc(proj)}"></div>
-      </div>`;
-    });
+    // Compact stat strip + MTL footnote — operational metrics, quiet styling.
+    rp+=`<div class="eos-statline">
+      <span class="eos-statitem"><strong>${countCur}</strong> in ${spfx} ${esc(cur)}</span>
+      <span class="eos-statsep">·</span>
+      <span class="eos-statitem"><strong>${countFut}</strong> in ${spfx} ${esc(fut)}</span>
+      <span class="eos-statsep">·</span>
+      <span class="eos-statitem"><strong>${blocked.length}</strong> blocked</span>
+      <span class="eos-statsep">·</span>
+      <span class="eos-statitem"><strong>${unmatched.length}</strong> unmatched</span>
+      <span class="eos-statsep">·</span>
+      <span class="eos-statitem">MTL story points available: <strong>${esc(meta.mtl_points)}</strong></span>
+    </div>`;
 
     // ── Confluence — build an initial snapshot; the text is regenerated live
     // from the DOM in openEOSConfluencePicker / refreshEOSConfluenceTab so
@@ -5356,93 +5399,102 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
     const jql = encodeURIComponent(`Sprint="${spfx} ${spn}"`);
     return jiraBase ? `[${count(spn)}|${jiraBase}/issues/?jql=${jql}]` : String(count(spn));
   };
+  // Emit one "additional" contenteditable section (Deployments / User
+  // Engagement / Demonstrations) as Confluence lines. Promoted to h2 since
+  // these are now top-level sections. Use childNodes.length to detect real
+  // content — innerText picks up the CSS ::before placeholder text on empty
+  // contenteditable divs, which would leak "NSTR" as if the user typed it.
+  const emitAddl = label => {
+    const slug = `eos-addl-${proj.toLowerCase()}-${label.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`;
+    const el = document.getElementById(slug);
+    const hasContent = el && el.childNodes.length > 0 && (el.textContent || '').trim().length > 0;
+    const out = [`h2. (U) ${label}`, ''];
+    if (hasContent) {
+      const items = (el.innerText || el.textContent || '').trim().split('\n').filter(Boolean);
+      items.forEach((line, i) => {
+        out.push(`* (U) ${line}`);
+        if (i < items.length - 1) out.push('');
+      });
+    } else {
+      out.push('* (U) _NSTR for this period._');
+    }
+    out.push('');
+    return out;
+  };
+
+  // Prioritization / Upcoming — returns [] when there's nothing to show.
+  const emitPrio = () => {
+    const pst = (S.cfg.eos_prioritization && S.cfg.eos_prioritization[proj]) || null;
+    if (!pst) return [];
+    const prioTickets = (pst.mode !== 'jql') ? _eosPrioFilterTickets(proj, cur, fut) : [];
+    const hasJql = pst.mode === 'jql' && pst.jql && pst.jql.trim();
+    const hasTickets = prioTickets.length > 0;
+    if (!hasJql && !hasTickets) return [];
+    const out = ['h2. (U) Prioritization / Upcoming'];
+    if (hasJql) {
+      out.push(`{jira:jqlQuery=${pst.jql.trim()}|columns=${COLS}|maximumIssues=20}`);
+    } else if (pst.mode === 'epic') {
+      // Live query by selected epics — new backlog tickets added to these
+      // epics will appear automatically. Exclude done and (unless opted in)
+      // the current/future sprint tickets, mirroring _eosPrioFilterTickets.
+      const epicKeys = (pst.epicKeys || []).filter(Boolean);
+      if (epicKeys.length) {
+        const sprintExcl = pst.includeInSprint
+          ? ''
+          : ` AND Sprint not in ("${spfx} ${cur}","${spfx} ${fut}")`;
+        const clause = `"Epic Link" in (${epicKeys.join(',')}) AND status not in (Done,Closed,Resolved)${sprintExcl}`;
+        out.push('_(Backlog tickets from selected epics)_','');
+        out.push(`{jira:jqlQuery=${clause} ${ORDER}|columns=${COLS}|maximumIssues=20}`);
+      } else {
+        out.push(tableFromKeys(prioTickets));
+      }
+    } else {
+      // 'created' mode — time-based snapshot, key-based.
+      out.push(`_(Tickets created in the last ${pst.days || 14} days)_`,'');
+      out.push(tableFromKeys(prioTickets));
+    }
+    out.push('');
+    return out;
+  };
+
   let lines=[`h1. ${meta.report_title}`,''];
   // Project-level BLUF (reads the current DOM so user-typed text is included)
   const blufId=`bluf-eos-${proj.toLowerCase()}`;
   const blufEl=document.getElementById(blufId);
   const blufTxt=(blufEl&&blufEl.innerText.trim())||'';
   if(blufTxt) lines.push(`(U) BLUF: ${blufTxt}`,'');
-  lines.push('h2. (U) Sprint Tickets',
-    `|${spfx} ${cur}| ${sprintJql(cur)}|`,`|${spfx} ${fut}| ${sprintJql(fut)}|`,'',
-    `h2. (U) Story Points Available for MTLs to add: ${meta.mtl_points}`,'',
-    'h2. (U) Blocked Work','', tableFromBlocked(),'');
+
+  // ── Mission / demo content leads ───────────────────────────────────────
+  lines.push(...emitAddl('Demonstrations'));
+  lines.push(...emitAddl('User Engagement and New Requirements'));
+
+  // ── Sprint accomplishments — topic narratives + ticket tables ──────────
+  lines.push('h2. (U) Sprint Accomplishments','');
   topics.forEach((topic,tidx)=>{
     const curr=results[topic.header].current;
     const futt=results[topic.header].future;
     const isEmpty = !curr.length && !futt.length;
     // Skip NSTR topics entirely when the user has toggled them off
     if (isEmpty && S.cfg.eos_hide_empty_topics) return;
-    lines.push(`h2. (U) ${topic.header}`);
+    lines.push(`h3. (U) ${topic.header}`);
     if (isEmpty) { lines.push('_NSTR for this period_',''); return; }
     const topicSlug=`bluf-eos-${proj.toLowerCase()}-${tidx}`;
     const summaryEl=document.getElementById(topicSlug);
     const summaryTxt=(summaryEl&&summaryEl.innerText.trim())||'';
     if (summaryTxt) lines.push(`(U) Summary: ${summaryTxt}`,'');
-    if(curr.length) lines.push('h3. (U) Current Sprint Tickets','', tableFromEpics(curr,cur),'');
-    if(futt.length) lines.push('h3. (U) Future Sprint Tickets','', tableFromEpics(futt,fut),'');
+    if(curr.length) lines.push('h4. (U) Current Sprint Tickets','', tableFromEpics(curr,cur),'');
+    if(futt.length) lines.push('h4. (U) Future Sprint Tickets','', tableFromEpics(futt,fut),'');
   });
 
-  // Prioritization / Upcoming section
-  const pst = (S.cfg.eos_prioritization && S.cfg.eos_prioritization[proj]) || null;
-  if (pst) {
-    // Only emit the section if there's actual content — skip entirely when
-    // the user hasn't selected epics, no tickets match, and no JQL is typed.
-    const prioTickets = (pst.mode !== 'jql') ? _eosPrioFilterTickets(proj, cur, fut) : [];
-    const hasJql = pst.mode === 'jql' && pst.jql && pst.jql.trim();
-    const hasTickets = prioTickets.length > 0;
+  // ── Operational detail — demoted below the mission content ─────────────
+  lines.push('h2. (U) Blocked Work','', tableFromBlocked(),'');
+  lines.push(...emitPrio());
+  lines.push(...emitAddl('Deployments'));
 
-    if (hasJql || hasTickets) {
-      lines.push('', 'h2. (U) Prioritization / Upcoming');
-      if (hasJql) {
-        // Emit a Jira Issues macro that Confluence will render as a live table
-        const jql = pst.jql.trim();
-        lines.push(`{jira:jqlQuery=${jql}|columns=${COLS}|maximumIssues=20}`);
-      } else if (pst.mode === 'epic') {
-        // Live query by selected epics — new backlog tickets added to these
-        // epics will appear automatically. Exclude done and (unless opted in)
-        // the current/future sprint tickets, mirroring _eosPrioFilterTickets.
-        const epicKeys = (pst.epicKeys || []).filter(Boolean);
-        if (epicKeys.length) {
-          const sprintExcl = pst.includeInSprint
-            ? ''
-            : ` AND Sprint not in ("${spfx} ${cur}","${spfx} ${fut}")`;
-          const clause = `"Epic Link" in (${epicKeys.join(',')}) AND status not in (Done,Closed,Resolved)${sprintExcl}`;
-          lines.push('_(Backlog tickets from selected epics)_','');
-          lines.push(`{jira:jqlQuery=${clause} ${ORDER}|columns=${COLS}|maximumIssues=20}`);
-        } else {
-          lines.push(tableFromKeys(prioTickets));
-        }
-      } else {
-        // 'created' mode — time-based snapshot, key-based.
-        lines.push(`_(Tickets created in the last ${pst.days || 14} days)_`,'');
-        lines.push(tableFromKeys(prioTickets));
-      }
-      lines.push('');
-    }
-  }
-
-  // Additional sections: Deployments, User Engagement, Demonstrations
-  // Use childNodes.length to detect real content — innerText picks up the
-  // CSS ::before placeholder text on empty contenteditable divs, which
-  // would leak "NSTR for this period." as if the user typed it.
-  const addlSections = ['Deployments', 'User Engagement and New Requirements', 'Demonstrations'];
-  addlSections.forEach(label => {
-    const slug = `eos-addl-${proj.toLowerCase()}-${label.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`;
-    const el = document.getElementById(slug);
-    const hasContent = el && el.childNodes.length > 0 && (el.textContent || '').trim().length > 0;
-    lines.push('', `h3. (U) ${label}`, '');
-    if (hasContent) {
-      const txt = (el.innerText || el.textContent || '').trim();
-      const items = txt.split('\n').filter(Boolean);
-      items.forEach((line, i) => {
-        lines.push(`* (U) ${line}`);
-        if (i < items.length - 1) lines.push('');
-      });
-    } else {
-      lines.push('* (U) _NSTR for this period._');
-    }
-  });
-  lines.push('');
+  // ── Operational metrics footer ─────────────────────────────────────────
+  lines.push('h2. (U) Sprint Tickets',
+    `|${spfx} ${cur}| ${sprintJql(cur)}|`,`|${spfx} ${fut}| ${sprintJql(fut)}|`,'',
+    `h2. (U) Story Points Available for MTLs to add: ${meta.mtl_points}`,'');
 
   return lines.join('\n').trim();
 }
