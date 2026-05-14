@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- Material Icons: self-hosted inline SVG sprite -->
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ReportSuite v10.4</title>
+<title>ReportSuite v10.5</title>
 <style>
 
 :root{
@@ -216,10 +216,48 @@ input[type=checkbox]{width:14px;height:14px;accent-color:var(--a1);cursor:pointe
 .eos-view-panel{display:none}
 .eos-view-panel.active{display:block}
 
-/* EOS demo/mission-first restructure */
+/* EOS mission-outcome layout */
 .eos-section-head{font-size:var(--fs-lg);font-weight:700;color:var(--tx);margin:18px 0 8px;display:flex;align-items:center;gap:7px}
 .eos-section-head .mi{font-size:18px}
 .eos-section-head.mission{color:var(--a3)}
+.eos-pulse{background:var(--s2);border:1px solid var(--bd);border-left:4px solid var(--a2);border-radius:8px;padding:14px 18px;margin-bottom:18px}
+.eos-pulse-title{font-size:var(--fs-lg);font-weight:700;color:var(--tx);margin-bottom:8px}
+.eos-pulse-bluf{margin-bottom:12px}
+.eos-pulse-metrics{display:flex;flex-wrap:wrap;gap:8px}
+.eos-pulse-metric{flex:1;min-width:120px;background:var(--s3);border:1px solid var(--bd);border-radius:var(--r2);padding:8px 12px}
+.eos-pulse-metric .v{display:block;font-size:22px;font-weight:700;line-height:1.1;color:var(--tx)}
+.eos-pulse-metric .l{display:block;font-size:var(--fs-xs);color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+.eos-pulse-metric[data-tone="a3"] .v{color:var(--a3)}
+.eos-pulse-metric[data-tone="a1"] .v{color:var(--a1)}
+.eos-pulse-metric[data-tone="a2"] .v{color:var(--a2)}
+.eos-pulse-metric[data-tone="a5"] .v{color:var(--a5)}
+.eos-cat{margin:18px 0}
+.eos-cat-head{display:flex;align-items:center;gap:8px;font-size:var(--fs-lg);font-weight:700;color:var(--tx);padding-bottom:6px;border-bottom:2px solid var(--bd);margin-bottom:10px}
+.eos-cat-head .mi{font-size:20px}
+.eos-cat-head .eos-cat-count{margin-left:auto;font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.5px}
+.eos-cat[data-cat="delivered"] .eos-cat-head{border-bottom-color:var(--a3b);color:var(--a3)}
+.eos-cat[data-cat="advanced"] .eos-cat-head{border-bottom-color:var(--a1b);color:var(--a1)}
+.eos-cat[data-cat="progress"] .eos-cat-head{border-bottom-color:var(--a2b);color:var(--a2)}
+.eos-cat[data-cat="risk"] .eos-cat-head{border-bottom-color:var(--a5b);color:var(--a5)}
+.eos-cat-empty{font-size:var(--fs-sm);color:var(--di);font-style:italic;padding:2px 0 8px}
+.eos-thread{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--bd2);border-radius:8px;padding:12px 16px;margin-bottom:8px}
+.eos-cat[data-cat="delivered"] .eos-thread{border-left-color:var(--a3)}
+.eos-cat[data-cat="advanced"] .eos-thread{border-left-color:var(--a1)}
+.eos-cat[data-cat="progress"] .eos-thread{border-left-color:var(--a2)}
+.eos-cat[data-cat="risk"] .eos-thread{border-left-color:var(--a5)}
+.eos-thread-head{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.eos-thread-head h4{font-size:var(--fs-base);font-weight:600;color:var(--tx);margin:0}
+.eos-thread-progress{font-size:var(--fs-xs);color:var(--mu);margin-top:8px;display:flex;flex-wrap:wrap;gap:12px}
+.eos-thread-progress strong{color:var(--tx);font-weight:700}
+.eos-thread-progress strong.risk{color:var(--a5)}
+.eos-evidence{margin-top:8px;border-top:1px dashed var(--bd);padding-top:6px}
+.eos-evidence>summary{cursor:pointer;font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;list-style:none;display:flex;align-items:center;gap:6px}
+.eos-evidence>summary::-webkit-details-marker{display:none}
+.eos-evidence>summary::before{content:'\25B8';font-size:10px;transition:transform .15s}
+.eos-evidence[open]>summary::before{transform:rotate(90deg)}
+.eos-evidence>summary:hover{color:var(--tx)}
+.eos-ev-cap{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--di);margin:8px 0 2px}
+.eos-evidence .rt{font-size:var(--fs-xs)}
 .eos-ops-divider{border:0;border-top:1px solid var(--bd);margin:22px 0 14px}
 .eos-ops-label{font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--di);margin-bottom:8px}
 .eos-ops{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--bd2);border-radius:8px;margin-bottom:10px;overflow:hidden}
@@ -230,9 +268,6 @@ input[type=checkbox]{width:14px;height:14px;accent-color:var(--a1);cursor:pointe
 .eos-ops>summary:hover{color:var(--tx)}
 .eos-ops>summary .eos-ops-count{margin-left:auto;font-weight:600;color:var(--di);letter-spacing:0;text-transform:none}
 .eos-ops .eos-ops-body{padding:2px 14px 12px}
-.eos-tickets-demoted{opacity:.78;font-size:var(--fs-xs);margin-top:4px}
-.eos-tickets-demoted .eos-tickets-cap{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--di);margin:8px 0 2px}
-.eos-tickets-demoted .rt{font-size:var(--fs-xs)}
 .eos-statline{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:8px 12px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r2);font-size:var(--fs-xs);color:var(--mu);margin-top:14px}
 .eos-statline .eos-statitem strong{color:var(--tx);font-weight:600}
 .eos-statline .eos-statsep{color:var(--di)}
@@ -1964,7 +1999,7 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
 //
 // ==========================================================
 
-const APP_VERSION='v10.4';
+const APP_VERSION='v10.5';
 
 // ============================================================
 // STATE
@@ -5151,6 +5186,73 @@ function runWeekly(){
 // ============================================================
 // EOS REPORT
 // ============================================================
+// Strip the redundant "Tier N: Priority N:" prefix from a topic header — the
+// outcome category already conveys standing, so the thread name stays short.
+function eosCleanThreadName(header){
+  return String(header||'')
+    .replace(/^\s*Tier\s*\d+\s*:\s*/i,'')
+    .replace(/^\s*Priority\s*\d+\s*:\s*/i,'')
+    .trim() || String(header||'');
+}
+
+// Sort a project's topics into mission-outcome categories. Each topic becomes
+// one "thread" placed in exactly one bucket based on its ticket mix:
+//   risk      — has blocked tickets
+//   delivered — has Done/Closed/Resolved tickets in the current sprint
+//   advanced  — has current-sprint tickets, none done yet
+//   progress  — only future-sprint tickets queued
+// Blocked tickets that match no topic collect into a synthetic risk thread.
+// Returns { order: [category,...], pulse: {delivered,advancing,upcoming,impediments} }.
+// Pure + deterministic so runEOS and buildEOSConfluence can both call it.
+function eosCategorizeThreads(topics, results, blocked){
+  const DONE = new Set(['done','closed','resolved']);
+  const blkByHeader = {}, blkUnattributed = [];
+  (blocked||[]).forEach(t=>{
+    const {best} = findBestMatch(t, topics);
+    if(best){ (blkByHeader[best.header] = blkByHeader[best.header]||[]).push(t); }
+    else blkUnattributed.push(t);
+  });
+  const cats = {
+    delivered:{key:'delivered', label:'Delivered to Users',    icon:'check_circle', threads:[]},
+    advanced: {key:'advanced',  label:'Capabilities Advanced', icon:'arrow_upward', threads:[]},
+    progress: {key:'progress',  label:'In Progress',           icon:'play_arrow',   threads:[]},
+    risk:     {key:'risk',      label:'At Risk',               icon:'warning',      threads:[]},
+  };
+  let delivered=0, advancing=0, upcoming=0;
+  topics.forEach((topic,tidx)=>{
+    const curr = results[topic.header].current;
+    const futt = results[topic.header].future;
+    const blk  = blkByHeader[topic.header] || [];
+    const done   = curr.filter(t=>DONE.has((t.status||'').toLowerCase()));
+    const active = curr.filter(t=>!DONE.has((t.status||'').toLowerCase()));
+    delivered += done.length; advancing += active.length; upcoming += futt.length;
+    if(!curr.length && !futt.length && !blk.length) return; // no activity — drop
+    const thread = {topic, tidx, done, active, future:futt, blk, synthetic:null};
+    const catKey = blk.length ? 'risk'
+                 : done.length ? 'delivered'
+                 : active.length ? 'advanced'
+                 : 'progress';
+    cats[catKey].threads.push(thread);
+  });
+  if(blkUnattributed.length){
+    cats.risk.threads.push({topic:null, tidx:-1, done:[], active:[], future:[], blk:blkUnattributed, synthetic:'Unattributed impediments'});
+  }
+  return {
+    order: [cats.delivered, cats.advanced, cats.progress, cats.risk],
+    pulse: {delivered, advancing, upcoming, impediments:(blocked||[]).length},
+  };
+}
+
+// Render the collapsed "evidence" ticket tables for one thread, status-grouped.
+function eosThreadEvidence(thread, base){
+  let h='';
+  if(thread.done.length)   h+=`<div class="eos-ev-cap">Delivered — ${thread.done.length}</div>${ticketTable(thread.done,base)}`;
+  if(thread.active.length) h+=`<div class="eos-ev-cap">In motion — ${thread.active.length}</div>${ticketTable(thread.active,base)}`;
+  if(thread.future.length) h+=`<div class="eos-ev-cap">Queued — ${thread.future.length}</div>${ticketTable(thread.future,base)}`;
+  if(thread.blk.length)    h+=`<div class="eos-ev-cap">Blocked — ${thread.blk.length}</div>${ticketTable(thread.blk,base)}`;
+  return h;
+}
+
 function runEOS(){
   if(!S.allTickets.length){
     const _eo=document.getElementById('eos-output');
@@ -5224,41 +5326,63 @@ function runEOS(){
       </div>`;
     };
 
-    let rp=`<div style="font-size:var(--fs-lg);font-weight:600;color:var(--tx);margin-bottom:10px">${esc(meta.report_title)}</div>
-    <div style="margin-bottom:12px"><div class="bluf-label">BLUF</div><div class="bluf-field" id="${eosBlufId}" contenteditable="true" data-placeholder="Enter BLUF summary..."></div></div>`;
+    // Sort topics into mission-outcome categories and compute pulse metrics.
+    const cat = eosCategorizeThreads(topics, results, blocked);
 
-    // ── Mission / demo sections lead
+    // ── Sprint Pulse band — project + BLUF + outcome-framed vital signs
+    let rp=`<div class="eos-pulse">
+      <div class="eos-pulse-title">${esc(meta.report_title)}</div>
+      <div class="eos-pulse-bluf"><div class="bluf-label">BLUF — Mission Pulse</div><div class="bluf-field" id="${eosBlufId}" contenteditable="true" data-placeholder="Bottom line: what did this sprint deliver for the mission?"></div></div>
+      <div class="eos-pulse-metrics">
+        <div class="eos-pulse-metric" data-tone="a3"><span class="v">${cat.pulse.delivered}</span><span class="l">Delivered to users</span></div>
+        <div class="eos-pulse-metric" data-tone="a1"><span class="v">${cat.pulse.advancing}</span><span class="l">Capabilities advancing</span></div>
+        <div class="eos-pulse-metric" data-tone="a2"><span class="v">${cat.pulse.upcoming}</span><span class="l">Queued for next</span></div>
+        <div class="eos-pulse-metric" data-tone="a5"><span class="v">${cat.pulse.impediments}</span><span class="l">Impediments</span></div>
+      </div>
+    </div>`;
+
+    // ── Mission engagement — outward-facing narrative sections
     rp+=`<div class="eos-section-head mission"><span class="mi">slideshow</span>Demonstrations &amp; Outreach</div>`;
     rp+=addlCard('Demonstrations', 'Demonstrations & Outreach', 'l3');
     rp+=`<div class="eos-section-head mission"><span class="mi">group</span>What Users Are Asking For</div>`;
     rp+=addlCard('User Engagement and New Requirements', 'What Users Are Asking For', 'l3');
 
-    // ── Sprint accomplishments — topic narratives lead, ticket tables demoted
-    rp+=`<div class="eos-section-head mission"><span class="mi">task_alt</span>Sprint Accomplishments</div>`;
-    topics.forEach((topic,tidx)=>{
-      const curr=results[topic.header].current;
-      const futt=results[topic.header].future;
-      const topicSlug=`bluf-eos-${proj.toLowerCase()}-${tidx}`;
-      const aiBtn = (S.cfg.eos_ai_prompt_enabled !== false && (curr.length || futt.length))
-        ? `<button class="btn btn-ghost btn-xs" style="margin-left:auto;flex-shrink:0" onclick="copyEosAiPrompt('${esc(proj)}',${tidx})" title="Copy AI prompt + tickets to clipboard"><span class="mi" style="font-size:13px;margin-right:2px">auto_awesome</span>AI</button>`
-        : '';
-      rp+=`<div class="r-card l2"><div style="display:flex;align-items:center;gap:6px"><h3 style="text-transform:none;font-size:var(--fs-sm);color:var(--a2);margin:0">(U) ${esc(topic.header)}</h3>${aiBtn}</div>`;
-      if(!curr.length&&!futt.length){ rp+=`<div class="nstr">NSTR for this period.</div>`; }
-      else {
-        rp+=`<div style="margin-bottom:10px"><div class="bluf-label">Summary</div><div class="bluf-field" id="${topicSlug}" contenteditable="true" data-placeholder="Enter topic summary..."></div></div>`;
-        // Jira detail kept visible but demoted — smaller, muted, below the narrative.
-        rp+=`<div class="eos-tickets-demoted">`;
-        if(curr.length){ rp+=`<div class="eos-tickets-cap">Current Sprint — ${curr.length} ticket${curr.length!==1?'s':''}</div>${ticketTable(curr,base)}`; }
-        if(futt.length){ rp+=`<div class="eos-tickets-cap">Future Sprint — ${futt.length} ticket${futt.length!==1?'s':''}</div>${ticketTable(futt,base)}`; }
-        rp+=`</div>`;
+    // ── Mission outcomes — every thread sorted by what happened this sprint.
+    // Each thread keeps its original topic index (tidx) so the narrative
+    // contenteditable id stays stable for draft autosave/restore.
+    cat.order.forEach(c=>{
+      rp+=`<div class="eos-cat" data-cat="${c.key}"><div class="eos-cat-head"><span class="mi">${c.icon}</span>${esc(c.label)}<span class="eos-cat-count">${c.threads.length} thread${c.threads.length!==1?'s':''}</span></div>`;
+      if(!c.threads.length){
+        rp+=`<div class="eos-cat-empty">Nothing in this category this sprint.</div>`;
+      } else {
+        c.threads.forEach(th=>{
+          const name = th.synthetic || eosCleanThreadName(th.topic.header);
+          const hasNarr = th.tidx >= 0;
+          const topicSlug = hasNarr ? `bluf-eos-${proj.toLowerCase()}-${th.tidx}` : '';
+          const aiBtn = (hasNarr && S.cfg.eos_ai_prompt_enabled !== false && (th.done.length || th.active.length || th.future.length))
+            ? `<button class="btn btn-ghost btn-xs" style="margin-left:auto;flex-shrink:0" onclick="copyEosAiPrompt('${esc(proj)}',${th.tidx})" title="Copy AI prompt + tickets to clipboard"><span class="mi" style="font-size:13px;margin-right:2px">auto_awesome</span>AI</button>`
+            : '';
+          rp+=`<div class="eos-thread"><div class="eos-thread-head"><h4>(U) ${esc(name)}</h4>${aiBtn}</div>`;
+          if(hasNarr){
+            rp+=`<div class="bluf-field" id="${topicSlug}" contenteditable="true" data-placeholder="Mission impact — what did this thread accomplish or change?"></div>`;
+          }
+          const bits=[];
+          if(th.done.length)   bits.push(`<span><strong>${th.done.length}</strong> delivered</span>`);
+          if(th.active.length) bits.push(`<span><strong>${th.active.length}</strong> in motion</span>`);
+          if(th.future.length) bits.push(`<span><strong>${th.future.length}</strong> queued</span>`);
+          if(th.blk.length)    bits.push(`<span><strong class="risk">${th.blk.length}</strong> blocked</span>`);
+          if(bits.length) rp+=`<div class="eos-thread-progress">${bits.join('')}</div>`;
+          const total = th.done.length+th.active.length+th.future.length+th.blk.length;
+          rp+=`<details class="eos-evidence"><summary>Evidence — ${total} ticket${total!==1?'s':''}</summary><div>${eosThreadEvidence(th,base)}</div></details>`;
+          rp+=`</div>`;
+        });
       }
       rp+=`</div>`;
     });
 
     // ── Operational detail — demoted below a divider, collapsed by default
     rp+=`<hr class="eos-ops-divider"><div class="eos-ops-label">Operational Detail</div>`;
-    rp+=`<details class="eos-ops"><summary>Blocked Work<span class="eos-ops-count">${blocked.length}</span></summary><div class="eos-ops-body">${ticketTable(blocked,base)}</div></details>`;
-    rp+=`<details class="eos-ops"><summary>Prioritization / Upcoming</summary><div class="eos-ops-body">${buildEOSPrioritizationHtml(proj, cur, fut)}</div></details>`;
+    rp+=`<details class="eos-ops"><summary>Next Sprint Focus</summary><div class="eos-ops-body">${buildEOSPrioritizationHtml(proj, cur, fut)}</div></details>`;
     rp+=addlCard('Deployments', 'Deployments', 'l1');
 
     // Compact stat strip + MTL footnote — operational metrics, quiet styling.
@@ -5361,37 +5485,15 @@ function runEOS(){
 
 function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut,spfx){
   const count=spn=>projTickets.filter(t=>sprintMatches(t,spn)).length;
-  // Emit live Jira Issues macros (rendered as tables in Confluence) so the
-  // page stays up to date as new tickets land. Three forms:
-  //   tableFromEpics — topic sections: filter by "Epic Link" + sprint so new
-  //     tickets added to those epics in that sprint appear automatically.
-  //   tableFromBlocked — status=Blocked in either sprint.
-  //   tableFromKeys — key-only fallback for time-based sections (Prio 'created').
+  // Emit a live Jira Issues macro (rendered as a table in Confluence) from a
+  // fixed list of ticket keys. Threads are status-grouped snapshots, so a
+  // key-based macro is the accurate form here.
   const COLS = 'key,summary,type,status,priority';
   const ORDER = 'ORDER BY "Epic Link" ASC, Rank DESC';
   const tableFromKeys = tickets => {
     if (!tickets.length) return '_NSTR for this period_';
     const keys = [...tickets].map(t=>t.issue_key).sort().join(',');
     return `{jira:jqlQuery=key in (${keys}) ${ORDER}|columns=${COLS}|maximumIssues=${tickets.length}}`;
-  };
-  const tableFromEpics = (tickets, sprintName) => {
-    if (!tickets.length) return '_NSTR for this period_';
-    const epics = [...new Set(tickets.map(t => t.epic_link).filter(Boolean))];
-    const orphans = tickets.filter(t => !t.epic_link).map(t => t.issue_key);
-    const sprint = `"${spfx} ${sprintName}"`;
-    let clause;
-    if (epics.length && orphans.length) {
-      clause = `("Epic Link" in (${epics.join(',')}) OR key in (${orphans.join(',')})) AND Sprint=${sprint}`;
-    } else if (epics.length) {
-      clause = `"Epic Link" in (${epics.join(',')}) AND Sprint=${sprint}`;
-    } else {
-      clause = `key in (${orphans.join(',')})`;
-    }
-    return `{jira:jqlQuery=${clause} ${ORDER}|columns=${COLS}|maximumIssues=50}`;
-  };
-  const tableFromBlocked = () => {
-    if (!blocked.length) return '_NSTR for this period_';
-    return `{jira:jqlQuery=status=Blocked AND Sprint in ("${spfx} ${cur}","${spfx} ${fut}") ${ORDER}|columns=${COLS}|maximumIssues=50}`;
   };
   // Build JQL links for the sprint ticket counts
   const jiraBase = (S.cfg.jira_url || '').replace(/\/+$/, '');
@@ -5430,7 +5532,7 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
     const hasJql = pst.mode === 'jql' && pst.jql && pst.jql.trim();
     const hasTickets = prioTickets.length > 0;
     if (!hasJql && !hasTickets) return [];
-    const out = ['h2. (U) Prioritization / Upcoming'];
+    const out = ['h2. (U) Next Sprint Focus'];
     if (hasJql) {
       out.push(`{jira:jqlQuery=${pst.jql.trim()}|columns=${COLS}|maximumIssues=20}`);
     } else if (pst.mode === 'epic') {
@@ -5457,6 +5559,10 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
     return out;
   };
 
+  // Sort topics into the same mission-outcome categories as the on-screen
+  // report so the exported page reads as the identical mission brief.
+  const cat = eosCategorizeThreads(topics, results, blocked);
+
   let lines=[`h1. ${meta.report_title}`,''];
   // Project-level BLUF (reads the current DOM so user-typed text is included)
   const blufId=`bluf-eos-${proj.toLowerCase()}`;
@@ -5464,30 +5570,39 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
   const blufTxt=(blufEl&&blufEl.innerText.trim())||'';
   if(blufTxt) lines.push(`(U) BLUF: ${blufTxt}`,'');
 
-  // ── Mission / demo content leads ───────────────────────────────────────
+  // ── Sprint pulse — outcome-framed vital signs ──────────────────────────
+  lines.push(`(U) Sprint Pulse: ${cat.pulse.delivered} delivered to users · ${cat.pulse.advancing} capabilities advancing · ${cat.pulse.upcoming} queued for next sprint · ${cat.pulse.impediments} impediments`,'');
+
+  // ── Mission engagement — outward-facing narrative leads ────────────────
   lines.push(...emitAddl('Demonstrations'));
   lines.push(...emitAddl('User Engagement and New Requirements'));
 
-  // ── Sprint accomplishments — topic narratives + ticket tables ──────────
-  lines.push('h2. (U) Sprint Accomplishments','');
-  topics.forEach((topic,tidx)=>{
-    const curr=results[topic.header].current;
-    const futt=results[topic.header].future;
-    const isEmpty = !curr.length && !futt.length;
-    // Skip NSTR topics entirely when the user has toggled them off
-    if (isEmpty && S.cfg.eos_hide_empty_topics) return;
-    lines.push(`h3. (U) ${topic.header}`);
-    if (isEmpty) { lines.push('_NSTR for this period_',''); return; }
-    const topicSlug=`bluf-eos-${proj.toLowerCase()}-${tidx}`;
-    const summaryEl=document.getElementById(topicSlug);
-    const summaryTxt=(summaryEl&&summaryEl.innerText.trim())||'';
-    if (summaryTxt) lines.push(`(U) Summary: ${summaryTxt}`,'');
-    if(curr.length) lines.push('h4. (U) Current Sprint Tickets','', tableFromEpics(curr,cur),'');
-    if(futt.length) lines.push('h4. (U) Future Sprint Tickets','', tableFromEpics(futt,fut),'');
+  // ── Mission outcomes — threads grouped by what happened this sprint ────
+  cat.order.forEach(c=>{
+    lines.push(`h2. (U) ${c.label}`,'');
+    if(!c.threads.length){ lines.push('_NSTR for this period_',''); return; }
+    c.threads.forEach(th=>{
+      const name = th.synthetic || eosCleanThreadName(th.topic.header);
+      lines.push(`h3. (U) ${name}`);
+      if(th.tidx >= 0){
+        const sEl=document.getElementById(`bluf-eos-${proj.toLowerCase()}-${th.tidx}`);
+        const sTxt=(sEl&&sEl.innerText.trim())||'';
+        if(sTxt) lines.push(`(U) Mission impact: ${sTxt}`,'');
+      }
+      const prog=[];
+      if(th.done.length)   prog.push(`${th.done.length} delivered`);
+      if(th.active.length) prog.push(`${th.active.length} in motion`);
+      if(th.future.length) prog.push(`${th.future.length} queued`);
+      if(th.blk.length)    prog.push(`${th.blk.length} blocked`);
+      if(prog.length) lines.push(`_(${prog.join(' · ')})_`,'');
+      if(th.done.length)   lines.push('h4. (U) Delivered','', tableFromKeys(th.done),'');
+      if(th.active.length) lines.push('h4. (U) In Motion','', tableFromKeys(th.active),'');
+      if(th.future.length) lines.push('h4. (U) Queued','', tableFromKeys(th.future),'');
+      if(th.blk.length)    lines.push('h4. (U) Blocked','', tableFromKeys(th.blk),'');
+    });
   });
 
   // ── Operational detail — demoted below the mission content ─────────────
-  lines.push('h2. (U) Blocked Work','', tableFromBlocked(),'');
   lines.push(...emitPrio());
   lines.push(...emitAddl('Deployments'));
 
@@ -9129,7 +9244,7 @@ function buildStandaloneHtml(title, bodyContent){
   var css=":root{--bg:#070910;--s1:#0c0f18;--s2:#111520;--s3:#171c2a;--s4:#1d2336;--bd:#1f2840;--bd2:#2b3652;--a1:#5b9cf6;--a1d:rgba(91,156,246,.09);--a1b:rgba(91,156,246,.2);--a2:#a07cf5;--a2d:rgba(160,124,245,.09);--a2b:rgba(160,124,245,.2);--a3:#3ecf8e;--a3d:rgba(62,207,142,.08);--a3b:rgba(62,207,142,.2);--a4:#f5a741;--a4d:rgba(245,167,65,.08);--a4b:rgba(245,167,65,.2);--a5:#f56b6b;--a5d:rgba(245,107,107,.08);--a5b:rgba(245,107,107,.2);--tx:#dde4f5;--mu:#6b7a9c;--di:#384060;--mono:'Consolas','Cascadia Code','Menlo',monospace;--sans:'Segoe UI','Inter','Arial',sans-serif;--r:8px;--r2:5px;--fs-base:13px;--fs-sm:12px;--fs-xs:11px;--fs-lg:14px;--fs-xl:16px}*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(--fs-base);line-height:1.55;padding:28px 32px 80px;min-height:100vh}a{color:var(--a1);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap}.bd-done{background:var(--a3d);color:var(--a3)}.bd-blk{background:var(--a5d);color:var(--a5)}.bd-prog{background:var(--a1d);color:var(--a1)}.bd-rev{background:var(--a4d);color:var(--a4)}.bd-open{background:var(--s4);color:var(--mu)}.nstr{color:var(--di);font-style:italic;font-size:var(--fs-sm);padding:3px 0}.rpt-frame{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:18px;max-width:1200px;margin-left:auto;margin-right:auto}.rpt-bar{background:var(--s2);border-bottom:1px solid var(--bd);padding:9px 14px;display:flex;align-items:center;justify-content:space-between}.rbd-row{display:flex;gap:5px}.rbd{width:8px;height:8px;border-radius:50%}.rbd-r{background:#ff7b7b}.rbd-y{background:#ffb347}.rbd-g{background:#4dd89a}.rpt-bar-fn{font-family:var(--mono);font-size:var(--fs-xs);color:var(--mu)}.rpt-body{padding:22px 26px}.rpt-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px;margin-bottom:20px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;border-left:4px solid var(--a1)}.rpt-hdr h1{font-size:17px;font-weight:600;color:var(--tx)}.rpt-hdr .rsub{font-size:var(--fs-xs);color:var(--mu);margin-top:3px}.r-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:18px}.r-tab{padding:8px 15px;font-size:var(--fs-sm);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-tab:hover{color:var(--tx)}.r-tab.active{color:var(--a1);border-bottom-color:var(--a1)}.r-panel{display:none}.r-panel.active{display:block}.r-tabs-sticky{position:sticky;top:0;z-index:10;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-tabs-sticky .r-tab{padding:8px 14px}.r-subtabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:14px}.r-subtab{padding:6px 13px;font-size:var(--fs-xs);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-subtab:hover{color:var(--tx)}.r-subtab.active{color:var(--a2);border-bottom-color:var(--a2)}.r-sub-panel{display:none}.r-sub-panel.active{display:block}.r-subtabs-sticky{position:sticky;top:37px;z-index:9;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-subtabs-sticky .r-subtab{padding:6px 12px}.r-card{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:14px 18px;margin-bottom:10px}.r-card.l1{border-left:3px solid var(--a1)}.r-card.l2{border-left:3px solid var(--a2)}.r-card.l3{border-left:3px solid var(--a3)}.r-card.lw{border-left:3px solid var(--a4)}.r-card.lr{border-left:3px solid var(--a5)}.r-card h3{font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}.stats-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.stat{background:var(--s3);border:1px solid var(--bd);border-radius:5px;padding:10px 15px}.stat .sv{font-size:20px;font-weight:600;color:var(--a1)}.stat .sl{font-size:var(--fs-xs);color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.tw{overflow-x:auto;border-radius:5px;border:1px solid var(--bd);margin:8px 0}.rt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);background:var(--s2)}.rt thead th{background:var(--s3);color:var(--mu);padding:8px 11px;font-weight:600;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}.rt tbody td{padding:7px 11px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--tx)}.rt tbody tr:last-child td{border-bottom:none}.tk-c{font-family:var(--mono);font-size:var(--fs-xs);color:var(--a1);white-space:nowrap}.bluf-label{display:block;font-size:var(--fs-xs);font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.bluf-field{padding:4px 0;font-size:var(--fs-sm);line-height:1.6;color:var(--tx);min-height:20px}.bluf-field:empty::before{content:attr(data-placeholder);color:var(--di)}.conf-pre{background:#04060c;color:#9bbbd4;border:1px solid var(--bd);border-radius:5px;padding:12px 14px;font-family:var(--mono);font-size:var(--fs-xs);line-height:1.7;white-space:pre;overflow:auto;max-height:400px;margin-top:8px}.slide{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--a2);border-radius:8px;padding:16px 20px;margin-bottom:14px}.slide h2{font-size:var(--fs-base);font-weight:600;color:var(--a2);margin-bottom:10px}.slide h3{font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 5px}.agenda-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:3px}.agenda-list li{padding:6px 13px;border-left:2px solid var(--bd);font-size:var(--fs-sm);border-radius:0 5px 5px 0}.agenda-list li.has{border-left-color:var(--a3);color:var(--tx);background:var(--a3d)}.agenda-list li.nstr{border-left-color:var(--di);color:var(--mu);font-style:italic}.ptabs{margin-bottom:12px}.ptab{display:inline-block;padding:4px 12px;border-radius:var(--r2);font-size:var(--fs-sm);font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--s3);color:var(--mu);margin:0 4px 4px 0}.ptab.active{background:var(--a1d);color:var(--a1);border-color:var(--a1b)}.muted{color:var(--mu)}.mono{font-family:var(--mono)}";
   var inlineJS="function switchRtab(btn){\n  var rtabs=btn.parentElement;\n  var idx=Array.from(rtabs.children).indexOf(btn);\n  rtabs.querySelectorAll('.r-tab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=rtabs.parentElement;\n  cont.querySelectorAll(':scope > .r-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchRstab(btn){\n  var stabs=btn.parentElement;\n  var idx=Array.from(stabs.children).indexOf(btn);\n  stabs.querySelectorAll('.r-subtab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=stabs.parentElement;\n  cont.querySelectorAll(':scope > .r-sub-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchPtab(btn,proj){\n  var cont=btn.closest('.ptabs').parentElement;\n  cont.querySelectorAll('.ptab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  cont.querySelectorAll('[data-ptab-panel]').forEach(function(p){\n    p.style.display=p.dataset.ptabPanel===proj?'block':'none';\n  });\n}\nfunction filterDbg(inp,tableId){\n  var val=inp.value.toLowerCase().trim();\n  var tbody=document.querySelector('#'+tableId+' tbody');\n  if(!tbody) return;\n  tbody.querySelectorAll('tr').forEach(function(tr){\n    tr.style.display=(!val||tr.textContent.toLowerCase().includes(val))?'':'none';\n  });\n}\ndocument.addEventListener('click',function(e){\n  var a=e.target.closest('.agenda-list a');\n  if(a){e.preventDefault();var t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'});}\n});";
   return '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">\n'
-    + '<title>ReportSuite v10.4</title>\n'
+    + '<title>ReportSuite v10.5</title>\n'
     + '<style>'+css+'</style>\n'
     + '</head>\n<body style="margin:0;padding:0">\n'
     + bodyContent
