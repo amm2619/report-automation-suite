@@ -273,7 +273,7 @@ input[type=checkbox]{width:14px;height:14px;accent-color:var(--a1);cursor:pointe
 .eos-statline .eos-statsep{color:var(--di)}
 
 /* Sprint Recap — full-screen overlay (chrome is app-dark; recap body scoped under .sr-recap-root) */
-.sr-proto-overlay{position:fixed;inset:0;background:rgba(7,9,16,.92);z-index:10000;display:flex;flex-direction:column}
+.sr-proto-overlay{position:fixed;left:0;right:0;top:48px;bottom:0;background:rgba(7,9,16,.92);z-index:150;display:flex;flex-direction:column}
 .sr-proto-bar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--bd);color:var(--mu);font-size:var(--fs-sm);flex-wrap:wrap}
 .sr-proto-bar .sr-proto-title{font-weight:600;color:var(--tx)}
 .sr-proto-bar .sr-proto-spacer{flex:1}
@@ -282,6 +282,7 @@ input[type=checkbox]{width:14px;height:14px;accent-color:var(--a1);cursor:pointe
 .sr-proto-bar .sr-cur-in,.sr-proto-bar .sr-fut-in{width:90px}
 .sr-proto-bar input.sr-cur-in,.sr-proto-bar input.sr-fut-in{width:90px}
 .sr-proto-bar select.sr-cur-in,.sr-proto-bar select.sr-fut-in{width:auto;max-width:230px}
+.sr-proto-bar .sr-hist-in{max-width:230px}
 .sr-proto-bar .sr-done-in{width:200px}
 .sr-proto-bar select{background:var(--s3);border:1px solid var(--bd);color:var(--tx);padding:4px 8px;border-radius:var(--r2);font-size:var(--fs-sm);font-family:var(--mono)}
 .sr-proto-bar select:focus{outline:0;border-color:var(--a1)}
@@ -6445,6 +6446,10 @@ const SR_CSS = `.sr-recap-root{--bg:#fafaf8;--surface:#fff;--surface-2:#f3f2ee;-
 .sr-recap-root .sr-debug{overflow-x:auto}
 .sr-recap-root .sr-debug-table{width:100%;border-collapse:collapse;font-size:13px}
 .sr-recap-root .sr-debug-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);padding:8px 10px;border-bottom:2px solid var(--rule);white-space:nowrap}
+.sr-recap-root .sr-debug-table th[data-sortkey]{cursor:pointer;user-select:none}
+.sr-recap-root .sr-debug-table th[data-sortkey]:hover{color:var(--ink)}
+.sr-recap-root .sr-debug-table th.sr-sorted{color:var(--accent)}
+.sr-recap-root .sr-debug-table th .sr-arrow{margin-left:3px;font-size:9px}
 .sr-recap-root .sr-debug-table td{padding:8px 10px;border-bottom:1px solid var(--rule);color:var(--ink-2);vertical-align:top}
 .sr-recap-root .sr-debug-table code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);white-space:nowrap}
 .sr-recap-root .sr-debug-excluded td{opacity:.55}`;
@@ -6672,8 +6677,33 @@ function _srProjectInner(p, ctx){
     <div class="section"><div class="section-header"><div class="section-title">Coming next</div><div class="section-count">${p.comingNext.length||''}</div></div><div class="coming-next-list">${coming}</div></div>
     ${hidden}`;
 }
+const SR_DEBUG_COLS = [
+  {k:'key',     label:'Key',         get:tr=>tr.t.issue_key||''},
+  {k:'summary', label:'Summary',     get:tr=>tr.t.summary||''},
+  {k:'status',  label:'Status',      get:tr=>tr.status||''},
+  {k:'done',    label:'Done',        get:tr=>tr.done?1:0},
+  {k:'uf',      label:'User-facing', get:tr=>tr.userFacing?(tr.matchedComponent||'yes'):''},
+  {k:'theme',   label:'Theme',       get:tr=>tr.theme||''},
+  {k:'topic',   label:'Topic',       get:tr=>tr.topic||''},
+  {k:'section', label:'Section',     get:tr=>tr.finalSection||''},
+];
 function _srDebugHtml(p, ctx){
-  const rows = p.traces.map(tr => {
+  const sort = ctx.sort || {};
+  const col = SR_DEBUG_COLS.find(c => c.k === sort.key);
+  let traces = p.traces.slice();
+  if(col){
+    const dir = sort.dir === -1 ? -1 : 1;
+    traces.sort((a,b) => {
+      const av = col.get(a), bv = col.get(b);
+      const r = (typeof av === 'number' && typeof bv === 'number') ? (av - bv) : String(av).localeCompare(String(bv));
+      return r * dir;
+    });
+  }
+  const arrow = sort.dir === -1 ? '▼' : '▲';
+  const head = SR_DEBUG_COLS.map(c =>
+    `<th data-sortkey="${c.k}" class="${sort.key===c.k?'sr-sorted':''}">${_srEsc(c.label)}${sort.key===c.k?`<span class="sr-arrow">${arrow}</span>`:''}</th>`
+  ).join('') + '<th>Move</th>';
+  const rows = traces.map(tr => {
     const label = (SR_SECTIONS.find(s => s.id === tr.finalSection)||{}).label || tr.finalSection || '—';
     const move = (ctx.mode==='edit' && tr.movable) ? _srMoveSelect(tr.t.issue_key, ctx) : '—';
     return `<tr class="${tr.movable?'':'sr-debug-excluded'}">
@@ -6689,7 +6719,7 @@ function _srDebugHtml(p, ctx){
     </tr>`;
   }).join('');
   return `<div class="sr-debug"><table class="sr-debug-table">
-    <thead><tr><th>Key</th><th>Summary</th><th>Status</th><th>Done</th><th>User-facing</th><th>Theme</th><th>Topic</th><th>Section</th><th>Move</th></tr></thead>
+    <thead><tr>${head}</tr></thead>
     <tbody>${rows || '<tr><td colspan="9">No tickets in scope.</td></tr>'}</tbody>
   </table></div>`;
 }
@@ -6729,6 +6759,25 @@ function _srGather(ov){
   return {cur, fut, meta, projects, state};
 }
 
+// ── History of previously generated recaps ─────────────────────────────
+function _srRecordHistory(sprint){
+  if(!sprint) return;
+  const c = _srCfg();
+  if(!Array.isArray(c.history)) c.history = [];
+  c.history = c.history.filter(h => h && h.sprint !== sprint);
+  c.history.unshift({sprint, ts: Date.now()});
+  c.history = c.history.slice(0, 12);
+  if(typeof autoSaveCfg === 'function') autoSaveCfg();
+}
+function _srFillHistory(ov, current){
+  const sel = ov.querySelector('.sr-hist-in'); if(!sel) return;
+  const hist = (Array.isArray(_srCfg().history) ? _srCfg().history : []).filter(h => h && h.sprint);
+  const fmt = ts => { try { return new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'}); } catch(e){ return ''; } };
+  sel.innerHTML = [`<option value="">Recent…</option>`].concat(
+    hist.map(h => `<option value="${_srEsc(h.sprint)}"${h.sprint===current?' selected':''}>${_srEsc(h.sprint)}${h.ts?'  · '+_srEsc(fmt(h.ts)):''}</option>`)
+  ).join('');
+}
+
 function _srRender(ov){
   const body = ov.querySelector('.sr-proto-body');
   // Flush in-progress contenteditable edits into the previously-rendered
@@ -6751,7 +6800,9 @@ function _srRender(ov){
     return;
   }
   ov._srSprintKey = g.cur;
-  const ctx = {mode:'edit', sprintKey:g.cur, overrides:g.state.overrides, narrative:g.state.narrative};
+  if(ov._srLastHist !== g.cur){ _srRecordHistory(g.cur); ov._srLastHist = g.cur; }
+  _srFillHistory(ov, g.cur);
+  const ctx = {mode:'edit', sprintKey:g.cur, overrides:g.state.overrides, narrative:g.state.narrative, sort:ov._srSort};
   const debug = !!ov._srDebug;
   const active = (ov._srActiveProj && g.projects.some(p => p.key === ov._srActiveProj)) ? ov._srActiveProj : g.projects[0].key;
   const tabs = g.projects.map((p,i) =>
@@ -6842,6 +6893,7 @@ function openSprintRecapPreview(){
       <span class="sr-proto-title">Sprint Recap</span>
       <span class="sr-proto-spacer"></span>
       ${_srSprintControlsHtml()}
+      <label class="sr-proto-field">Recent <select class="sr-hist-in" title="Jump to a previously generated recap"><option value="">Recent…</option></select></label>
       <label class="sr-proto-field">Done <input class="sr-done-in" type="text" title="Comma-separated statuses that count as shipped" value="${_srEsc((cfg.done_statuses||[]).join(', '))}"></label>
       <button class="sr-proto-regen" type="button">Generate</button>
       <button class="sr-proto-btn sr-debug-btn" type="button">Debug</button>
@@ -6862,7 +6914,12 @@ function openSprintRecapPreview(){
     <div class="sr-proto-body"></div>`;
   document.body.appendChild(ov);
 
-  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+  // Sit below the app header so its Settings / theme controls stay reachable.
+  const setTop = () => { const h = document.getElementById('app-header'); ov.style.top = ((h && h.offsetHeight) || 48) + 'px'; };
+  setTop();
+  window.addEventListener('resize', setTop);
+
+  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); window.removeEventListener('resize', setTop); };
   const onKey = e => { if(e.key === 'Escape') close(); };
   document.addEventListener('keydown', onKey);
 
@@ -6871,6 +6928,17 @@ function openSprintRecapPreview(){
   ov.querySelectorAll('.sr-cur-in,.sr-fut-in').forEach(i => {
     i.addEventListener('keydown', e => { if(e.key === 'Enter') _srRender(ov); });
     i.addEventListener('change', () => _srRender(ov));
+  });
+  ov.querySelector('.sr-hist-in').addEventListener('change', e => {
+    const v = e.target.value; if(!v) return;
+    const cur = ov.querySelector('.sr-cur-in');
+    if(cur){
+      if(cur.tagName === 'SELECT' && ![...cur.options].some(o => o.value === v)){
+        const o = document.createElement('option'); o.value = v; o.textContent = v; cur.appendChild(o);
+      }
+      cur.value = v;
+    }
+    _srRender(ov);
   });
   ov.querySelector('.sr-done-in').addEventListener('change', e => {
     const c = _srCfg();
@@ -6892,6 +6960,14 @@ function openSprintRecapPreview(){
 
   const body = ov.querySelector('.sr-proto-body');
   body.addEventListener('click', e => {
+    const th = e.target.closest('.sr-debug-table th[data-sortkey]');
+    if(th){
+      const k = th.getAttribute('data-sortkey');
+      const s = ov._srSort || {};
+      ov._srSort = (s.key === k) ? {key:k, dir: s.dir === 1 ? -1 : 1} : {key:k, dir:1};
+      _srRender(ov);
+      return;
+    }
     const tab = e.target.closest('.tab'); if(!tab) return;
     const proj = tab.getAttribute('data-proj'); ov._srActiveProj = proj;
     body.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
