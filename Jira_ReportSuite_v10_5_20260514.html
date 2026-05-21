@@ -280,7 +280,11 @@ input[type=checkbox]{width:14px;height:14px;accent-color:var(--a1);cursor:pointe
 .sr-proto-bar .sr-proto-field{display:flex;align-items:center;gap:5px;font-size:var(--fs-xs);color:var(--mu);text-transform:uppercase;letter-spacing:.4px;font-weight:600}
 .sr-proto-bar .sr-proto-field input{background:var(--s3);border:1px solid var(--bd);color:var(--tx);padding:4px 8px;border-radius:var(--r2);font-size:var(--fs-sm);font-family:var(--mono);text-transform:none;letter-spacing:0;font-weight:400}
 .sr-proto-bar .sr-cur-in,.sr-proto-bar .sr-fut-in{width:90px}
+.sr-proto-bar input.sr-cur-in,.sr-proto-bar input.sr-fut-in{width:90px}
+.sr-proto-bar select.sr-cur-in,.sr-proto-bar select.sr-fut-in{width:auto;max-width:230px}
 .sr-proto-bar .sr-done-in{width:200px}
+.sr-proto-bar select{background:var(--s3);border:1px solid var(--bd);color:var(--tx);padding:4px 8px;border-radius:var(--r2);font-size:var(--fs-sm);font-family:var(--mono)}
+.sr-proto-bar select:focus{outline:0;border-color:var(--a1)}
 .sr-proto-bar .sr-proto-field input:focus{outline:0;border-color:var(--a1)}
 .sr-proto-btn{background:var(--s3);border:1px solid var(--bd);color:var(--tx);padding:5px 12px;border-radius:var(--r2);cursor:pointer;font-size:var(--fs-sm)}
 .sr-proto-btn:hover{background:var(--s4)}
@@ -6751,7 +6755,7 @@ function _srRender(ov){
   const debug = !!ov._srDebug;
   const active = (ov._srActiveProj && g.projects.some(p => p.key === ov._srActiveProj)) ? ov._srActiveProj : g.projects[0].key;
   const tabs = g.projects.map((p,i) =>
-    `<button class="tab${p.key===active?' active':''}" data-product="${'abcde'[i]||'a'}" data-proj="${_srEsc(p.key)}">${_srEsc(p.label)} <span class="count">${p.counts.userFacing}</span></button>`
+    `<button class="tab${p.key===active?' active':''}" data-product="${'abcde'[i]||'a'}" data-proj="${_srEsc(p.key)}">${_srEsc(p.label)} <span class="count">${p.counts.total}</span></button>`
   ).join('');
   const panels = g.projects.map(p => {
     const c = Object.assign({}, ctx, {proj: p.key});
@@ -6785,6 +6789,44 @@ function _srCopyFallback(text, cb){
   document.body.removeChild(ta); if(cb) cb();
 }
 
+// ── Sprint pickers — driven by the same sprint calendar as the EOS report ──
+function _srSprintChoices(){
+  const cal = (S.cfg && Array.isArray(S.cfg.sprint_calendar)) ? S.cfg.sprint_calendar : [];
+  if(cal.length) return cal.map(s => ({value: s.sprint, label: `${s.sprint}  (${s.start} → ${s.end})`}));
+  // Fallback when no calendar: unique sprint strings scanned from the tickets.
+  const set = new Set();
+  (S.allTickets||[]).forEach(t => (t.sprints || [t.sprint]).forEach(s => { if(s) set.add(s); }));
+  return [...set].sort().map(s => ({value: s, label: s}));
+}
+function _srDefaultSprints(){
+  const params = (S && S._wizParams) || {};
+  let cur = params.eosCur || '', fut = params.eosFut || '';
+  const cal = (S.cfg && Array.isArray(S.cfg.sprint_calendar)) ? S.cfg.sprint_calendar : [];
+  if((!cur || !fut) && cal.length){
+    // Mirror EOS defaulting: current = the sprint that just ended, future = active.
+    const today = new Date().toISOString().slice(0,10);
+    const curIdx = cal.findIndex(s => s.start <= today && today <= s.end);
+    const defCur = curIdx > 0 ? curIdx - 1 : (curIdx === 0 ? 0 : Math.max(0, cal.length - 2));
+    if(!cur && cal[defCur]) cur = cal[defCur].sprint;
+    const fi = Math.min(defCur + 1, cal.length - 1);
+    if(!fut && cal[fi]) fut = cal[fi].sprint;
+  }
+  return {cur, fut};
+}
+function _srSprintControlsHtml(){
+  const choices = _srSprintChoices();
+  const def = _srDefaultSprints();
+  if(!choices.length){
+    return `<label class="sr-proto-field">Current <input class="sr-cur-in" type="text" placeholder="e.g. 26.2.6" value="${_srEsc(def.cur)}"></label>
+      <label class="sr-proto-field">Future <input class="sr-fut-in" type="text" placeholder="optional" value="${_srEsc(def.fut)}"></label>`;
+  }
+  const opts = (sel, withNone) =>
+    (withNone ? `<option value=""${!sel?' selected':''}>— none —</option>` : '')
+    + choices.map(c => `<option value="${_srEsc(c.value)}"${c.value===sel?' selected':''}>${_srEsc(c.label)}</option>`).join('');
+  return `<label class="sr-proto-field">Current <select class="sr-cur-in">${opts(def.cur, false)}</select></label>
+    <label class="sr-proto-field">Future <select class="sr-fut-in">${opts(def.fut, true)}</select></label>`;
+}
+
 function openSprintRecapPreview(){
   const prior = document.querySelector('.sr-proto-overlay');
   if(prior) prior.remove();
@@ -6793,15 +6835,13 @@ function openSprintRecapPreview(){
     document.head.appendChild(st);
   }
   const cfg = _srCfg();
-  const params = (S && S._wizParams) || {};
   const ov = document.createElement('div');
   ov.className = 'sr-proto-overlay';
   ov.innerHTML = `
     <div class="sr-proto-bar">
       <span class="sr-proto-title">Sprint Recap</span>
       <span class="sr-proto-spacer"></span>
-      <label class="sr-proto-field">Current <input class="sr-cur-in" type="text" placeholder="e.g. 26.2.6" value="${_srEsc(params.eosCur||'')}"></label>
-      <label class="sr-proto-field">Future <input class="sr-fut-in" type="text" placeholder="optional" value="${_srEsc(params.eosFut||'')}"></label>
+      ${_srSprintControlsHtml()}
       <label class="sr-proto-field">Done <input class="sr-done-in" type="text" title="Comma-separated statuses that count as shipped" value="${_srEsc((cfg.done_statuses||[]).join(', '))}"></label>
       <button class="sr-proto-regen" type="button">Generate</button>
       <button class="sr-proto-btn sr-debug-btn" type="button">Debug</button>
@@ -6828,8 +6868,10 @@ function openSprintRecapPreview(){
 
   ov.querySelector('.sr-close-btn').addEventListener('click', close);
   ov.querySelector('.sr-proto-regen').addEventListener('click', () => _srRender(ov));
-  ov.querySelectorAll('.sr-cur-in,.sr-fut-in').forEach(i =>
-    i.addEventListener('keydown', e => { if(e.key === 'Enter') _srRender(ov); }));
+  ov.querySelectorAll('.sr-cur-in,.sr-fut-in').forEach(i => {
+    i.addEventListener('keydown', e => { if(e.key === 'Enter') _srRender(ov); });
+    i.addEventListener('change', () => _srRender(ov));
+  });
   ov.querySelector('.sr-done-in').addEventListener('change', e => {
     const c = _srCfg();
     c.done_statuses = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
