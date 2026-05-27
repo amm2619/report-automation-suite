@@ -6378,9 +6378,12 @@ const SR_SECTIONS = [
   {id:'hidden',            label:'Hidden'},
 ];
 
+const SR_DARK_VARS = `--bg:#0e1116;--surface:#161b22;--surface-2:#1b2230;--ink:#e6edf3;--ink-2:#b3bdc9;--ink-3:#838d99;--rule:#2a313c;--accent:#5aa0f0;--accent-soft:#16304d;--product-a:#5aa0f0;--product-b:#5fb84e;--product-c:#d08a4a`;
 const SR_CSS = `.sr-recap-root{--bg:#fafaf8;--surface:#fff;--surface-2:#f3f2ee;--ink:#1c1c1a;--ink-2:#4a4844;--ink-3:#6b6862;--rule:#d6d3ca;--accent:#1f5b9e;--accent-soft:#e8f0fa;--product-a:#1f5b9e;--product-b:#3f7a30;--product-c:#8a4e1f;background:var(--bg);color:var(--ink);font-family:'Inter','Segoe UI',sans-serif;line-height:1.6;font-size:16px;min-height:100%;padding:40px 32px 64px}
-.sr-recap-root[data-theme="dark"]{--bg:#0e1116;--surface:#161b22;--surface-2:#1b2230;--ink:#e6edf3;--ink-2:#b3bdc9;--ink-3:#838d99;--rule:#2a313c;--accent:#5aa0f0;--accent-soft:#16304d;--product-a:#5aa0f0;--product-b:#5fb84e;--product-c:#d08a4a}
-@media (prefers-color-scheme: dark){.sr-recap-root[data-theme="auto"]{--bg:#0e1116;--surface:#161b22;--surface-2:#1b2230;--ink:#e6edf3;--ink-2:#b3bdc9;--ink-3:#838d99;--rule:#2a313c;--accent:#5aa0f0;--accent-soft:#16304d;--product-a:#5aa0f0;--product-b:#5fb84e;--product-c:#d08a4a}}
+.sr-recap-root[data-theme="dark"]{${SR_DARK_VARS}}
+/* Theme=auto follows the host: Confluence Cloud dark mode (page-level paste) and OS/browser dark mode as fallback. */
+html[data-color-mode="dark"] .sr-recap-root[data-theme="auto"],[data-color-mode="dark"] .sr-recap-root[data-theme="auto"],.sr-recap-root[data-theme="auto"].sr-force-dark{${SR_DARK_VARS}}
+@media (prefers-color-scheme: dark){.sr-recap-root[data-theme="auto"]{${SR_DARK_VARS}}}
 .sr-recap-root *{box-sizing:border-box}
 .sr-recap-root>*{max-width:880px;margin-left:auto;margin-right:auto}
 .sr-recap-root .sr-msg{padding:40px 0;color:var(--ink-2)}
@@ -7062,7 +7065,7 @@ function openSprintRecapPreview(){
       <div class="sr-conf-row">
         <button class="sr-proto-regen sr-copy-html" type="button">Copy HTML</button>
         <button class="sr-proto-btn sr-copy-css" type="button">Copy CSS</button>
-        <span class="sr-conf-note">Paste the HTML into a Confluence “HTML” macro. Paste the CSS once into the page/space stylesheet (or a second HTML macro &lt;style&gt; block) — it’s scoped to <code>.sr-recap-root</code>, so it won’t affect the rest of the page. Theme <strong>Auto</strong> follows the reader’s system dark-mode (which Confluence’s “Match system” setting also uses); <strong>Light</strong>/<strong>Dark</strong> bake in a fixed look.</span>
+        <span class="sr-conf-note">Paste the HTML into the page body and the CSS via a CSS macro (or the page/space stylesheet) — it’s scoped to <code>.sr-recap-root</code>, so it won’t affect the rest of the page. Theme <strong>Auto</strong> follows Confluence’s dark mode (and the reader’s system dark mode as a fallback); <strong>Light</strong>/<strong>Dark</strong> bake in a fixed look.</span>
       </div>
       <div class="sr-conf-cols">
         <div><div class="sr-conf-label">HTML (content)</div><pre class="sr-conf-pre sr-conf-html"></pre></div>
