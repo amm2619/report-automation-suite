@@ -1301,6 +1301,9 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
         <div class="settings-nav-item" id="snav-eos" onclick="switchSettings('eos')">
           <span class="settings-nav-icon"><span class="mi">flag</span></span>End of Sprint
         </div>
+        <div class="settings-nav-item" id="snav-sprintrecap" onclick="switchSettings('sprintrecap')">
+          <span class="settings-nav-icon"><span class="mi">auto_stories</span></span>Sprint Recap
+        </div>
         <div class="settings-nav-item" id="snav-sprint" onclick="switchSettings('sprint')">
           <span class="settings-nav-icon"><span class="mi">task_alt</span></span>Sprint Plan/Report
         </div>
@@ -1488,6 +1491,13 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
               <textarea id="cfg-eos-ai-prompt" rows="6" style="width:100%;font-size:var(--fs-xs);font-family:var(--mono);resize:vertical" onchange="S.cfg.eos_ai_prompt=this.value;autoSaveCfg()" placeholder="Enter your AI prompt template..."></textarea>
             </div>
           </div>
+        </div>
+
+        <!-- == SPRINT RECAP == -->
+        <div id="settings-sprintrecap" class="settings-pane">
+          <div class="stn-page-title">Sprint Recap</div>
+          <div class="stn-page-desc">Which statuses count as shipped, how tickets are ranked and routed, and how the recap looks. These also apply to the Confluence export.</div>
+          <div id="sr-settings-body"></div>
         </div>
 
         <!-- == PMR == -->
@@ -2417,7 +2427,10 @@ function bucketKey(key){
   return null; // unrecognized prefix — not a known project bucket
 }
 function parsePoints(row){
-  const raw=row['Story Points']||row['Story point estimate']||'0';
+  // Use the field-map / auto-detect resolver so the common Jira export header
+  // "Custom field (Story Points)" is recognized — not just the bare names.
+  const raw=(typeof resolveCol==='function' && resolveCol(row,'Story Points'))
+    || row['Story Points'] || row['Story point estimate'] || '0';
   const v=parseFloat(raw)||0;
   return v===Math.floor(v)?Math.floor(v):v;
 }
@@ -6366,6 +6379,7 @@ const SR_SECTIONS = [
 ];
 
 const SR_CSS = `.sr-recap-root{--bg:#fafaf8;--surface:#fff;--surface-2:#f3f2ee;--ink:#1c1c1a;--ink-2:#4a4844;--ink-3:#6b6862;--rule:#d6d3ca;--accent:#1f5b9e;--accent-soft:#e8f0fa;--product-a:#1f5b9e;--product-b:#3f7a30;--product-c:#8a4e1f;background:var(--bg);color:var(--ink);font-family:'Inter','Segoe UI',sans-serif;line-height:1.6;font-size:16px;min-height:100%;padding:40px 32px 64px}
+.sr-recap-root[data-theme="dark"]{--bg:#0e1116;--surface:#161b22;--surface-2:#1b2230;--ink:#e6edf3;--ink-2:#b3bdc9;--ink-3:#838d99;--rule:#2a313c;--accent:#5aa0f0;--accent-soft:#16304d;--product-a:#5aa0f0;--product-b:#5fb84e;--product-c:#d08a4a}
 .sr-recap-root *{box-sizing:border-box}
 .sr-recap-root>*{max-width:880px;margin-left:auto;margin-right:auto}
 .sr-recap-root .sr-msg{padding:40px 0;color:var(--ink-2)}
@@ -6402,9 +6416,10 @@ const SR_CSS = `.sr-recap-root{--bg:#fafaf8;--surface:#fff;--surface-2:#f3f2ee;-
 .sr-recap-root .section-count{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-3)}
 .sr-recap-root .headline{display:grid;grid-template-columns:200px 1fr;gap:24px;padding:16px 0;border-bottom:1px solid var(--rule);align-items:start}
 .sr-recap-root .headline:last-child{border-bottom:none}
-.sr-recap-root .headline-visual{aspect-ratio:4/3;background:var(--surface-2);border-radius:4px;display:flex;align-items:center;justify-content:center;border:1px solid var(--rule)}
-.sr-recap-root .headline-visual .placeholder{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-3);letter-spacing:.1em;text-transform:uppercase;text-align:center}
-.sr-recap-root .headline-visual svg{display:block;margin:0 auto 6px;opacity:.5}
+.sr-recap-root .headline-visual{aspect-ratio:4/3;background:var(--surface-2);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:1px solid var(--rule);padding:12px;text-align:center}
+.sr-recap-root .headline-visual svg{display:block;opacity:.4}
+.sr-recap-root .sr-vis-chip{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent);border-radius:999px;padding:4px 12px;max-width:100%;outline:none}
+.sr-recap-root .sr-vis-key{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
 .sr-recap-root .headline-content h3{font-size:18px;font-weight:600;color:var(--ink);margin-bottom:6px;line-height:1.3}
 .sr-recap-root .headline-content .what{font-size:15px;color:var(--ink-2);margin-bottom:10px;line-height:1.55}
 .sr-recap-root .headline-content .why{font-size:14px;color:var(--ink-2);padding-left:12px;border-left:2px solid var(--rule);line-height:1.55}
@@ -6452,7 +6467,19 @@ const SR_CSS = `.sr-recap-root{--bg:#fafaf8;--surface:#fff;--surface-2:#f3f2ee;-
 .sr-recap-root .sr-debug-table th .sr-arrow{margin-left:3px;font-size:9px}
 .sr-recap-root .sr-debug-table td{padding:8px 10px;border-bottom:1px solid var(--rule);color:var(--ink-2);vertical-align:top}
 .sr-recap-root .sr-debug-table code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);white-space:nowrap}
-.sr-recap-root .sr-debug-excluded td{opacity:.55}`;
+.sr-recap-root .sr-debug-excluded td{opacity:.55}
+.sr-recap-root .sr-rules{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:14px 16px;margin-bottom:20px}
+.sr-recap-root .sr-rules h4{font-family:'Source Serif 4',Georgia,serif;font-size:15px;font-weight:600;margin:0 0 10px;color:var(--ink)}
+.sr-recap-root .sr-rules-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:13px;color:var(--ink-2)}
+.sr-recap-root .sr-rules input[type=text],.sr-recap-root .sr-rules input[type=number],.sr-recap-root .sr-rules select{font-family:'Inter',sans-serif;font-size:13px;color:var(--ink);background:var(--bg);border:1px solid var(--rule);border-radius:4px;padding:4px 8px}
+.sr-recap-root .sr-rules input[type=number]{width:64px}
+.sr-recap-root .sr-rule-item{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dotted var(--rule);font-size:13px}
+.sr-recap-root .sr-rule-item code{font-family:'JetBrains Mono',monospace;color:var(--accent)}
+.sr-recap-root .sr-rule-arrow{color:var(--ink-3)}
+.sr-recap-root .sr-btn{font-family:'Inter',sans-serif;font-size:12px;color:var(--ink);background:var(--surface-2);border:1px solid var(--rule);border-radius:4px;padding:4px 10px;cursor:pointer}
+.sr-recap-root .sr-btn:hover{border-color:var(--accent);color:var(--accent)}
+.sr-recap-root .sr-rule-del{cursor:pointer;color:var(--ink-3);font-weight:700;border:none;background:none;font-size:15px;line-height:1}
+.sr-recap-root .sr-rule-del:hover{color:#d9534f}`;
 
 // ── Config + per-sprint state ──────────────────────────────────────────
 function _srCfg(){
@@ -6460,7 +6487,23 @@ function _srCfg(){
   const c = S.cfg.sprintRecap;
   if(!Array.isArray(c.done_statuses)) c.done_statuses = ['Done','Closed','Resolved'];
   if(!c.bySprint || typeof c.bySprint !== 'object') c.bySprint = {};
+  if(!['auto','light','dark'].includes(c.theme)) c.theme = 'auto';
+  if(typeof c.highlight_min_points !== 'number') c.highlight_min_points = 3;
+  if(!['label','theme','component'].includes(c.image_label_source)) c.image_label_source = 'label';
+  if(typeof c.backend_highlights !== 'boolean') c.backend_highlights = true;
+  if(!Array.isArray(c.keyword_rules)) c.keyword_rules = [];  // [{keyword, section}]
   return c;
+}
+// Resolve the recap theme: 'auto' follows the app (body.light => light, else dark).
+function _srResolveTheme(){
+  const t = _srCfg().theme;
+  if(t === 'light' || t === 'dark') return t;
+  return document.body.classList.contains('light') ? 'light' : 'dark';
+}
+function _srFirstLabel(t){
+  const raw = t.labels;
+  if(Array.isArray(raw)) return (raw[0] || '').trim();
+  return String(raw || '').split(/[,\s]+/).filter(Boolean)[0] || '';
 }
 function _srSprintState(sprintKey){
   const c = _srCfg();
@@ -6520,24 +6563,44 @@ function _srComputeProject(proj, cur, fut, ctx){
     (Number(b.story_points)||0) - (Number(a.story_points)||0)
     || String(a.issue_key||'').localeCompare(String(b.issue_key||'')));
 
+  // Keyword → section rules (an explicit routing rule, beaten only by a manual move).
+  const kwRules = (ctx.keywordRules || []).filter(r => r && r.keyword && r.section);
+  const matchKw = t => {
+    if(!kwRules.length) return null;
+    const blob = `${t.summary||''} ${t.labels||''} ${(t.components||[]).join(' ')} ${t.epic_name||''} ${t.issue_type||''}`.toLowerCase();
+    for(const r of kwRules){ if(blob.includes(String(r.keyword).toLowerCase())) return r; }
+    return null;
+  };
+  const minPts = (typeof ctx.minPoints === 'number') ? ctx.minPoints : 0;
+
   const doneCur     = curTickets.filter(isDone);
   const curNotDone  = curTickets.filter(t => !isDone(t));
   const futUf       = futTickets.filter(isUf);
+
+  const userFacingDone = doneCur.filter(isUf);
+  const backendDone    = doneCur.filter(t => !isUf(t));
+  // Backend-only project (no user-facing tickets) → feed its backend work into
+  // the main ranking pool so Highlights/Also/Smaller aren't empty.
+  const mainBackend = userFacingDone.length === 0 && ctx.backendHighlights && backendDone.length > 0;
+  const mainKeys = new Set((mainBackend ? backendDone : userFacingDone).map(t => t.issue_key));
 
   // Build universe (placeable tickets) + traces (incl. excluded for debug).
   const universe = [], traces = [];
   doneCur.forEach(t => {
     const uf = isUf(t);
     const theme = uf ? '' : themeOf(t);
-    universe.push({t, defaultSection: uf ? 'uf' : ('hood:'+theme)});
-    traces.push({t, status:t.status, done:true, movable:true, userFacing:uf, matchedComponent:matchedUf(t), theme, topic: uf?topicOf(t):'', source:'current done'});
+    const kw = matchKw(t);
+    const inMain = mainKeys.has(t.issue_key);
+    universe.push({t, defaultSection: kw ? kw.section : (inMain ? 'uf' : ('hood:'+theme))});
+    traces.push({t, status:t.status, done:true, movable:true, userFacing:uf, matchedComponent:matchedUf(t), theme, topic: uf?topicOf(t):'', points:(Number(t.story_points)||0), keywordRule: kw?kw.keyword:'', source: inMain?(uf?'user-facing':'backend→main'):'backend'});
   });
   futUf.forEach(t => {
-    universe.push({t, defaultSection:'comingnext'});
-    traces.push({t, status:t.status, done:isDone(t), movable:true, userFacing:true, matchedComponent:matchedUf(t), theme:'', topic:topicOf(t), source:'next sprint'});
+    const kw = matchKw(t);
+    universe.push({t, defaultSection: kw ? kw.section : 'comingnext'});
+    traces.push({t, status:t.status, done:isDone(t), movable:true, userFacing:true, matchedComponent:matchedUf(t), theme:'', topic:topicOf(t), points:(Number(t.story_points)||0), keywordRule: kw?kw.keyword:'', source:'next sprint'});
   });
   curNotDone.forEach(t => {
-    traces.push({t, status:t.status, done:false, movable:false, userFacing:isUf(t), matchedComponent:matchedUf(t), theme:'', topic:'', source:'current — not shipped', finalSection:'(excluded — status not in Done list)'});
+    traces.push({t, status:t.status, done:false, movable:false, userFacing:isUf(t), matchedComponent:matchedUf(t), theme:'', topic:'', points:(Number(t.story_points)||0), keywordRule:'', source:'current — not shipped', finalSection:'(excluded — status not in Done list)'});
   });
 
   // Resolve final section (override wins) + collect.
@@ -6557,14 +6620,30 @@ function _srComputeProject(proj, cur, fut, ctx){
     else if(fs.indexOf('hood:') === 0){ const th = fs.slice(5); (sec.hood[th] = sec.hood[th] || []).push(u.t); }
     else ufAuto.push(u.t);
   });
-  // Auto-rank remaining user-facing tickets into the slots left by overrides.
+  // Auto-rank the pool into the slots left by overrides. Story-point floor:
+  // tickets at/below the threshold can't auto-promote to Highlights — they
+  // fall into the Also/Smaller ranking like everything else.
   const ranked = byImpact(ufAuto);
+  const eligible = ranked.filter(t => (Number(t.story_points)||0) > minPts);
   const hlSlots = Math.max(0, 3 - sec.highlights.length);
-  sec.highlights = sec.highlights.concat(ranked.slice(0, hlSlots));
-  const rest = ranked.slice(hlSlots);
+  const autoHl = eligible.slice(0, hlSlots);
+  const hlSet = new Set(autoHl.map(t => t.issue_key));
+  const rest = ranked.filter(t => !hlSet.has(t.issue_key));
   const alsoSlots = Math.max(0, 6 - sec.also.length);
   sec.also = sec.also.concat(rest.slice(0, alsoSlots));
   sec.smaller = sec.smaller.concat(rest.slice(alsoSlots));
+  sec.highlights = sec.highlights.concat(autoHl);
+
+  // Image-area chip defaults for highlights, per the configured source.
+  const chipFor = t => {
+    const src = ctx.imageLabelSource || 'label';
+    const label = _srFirstLabel(t), comp = matchedUf(t), theme = isUf(t) ? '' : themeOf(t);
+    if(src === 'theme')     return theme || label || comp || (t.issue_type||'');
+    if(src === 'component') return comp || label || theme || (t.issue_type||'');
+    return label || comp || theme || (t.issue_type||'');
+  };
+  const chips = {};
+  sec.highlights.forEach(t => { chips[t.issue_key] = chipFor(t); });
 
   const grouped = {};
   sec.also.forEach(t => { const k = topicOf(t) || 'General'; (grouped[k] = grouped[k] || []).push(t); });
@@ -6591,7 +6670,7 @@ function _srComputeProject(proj, cur, fut, ctx){
     highlights: byImpact(sec.highlights),
     alsoShipped, smallerFixes: sec.smaller, underHood,
     comingNext: byImpact(sec.comingnext),
-    hidden: sec.hidden, traces,
+    hidden: sec.hidden, traces, chips,
   };
 }
 
@@ -6616,8 +6695,10 @@ function _srSmallerRow(t, ctx){
 }
 function _srHighlightHtml(t, ctx){
   const mv = ctx.mode==='edit' ? `<div class="sr-hl-move">${_srMoveSelect(t.issue_key, ctx)}</div>` : '';
+  const chipDef = (ctx.chips && ctx.chips[t.issue_key]) || '';
+  const chip = _srField(ctx, 'div', 'sr-vis-chip', `imglbl:${t.issue_key}`, chipDef, 'Label');
   return `<div class="headline">
-    <div class="headline-visual"><div class="placeholder"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="3" y="6" width="26" height="20" rx="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="3" y1="11" x2="29" y2="11" stroke="currentColor" stroke-width="1.2"/></svg>${_srEsc(t.issue_key||'')}</div></div>
+    <div class="headline-visual"><svg width="28" height="28" viewBox="0 0 32 32" fill="none"><rect x="3" y="6" width="26" height="20" rx="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="3" y1="11" x2="29" y2="11" stroke="currentColor" stroke-width="1.2"/></svg>${chip}<span class="sr-vis-key">${_srEsc(t.issue_key||'')}</span></div>
     <div class="headline-content">${_srField(ctx,'h3','',`hltitle:${t.issue_key}`,t.summary||'','Headline')}${_srField(ctx,'p','what',`hlwhat:${t.issue_key}`,t.summary||'','What changed — one sentence.')}${_srField(ctx,'p','why',`hlwhy:${t.issue_key}`,'','Why it matters — the user-visible payoff.')}${mv}</div>
   </div>`;
 }
@@ -6681,6 +6762,7 @@ const SR_DEBUG_COLS = [
   {k:'key',     label:'Key',         get:tr=>tr.t.issue_key||''},
   {k:'summary', label:'Summary',     get:tr=>tr.t.summary||''},
   {k:'status',  label:'Status',      get:tr=>tr.status||''},
+  {k:'pts',     label:'Pts',         get:tr=>tr.points||0},
   {k:'done',    label:'Done',        get:tr=>tr.done?1:0},
   {k:'uf',      label:'User-facing', get:tr=>tr.userFacing?(tr.matchedComponent||'yes'):''},
   {k:'theme',   label:'Theme',       get:tr=>tr.theme||''},
@@ -6706,30 +6788,49 @@ function _srDebugHtml(p, ctx){
   const rows = traces.map(tr => {
     const label = (SR_SECTIONS.find(s => s.id === tr.finalSection)||{}).label || tr.finalSection || '—';
     const move = (ctx.mode==='edit' && tr.movable) ? _srMoveSelect(tr.t.issue_key, ctx) : '—';
+    const why = tr.override ? '<strong>'+_srEsc(label)+'</strong> · pinned'
+      : (tr.keywordRule ? _srEsc(label)+' · rule “'+_srEsc(tr.keywordRule)+'”' : _srEsc(label));
     return `<tr class="${tr.movable?'':'sr-debug-excluded'}">
       <td><code>${_srEsc(tr.t.issue_key||'')}</code></td>
       <td>${_srEsc(tr.t.summary||'')}</td>
       <td>${_srEsc(tr.status||'')}</td>
+      <td>${tr.points||0}</td>
       <td>${tr.done?'✓':'—'}</td>
       <td>${tr.userFacing ? _srEsc(tr.matchedComponent||'yes') : '—'}</td>
       <td>${_srEsc(tr.theme||'')}</td>
       <td>${_srEsc(tr.topic||'')}</td>
-      <td>${tr.override ? '<strong>'+_srEsc(label)+'</strong> · pinned' : _srEsc(label)}</td>
+      <td>${why}</td>
       <td>${move}</td>
     </tr>`;
   }).join('');
-  return `<div class="sr-debug"><table class="sr-debug-table">
+  const editor = ctx.mode==='edit' ? _srRulesEditorHtml() : '';
+  return `<div class="sr-debug">${editor}<table class="sr-debug-table">
     <thead><tr>${head}</tr></thead>
-    <tbody>${rows || '<tr><td colspan="9">No tickets in scope.</td></tr>'}</tbody>
+    <tbody>${rows || '<tr><td colspan="10">No tickets in scope.</td></tr>'}</tbody>
   </table></div>`;
+}
+function _srRulesEditorHtml(){
+  const c = _srCfg();
+  const secOpts = SR_SECTIONS.map(s => `<option value="${s.id}">${_srEsc(s.label)}</option>`).join('');
+  const rules = (c.keyword_rules||[]).map((r,i) =>
+    `<div class="sr-rule-item"><code>${_srEsc(r.keyword)}</code><span class="sr-rule-arrow">→</span><span>${_srEsc((SR_SECTIONS.find(s=>s.id===r.section)||{}).label||r.section)}</span><button class="sr-rule-del" data-idx="${i}" title="Remove rule">×</button></div>`
+  ).join('') || '<div class="sr-empty">No keyword rules yet — keywords you add here always route matching tickets to a section.</div>';
+  return `<div class="sr-rules">
+    <h4>Routing rules</h4>
+    <div class="sr-rules-row"><label>Story-point floor for Highlights: <input type="number" min="0" step="1" class="sr-rule-minpts" value="${c.highlight_min_points}"></label><span class="sr-ticket-status">tickets at/below this can't auto-promote to Highlights</span></div>
+    <div class="sr-rules-row"><input type="text" class="sr-rule-kw" placeholder="keyword (summary, labels, components, epic)"><select class="sr-rule-sec">${secOpts}</select><button class="sr-btn sr-rule-add">Add rule</button></div>
+    ${rules}
+    <div class="sr-rules-row" style="margin-top:10px"><button class="sr-btn sr-rule-fullsettings">Open full Sprint Recap settings →</button></div>
+  </div>`;
 }
 function _srExportHtml(meta, projects, state){
   const ctx0 = {mode:'export', overrides: state.overrides, narrative: state.narrative};
   const body = projects.map(p => {
-    const ctx = Object.assign({}, ctx0, {proj: p.key});
+    const ctx = Object.assign({}, ctx0, {proj: p.key, chips: p.chips});
     return `<div class="sr-export-project"><div class="sr-export-projhead">${_srEsc(p.label)}</div>${_srProjectInner(p, ctx)}</div>`;
   }).join('');
-  return `<div class="sr-recap-root">
+  const themeAttr = _srResolveTheme() === 'dark' ? ' data-theme="dark"' : '';
+  return `<div class="sr-recap-root"${themeAttr}>
   <div class="header"><div class="header-title">${_srEsc(meta.title)}</div><div class="header-meta">${_srEsc(meta.subtitle)}</div></div>
   ${body}
   <div class="footer"><div>${_srEsc(meta.sprintName)} · ${_srEsc(meta.projectsLabel)}</div></div>
@@ -6745,7 +6846,9 @@ function _srGather(ov){
   const cfg = _srCfg();
   const doneSet = new Set((cfg.done_statuses||[]).map(s => (s||'').toLowerCase()));
   const state = _srSprintState(cur);
-  const ctx = {doneSet, overrides: state.overrides};
+  const ctx = {doneSet, overrides: state.overrides,
+    minPoints: cfg.highlight_min_points, keywordRules: cfg.keyword_rules,
+    backendHighlights: cfg.backend_highlights, imageLabelSource: cfg.image_label_source};
   const projects = Object.keys(S.cfg.eos_projects || {DX:1,LX:1,RC:1})
     .map(proj => _srComputeProject(proj, cur, fut, ctx))
     .filter(p => p.counts.total > 0 || p.counts.shipped > 0 || (p.comingNext && p.comingNext.length));
@@ -6795,7 +6898,8 @@ function _srRender(ov){
     const why = !hasData ? 'Drop the Issues CSV on the file bar at the top of the app, then reopen Sprint Recap.'
       : (!hasCur ? 'Type a current sprint above (e.g. 26.2.6) and click Generate. The future sprint is optional — it feeds "Coming next".'
       : 'No tickets match this sprint. Check the sprint name against your CSV — the EOS pickers show the exact strings.');
-    body.innerHTML = `<div class="sr-recap-root"><div class="sr-msg"><h2>Nothing to show yet.</h2><p>${_srEsc(why)}</p></div></div>`;
+    const themeAttr0 = _srResolveTheme() === 'dark' ? ' data-theme="dark"' : '';
+    body.innerHTML = `<div class="sr-recap-root"${themeAttr0}><div class="sr-msg"><h2>Nothing to show yet.</h2><p>${_srEsc(why)}</p></div></div>`;
     ov._srSprintKey = null;
     return;
   }
@@ -6809,11 +6913,12 @@ function _srRender(ov){
     `<button class="tab${p.key===active?' active':''}" data-product="${'abcde'[i]||'a'}" data-proj="${_srEsc(p.key)}">${_srEsc(p.label)} <span class="count">${p.counts.total}</span></button>`
   ).join('');
   const panels = g.projects.map(p => {
-    const c = Object.assign({}, ctx, {proj: p.key});
+    const c = Object.assign({}, ctx, {proj: p.key, chips: p.chips});
     const inner = debug ? _srDebugHtml(p, c) : _srProjectInner(p, c);
     return `<div class="sr-project${p.key===active?' active':''}" data-proj="${_srEsc(p.key)}">${inner}</div>`;
   }).join('');
-  body.innerHTML = `<div class="sr-recap-root">
+  const themeAttr = _srResolveTheme() === 'dark' ? ' data-theme="dark"' : '';
+  body.innerHTML = `<div class="sr-recap-root"${themeAttr}>
     <div class="header"><div class="header-title">${_srEsc(g.meta.title)}</div><div class="header-meta">${_srEsc(g.meta.subtitle)}</div></div>
     <div class="product-tabs">${tabs}</div>
     ${panels}
@@ -6878,6 +6983,53 @@ function _srSprintControlsHtml(){
     <label class="sr-proto-field">Future <select class="sr-fut-in">${opts(def.fut, true)}</select></label>`;
 }
 
+// ── Sprint Recap settings pane (Settings → Sprint Recap) ───────────────
+function renderSprintRecapSettings(){
+  const el = document.getElementById('sr-settings-body'); if(!el) return;
+  const c = _srCfg();
+  const e = (typeof esc === 'function') ? esc : _srEsc;
+  const secOpts = SR_SECTIONS.map(s => `<option value="${s.id}">${e(s.label)}</option>`).join('');
+  const rules = (c.keyword_rules||[]).map((r,i) =>
+    `<div class="stn-row" style="align-items:center"><div class="stn-label" style="flex:1"><code>${e(r.keyword)}</code> &rarr; ${e((SR_SECTIONS.find(s=>s.id===r.section)||{}).label||r.section)}</div><button class="btn btn-ghost btn-xs" onclick="_srSettingsDelRule(${i})">Remove</button></div>`
+  ).join('') || '<div class="stn-hint">No keyword rules yet.</div>';
+  el.innerHTML = `
+    <div class="stn-section">
+      <div class="stn-section-hdr"><span class="stn-section-title">Shipped &amp; ranking</span></div>
+      <div class="stn-body">
+        <div class="stn-row"><div class="stn-label">Done statuses<small>Comma-separated; which statuses count as shipped</small></div><div><input type="text" value="${e((c.done_statuses||[]).join(', '))}" onchange="_srSettingsSetDone(this.value)" style="width:240px"></div></div>
+        <div class="stn-row"><div class="stn-label">Highlight story-point floor<small>Tickets at/below this can't auto-promote to Highlights; they fall into Also/Smaller ranking</small></div><div><input type="number" min="0" step="1" value="${c.highlight_min_points}" onchange="_srSettingsSetMinPts(this.value)" style="width:80px"></div></div>
+        <div class="stn-row"><div class="stn-label">Backend-only projects<small>Fill Highlights from top backend tickets when a project has no user-facing work (e.g. RC)</small></div><div><label class="row" style="gap:6px;align-items:center"><input type="checkbox" ${c.backend_highlights?'checked':''} onchange="_srSettingsToggleBackend(this.checked)"> Enabled</label></div></div>
+      </div>
+    </div>
+    <div class="stn-section">
+      <div class="stn-section-hdr"><span class="stn-section-title">Presentation</span></div>
+      <div class="stn-body">
+        <div class="stn-row"><div class="stn-label">Theme<small>Auto follows the app; or force light/dark for the recap and Confluence export</small></div><div><select onchange="_srSettingsSetTheme(this.value)"><option value="auto"${c.theme==='auto'?' selected':''}>Auto (follow app)</option><option value="light"${c.theme==='light'?' selected':''}>Light</option><option value="dark"${c.theme==='dark'?' selected':''}>Dark</option></select></div></div>
+        <div class="stn-row"><div class="stn-label">Image-area label<small>Default chip shown in each highlight's image area — editable per ticket</small></div><div><select onchange="_srSettingsSetImgSrc(this.value)"><option value="label"${c.image_label_source==='label'?' selected':''}>Ticket label</option><option value="theme"${c.image_label_source==='theme'?' selected':''}>Backend theme</option><option value="component"${c.image_label_source==='component'?' selected':''}>Component</option></select></div></div>
+      </div>
+    </div>
+    <div class="stn-section">
+      <div class="stn-section-hdr"><span class="stn-section-title">Keyword routing rules</span></div>
+      <div class="stn-hint">A ticket whose summary, labels, components, or epic contains the keyword routes to the chosen section. A manual move on a ticket overrides its rule.</div>
+      <div class="stn-body">
+        ${rules}
+        <div class="stn-row" style="align-items:center;gap:8px"><input type="text" id="sr-set-kw" placeholder="keyword" style="width:200px"><select id="sr-set-sec">${secOpts}</select><button class="btn btn-primary btn-xs" onclick="_srSettingsAddRule()">Add rule</button></div>
+      </div>
+    </div>`;
+}
+function _srSettingsRerender(){
+  renderSprintRecapSettings();
+  const ov = document.querySelector('.sr-proto-overlay');
+  if(ov && typeof _srRender === 'function') _srRender(ov);
+}
+function _srSettingsSetDone(v){ _srCfg().done_statuses = v.split(',').map(s=>s.trim()).filter(Boolean); if(typeof autoSaveCfg==='function') autoSaveCfg(); _srSettingsRerender(); }
+function _srSettingsSetMinPts(v){ const n=parseInt(v,10); _srCfg().highlight_min_points = isNaN(n)?0:Math.max(0,n); if(typeof autoSaveCfg==='function') autoSaveCfg(); _srSettingsRerender(); }
+function _srSettingsToggleBackend(b){ _srCfg().backend_highlights = !!b; if(typeof autoSaveCfg==='function') autoSaveCfg(); _srSettingsRerender(); }
+function _srSettingsSetTheme(v){ _srCfg().theme = v; if(typeof autoSaveCfg==='function') autoSaveCfg(); _srSettingsRerender(); }
+function _srSettingsSetImgSrc(v){ _srCfg().image_label_source = v; if(typeof autoSaveCfg==='function') autoSaveCfg(); _srSettingsRerender(); }
+function _srSettingsAddRule(){ const kw=(document.getElementById('sr-set-kw').value||'').trim(); const sec=document.getElementById('sr-set-sec').value; if(kw){ _srCfg().keyword_rules.push({keyword:kw, section:sec}); if(typeof autoSaveCfg==='function') autoSaveCfg(); _srSettingsRerender(); } }
+function _srSettingsDelRule(i){ const r=_srCfg().keyword_rules; if(i>=0&&i<r.length){ r.splice(i,1); if(typeof autoSaveCfg==='function') autoSaveCfg(); _srSettingsRerender(); } }
+
 function openSprintRecapPreview(){
   const prior = document.querySelector('.sr-proto-overlay');
   if(prior) prior.remove();
@@ -6895,6 +7047,7 @@ function openSprintRecapPreview(){
       ${_srSprintControlsHtml()}
       <label class="sr-proto-field">Recent <select class="sr-hist-in" title="Jump to a previously generated recap"><option value="">Recent…</option></select></label>
       <label class="sr-proto-field">Done <input class="sr-done-in" type="text" title="Comma-separated statuses that count as shipped" value="${_srEsc((cfg.done_statuses||[]).join(', '))}"></label>
+      <label class="sr-proto-field">Theme <select class="sr-theme-in" title="Auto follows the app theme"><option value="auto"${cfg.theme==='auto'?' selected':''}>Auto</option><option value="light"${cfg.theme==='light'?' selected':''}>Light</option><option value="dark"${cfg.theme==='dark'?' selected':''}>Dark</option></select></label>
       <button class="sr-proto-regen" type="button">Generate</button>
       <button class="sr-proto-btn sr-debug-btn" type="button">Debug</button>
       <button class="sr-proto-btn sr-conf-btn" type="button">Confluence</button>
@@ -6946,6 +7099,11 @@ function openSprintRecapPreview(){
     if(typeof autoSaveCfg === 'function') autoSaveCfg();
     _srRender(ov);
   });
+  ov.querySelector('.sr-theme-in').addEventListener('change', e => {
+    _srCfg().theme = e.target.value;
+    if(typeof autoSaveCfg === 'function') autoSaveCfg();
+    _srRender(ov);
+  });
   ov.querySelector('.sr-debug-btn').addEventListener('click', e => {
     ov._srDebug = !ov._srDebug; e.target.classList.toggle('active', ov._srDebug); _srRender(ov);
   });
@@ -6968,12 +7126,36 @@ function openSprintRecapPreview(){
       _srRender(ov);
       return;
     }
+    if(e.target.closest('.sr-rule-fullsettings')){ if(typeof openSettings === 'function') openSettings('sprintrecap'); return; }
+    const addBtn = e.target.closest('.sr-rule-add');
+    if(addBtn){
+      const box = addBtn.closest('.sr-rules');
+      const kw = (box.querySelector('.sr-rule-kw').value || '').trim();
+      const sec = box.querySelector('.sr-rule-sec').value;
+      if(kw){ _srCfg().keyword_rules.push({keyword:kw, section:sec}); if(typeof autoSaveCfg==='function') autoSaveCfg(); _srRender(ov); }
+      return;
+    }
+    const del = e.target.closest('.sr-rule-del');
+    if(del){
+      const i = parseInt(del.getAttribute('data-idx'), 10);
+      const rules = _srCfg().keyword_rules;
+      if(i >= 0 && i < rules.length){ rules.splice(i,1); if(typeof autoSaveCfg==='function') autoSaveCfg(); _srRender(ov); }
+      return;
+    }
     const tab = e.target.closest('.tab'); if(!tab) return;
     const proj = tab.getAttribute('data-proj'); ov._srActiveProj = proj;
     body.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
     body.querySelectorAll('.sr-project').forEach(p => p.classList.toggle('active', p.getAttribute('data-proj') === proj));
   });
   body.addEventListener('change', e => {
+    const mp = e.target.closest('.sr-rule-minpts');
+    if(mp){
+      const v = parseInt(mp.value, 10);
+      _srCfg().highlight_min_points = isNaN(v) ? 0 : Math.max(0, v);
+      if(typeof autoSaveCfg === 'function') autoSaveCfg();
+      _srRender(ov);
+      return;
+    }
     const sel = e.target.closest('.sr-move'); if(!sel) return;
     const sprintKey = ov._srSprintKey; if(!sprintKey) return;
     const st = _srSprintState(sprintKey);
@@ -13454,7 +13636,7 @@ function switchSettings(section) {
   const _titles = {
     manage: 'Manage Data',
     config:'Jira / API', appearance:'Appearance',
-    weekly:'Weekly Digest', eos:'End of Sprint', pmr:'PMR',
+    weekly:'Weekly Digest', eos:'End of Sprint', sprintrecap:'Sprint Recap', pmr:'PMR',
     spin:'Spin Plan', sprint:'Sprint Plan/Report',
     topics:'Topics', overrides:'Rule Overrides', classification:'Classification', calendar:'Sprint Calendar'
   };
@@ -13467,6 +13649,7 @@ function switchSettings(section) {
     if(section==='classification') { renderConfigUI(); populateClassificationPane(); }
     if(section==='sprint')   { renderConfigUI(); refreshAssigneePicker(); clsSelectorRefreshAll(); }
     if(section==='eos')        renderConfigUI();
+    if(section==='sprintrecap') renderSprintRecapSettings();
     if(section==='pmr')      { renderConfigUI(); clsSelectorRefreshAll(); }
     if(section==='spin')       populateSpinPrefsUI();
     if(section==='appearance') populateAppPrefsUI();
