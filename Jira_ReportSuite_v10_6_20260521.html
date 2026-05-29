@@ -5418,7 +5418,10 @@ function runEOS(){
             : '';
           rp+=`<div class="eos-thread"><div class="eos-thread-head"><h4>(U) ${esc(name)}</h4>${aiBtn}</div>`;
           if(hasNarr){
-            rp+=`<div class="bluf-field" id="${topicSlug}" contenteditable="true" data-placeholder="Mission impact — what did this thread accomplish or change?"></div>`;
+            rp+=`<div class="bluf-label" style="margin-top:6px">Mission impact — this sprint</div>`;
+            rp+=`<div class="bluf-field" id="${topicSlug}" contenteditable="true" data-placeholder="What did this thread accomplish or change this sprint?"></div>`;
+            rp+=`<div class="bluf-label" style="margin-top:10px">Looking ahead — next sprint</div>`;
+            rp+=`<div class="bluf-field" id="${topicSlug}-future" contenteditable="true" data-placeholder="What's planned or queued for next sprint?"></div>`;
           }
           const bits=[];
           if(th.done.length)   bits.push(`<span><strong>${th.done.length}</strong> delivered</span>`);
@@ -5638,19 +5641,26 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
     c.threads.forEach(th=>{
       const name = th.synthetic || eosCleanThreadName(th.topic.header);
       lines.push(`h3. (U) ${name}`);
-      if(th.tidx >= 0){
-        const sEl=document.getElementById(`bluf-eos-${proj.toLowerCase()}-${th.tidx}`);
-        const sTxt=(sEl&&sEl.innerText.trim())||'';
-        if(sTxt) lines.push(`(U) Mission impact: ${sTxt}`,'');
-      }
       const prog=[];
       if(th.done.length)   prog.push(`${th.done.length} delivered`);
       if(th.active.length) prog.push(`${th.active.length} in motion`);
       if(th.future.length) prog.push(`${th.future.length} queued`);
       if(th.blk.length)    prog.push(`${th.blk.length} blocked`);
       if(prog.length) lines.push(`_(${prog.join(' · ')})_`,'');
+      // Current-sprint summary above the current-sprint tables.
+      if(th.tidx >= 0){
+        const sEl=document.getElementById(`bluf-eos-${proj.toLowerCase()}-${th.tidx}`);
+        const sTxt=(sEl&&sEl.innerText.trim())||'';
+        if(sTxt) lines.push(`(U) Mission impact: ${sTxt}`,'');
+      }
       if(th.done.length)   lines.push('h4. (U) Delivered','', tableFromKeys(th.done),'');
       if(th.active.length) lines.push('h4. (U) In Motion','', tableFromKeys(th.active),'');
+      // Next-sprint summary above the future-sprint tables.
+      if(th.tidx >= 0){
+        const fEl=document.getElementById(`bluf-eos-${proj.toLowerCase()}-${th.tidx}-future`);
+        const fTxt=(fEl&&fEl.innerText.trim())||'';
+        if(fTxt) lines.push(`(U) Looking ahead: ${fTxt}`,'');
+      }
       if(th.future.length) lines.push('h4. (U) Queued','', tableFromKeys(th.future),'');
       if(th.blk.length)    lines.push('h4. (U) Blocked','', tableFromKeys(th.blk),'');
     });
