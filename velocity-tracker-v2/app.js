@@ -435,18 +435,21 @@ function renderSettings() {
   document.getElementById('cfg-dur').value     = c.defaultDuration || 14;
   document.getElementById('cfg-future').value  = c.futureCount ?? 4;
 
-  // Locked sprint list
+  // Locked sprint list (with holidays inline)
   const sprintList = document.getElementById('cfg-sprint-list');
   const locked     = (S.config.sprints || []).slice().sort((a, b) => a.start.localeCompare(b.start));
   if (locked.length) {
     sprintList.innerHTML = locked.map((sp, i) => {
-      const dur = Math.round((new Date(sp.end + 'T00:00:00') - new Date(sp.start + 'T00:00:00')) / 86400000) + 1;
-      const wd  = HOLIDAYS.workDays(sp.start, sp.end);
+      const dur      = Math.round((new Date(sp.end + 'T00:00:00') - new Date(sp.start + 'T00:00:00')) / 86400000) + 1;
+      const wd       = HOLIDAYS.workDays(sp.start, sp.end);
+      const holidays = HOLIDAYS.inRange(sp.start, sp.end)
+        .map(h => `<span class="holiday-chip">${esc(h.name)}</span>`).join('');
       return `<div class="sprint-list-item">
         <span class="sli-lock">🔒</span>
         <span class="sli-num">Sprint ${i + 1}</span>
         <span class="sli-dates">${fmtDate(sp.start)} – ${fmtDate(sp.end)}</span>
         <span class="sli-meta">${dur} cal days · ${wd} work days</span>
+        ${holidays}
         <button class="act-btn danger sm" onclick="removeSprint('${sp.id}')" title="Remove">✕</button>
       </div>`;
     }).join('');
@@ -475,28 +478,6 @@ function renderSettings() {
   }).join('');
   const custom = S.config.resolutions.filter(r => !ALL_RES.includes(r));
   document.getElementById('cfg-res-custom').value = custom.join(', ');
-
-  // Sprint calendar preview (locked + auto)
-  const sprints = getSprints();
-  const preview = document.getElementById('sprint-preview');
-  if (!sprints.length) {
-    preview.innerHTML = '<p class="preview-hint">Add a locked sprint above to start the calendar.</p>';
-  } else {
-    preview.innerHTML = sprints.map((sp, i) => {
-      const hl      = sp.holidays.map(h => `<span class="holiday-chip">${esc(h.name)}</span>`).join('');
-      const lockBtn = sp.locked
-        ? ''
-        : `<button class="act-btn sm" onclick="lockAutoSprint(${i})" title="Lock this sprint's dates">Lock</button>`;
-      return `<div class="sp-row${sp.locked ? '' : ' sp-row-auto'}">
-        <span class="sli-lock">${sp.locked ? '🔒' : '⋯'}</span>
-        <span class="sp-num">Sprint ${i + 1}</span>
-        <span class="sp-dates">${fmtDate(sp.start)} – ${fmtDate(sp.end)}</span>
-        <span class="sp-wd">${sp.workDays} work days</span>
-        ${hl}
-        ${lockBtn}
-      </div>`;
-    }).join('');
-  }
 }
 
 // ─── RENDER: Team ─────────────────────────────────────────────────────────────
