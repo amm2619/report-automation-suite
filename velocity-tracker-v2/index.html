@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sprint Planner</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%237c3aed'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-family='system-ui,sans-serif' font-size='17' font-weight='800' fill='%23f0f4f8'>SP</text></svg>">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -142,18 +143,9 @@
             </div>
           </div>
 
-          <!-- Auto sprint config -->
-          <div class="cfg-row-inline">
-            <div class="cfg-row" style="margin-bottom:0">
-              <label class="cfg-label">Default duration for auto sprints (days)</label>
-              <input class="cfg-input" type="number" id="cfg-dur" min="1" max="90" value="14">
-              <div class="cfg-hint">Applied to sprints after the last locked one</div>
-            </div>
-            <div class="cfg-row" style="margin-bottom:0">
-              <label class="cfg-label">Auto sprints to show after last locked</label>
-              <input class="cfg-input" type="number" id="cfg-future" min="0" max="12" value="4">
-            </div>
-          </div>
+          <!-- Auto sprint config (hidden inputs, kept for state compatibility) -->
+          <input type="hidden" id="cfg-dur" value="14">
+          <input type="hidden" id="cfg-future" value="0">
 
           <!-- Full calendar preview -->
           <div class="cfg-row" style="margin-bottom:0;margin-top:10px">

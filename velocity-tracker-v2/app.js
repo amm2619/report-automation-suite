@@ -4,7 +4,8 @@
 
 const STORAGE_KEY = 'vp2.v1';
 const PROJECTS    = ['DX', 'LX', 'RC'];
-const PROJ_COLOR  = { DX: '#06b6d4', LX: '#7c3aed', RC: '#f97316' };
+// These are used as foreground text on dark surfaces — all pass WCAG AA 4.5:1
+const PROJ_COLOR  = { DX: '#22d3ee', LX: '#a78bfa', RC: '#fb923c' };
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -384,6 +385,8 @@ function saveSettings() {
   const checked = [...document.querySelectorAll('#cfg-res-list input:checked')].map(el => el.value);
   const custom  = (document.getElementById('cfg-res-custom').value || '').split(',').map(s => s.trim()).filter(Boolean);
   S.config.resolutions = [...new Set([...checked, ...custom])];
+  // Clear auto-generated future sprints from preview — locked sprints are the schedule
+  S.config.futureCount = 0;
   save();
   toast('Settings saved.', 'success');
   renderApp();
@@ -564,7 +567,7 @@ function renderHistory() {
   const rows = Object.entries(vel).sort((a,b)=>b[1].avg-a[1].avg).map(([name,v]) => {
     const person = S.people.find(p=>p.name===name);
     const proj   = person?.project;
-    const color  = proj ? PROJ_COLOR[proj] : '#6b7280';
+    const color  = proj ? PROJ_COLOR[proj] : '#94a3b8';
     const sprintCols = Object.entries(v.sprintPoints)
       .sort(([a],[b])=>a.localeCompare(b))
       .map(([s,pts])=>`<td class="num">${pts}</td>`)
@@ -682,7 +685,7 @@ function renderPersonLane(person, sp, vel) {
   const overBudget = remaining < 0;
   const wfhOver   = person.type === 'contractor' && wfhPt > cap.wfhBudgetPts;
   const pct       = cap.adjustedCapacity > 0 ? Math.min(100, Math.round(asgPts/cap.adjustedCapacity*100)) : 0;
-  const color     = PROJ_COLOR[person.project] || '#6b7280';
+  const color     = PROJ_COLOR[person.project] || '#94a3b8';
 
   const tickets  = assignedTickets(person.id, S.view.sprintIdx);
   const tHtml    = tickets.length ? tickets.map(t=>renderTicketRow(t, person.id)).join('') : '';
@@ -728,7 +731,7 @@ function renderPersonLane(person, sp, vel) {
 function renderTicketRow(t, personId) {
   const a     = S.assignments[t.key] || {};
   const wfh   = !!a.wfh;
-  const color = PROJ_COLOR[t.project] || '#6b7280';
+  const color = PROJ_COLOR[t.project] || '#94a3b8';
   const epic  = t.epicName ? `<span class="epic-label">${esc(t.epicName)}</span>` : '';
   const desc  = t.description
     ? `<button class="desc-btn" onclick="openDesc('${esc(t.key)}')" title="View description">⋯</button>`
@@ -753,7 +756,7 @@ function renderUnassigned(sprintIdx) {
   const tickets = unassignedTickets(sprintIdx);
   if (!tickets.length) return '';
   const rows = tickets.map(t => {
-    const color = PROJ_COLOR[t.project] || '#6b7280';
+    const color = PROJ_COLOR[t.project] || '#94a3b8';
     const epic  = t.epicName ? `<span class="epic-label">${esc(t.epicName)}</span>` : '';
     const desc  = t.description
       ? `<button class="desc-btn" onclick="openDesc('${esc(t.key)}')" title="View description">⋯</button>`
@@ -813,7 +816,7 @@ function renderMultiSprint(sprints) {
           .map(t=>{
             const a = S.assignments[t.key];
             const person = personById(a.personId);
-            const color = PROJ_COLOR[t.project]||'#6b7280';
+            const color = PROJ_COLOR[t.project]||'#94a3b8';
             return `<div class="mc-ticket">
               <span style="color:${color}">${esc(t.key)}</span>
               <span class="mc-pts">${t.points||'?'}</span>
