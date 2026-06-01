@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ReportSuite — Field Reference</title>
+<style>
+  @media print {
+    body { margin: 0.75in; }
+    h1 { page-break-before: avoid; }
+    h2 { page-break-after: avoid; }
+    table { page-break-inside: avoid; }
+    .no-break { page-break-inside: avoid; }
+  }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #1a1a2e;
+    max-width: 960px;
+    margin: 32px auto;
+    padding: 0 24px;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #0d1b4b;
+    border-bottom: 2px solid #3b6cf8;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 28px;
+  }
+  h2 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e3a8a;
+    margin: 28px 0 8px;
+    border-left: 4px solid #3b6cf8;
+    padding-left: 10px;
+  }
+  h3 {
+    font-size: 12px;
+    font-weight: 700;
+    color: #374151;
+    margin: 18px 0 6px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-bottom: 16px;
+  }
+  thead th {
+    background: #1e3a8a;
+    color: #fff;
+    padding: 6px 10px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  tbody tr:nth-child(even) { background: #f0f4ff; }
+  tbody tr:nth-child(odd)  { background: #fff; }
+  tbody td {
+    padding: 5px 10px;
+    border-bottom: 1px solid #d1d9f0;
+    vertical-align: top;
+  }
+  code {
+    font-family: 'Consolas', 'Cascadia Code', 'Menlo', monospace;
+    font-size: 10.5px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 3px;
+    padding: 1px 4px;
+    color: #1e40af;
+  }
+  .center { text-align: center; }
+  .tick { color: #16a34a; font-weight: 700; font-size: 13px; }
+  .blob { color: #9333ea; font-size: 10px; font-style: italic; }
+  .dash { color: #ccc; }
+  p.note {
+    font-size: 11px;
+    color: #555;
+    background: #fefce8;
+    border-left: 4px solid #f59e0b;
+    padding: 6px 10px;
+    margin: 8px 0 14px;
+    border-radius: 0 4px 4px 0;
+  }
+  .footer {
+    font-size: 10px;
+    color: #999;
+    text-align: center;
+    margin-top: 40px;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 10px;
+  }
+</style>
+</head>
+<body>
+
+<h1>ReportSuite — Jira Field Reference</h1>
+<div class="subtitle">Generated 2026-06-01 &nbsp;·&nbsp; Jira_ReportSuite_v10.7</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>1 · Jira CSV Column → Internal Property</h2>
+<p class="note">Every report reads from a normalized ticket object built by <code>buildTicket()</code>. These are the CSV column headers Jira exports and how they map to internal properties.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Jira CSV Column</th>
+      <th>Internal Property</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>Issue key</code> or <code>Key</code></td><td><code>t.issue_key</code></td><td>Either header is accepted</td></tr>
+    <tr><td><code>Summary</code></td><td><code>t.summary</code></td><td></td></tr>
+    <tr><td><code>Issue Type</code></td><td><code>t.issue_type</code></td><td></td></tr>
+    <tr><td><code>Status</code></td><td><code>t.status</code></td><td></td></tr>
+    <tr><td><code>Assignee</code></td><td><code>t.assignee</code></td><td></td></tr>
+    <tr><td><code>Epic Link</code></td><td><code>t.epic_link</code></td><td></td></tr>
+    <tr><td><code>Epic Name</code></td><td><code>t.epic_name</code></td><td>Falls back to epic-map lookup via <code>Epic Link</code> if blank</td></tr>
+    <tr><td><code>Labels</code></td><td><code>t.labels</code></td><td>Raw comma-separated string</td></tr>
+    <tr><td><code>Components</code></td><td><code>t.components[]</code></td><td>Split and normalized to lowercase array</td></tr>
+    <tr><td><code>Sprint</code>, <code>Sprint.1</code>, <code>Sprint.2</code>…</td><td><code>t.sprints[]</code> / <code>t.sprint</code></td><td>All repeated Sprint columns collected; <code>t.sprint</code> = most recent</td></tr>
+    <tr><td><code>Story Points</code></td><td><code>t.story_points</code></td><td>See aliases below</td></tr>
+    <tr><td><code>Created</code></td><td><code>t.created_dt</code></td><td>Parsed to JS Date (UTC)</td></tr>
+    <tr><td><code>Updated</code></td><td><code>t.updated_dt</code></td><td>Parsed to JS Date (UTC)</td></tr>
+    <tr><td><code>Resolved</code></td><td><code>t.resolved_dt</code></td><td>Parsed to JS Date (UTC)</td></tr>
+    <tr><td><em>(key prefix)</em></td><td><code>t.project_bucket</code></td><td>Derived from key — <code>DX</code>, <code>LX</code>, <code>RC</code>, etc. Not a CSV column</td></tr>
+    <tr><td><em>(derived)</em></td><td><code>t.match_blob</code></td><td>summary | epic_name | labels | components — used for topic keyword matching</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>2 · Built-in Field Map Aliases</h2>
+<p class="note">These aliases are pre-configured and recognized automatically. Additional mappings can be added in <strong>Settings → Field Mapping</strong>.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Raw CSV Column (as exported by Jira)</th>
+      <th>Treated as</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>Custom field (Epic Name)</code></td><td><code>Epic Name</code></td></tr>
+    <tr><td><code>Custom field (Epic Link)</code></td><td><code>Epic Link</code></td></tr>
+    <tr><td><code>Custom field (Story Points)</code></td><td><code>Story Points</code></td></tr>
+    <tr><td><code>Custom field (Sprint)</code></td><td><code>Sprint</code></td></tr>
+    <tr><td><code>Story point estimate</code></td><td><code>Story Points</code></td></tr>
+  </tbody>
+</table>
+
+<p class="note">The resolver also tries <code>customfield_{name}</code>, underscore and lowercase variants as a fallback before doing a partial-match with a console warning.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>3 · Fields Used Per Report</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>CSV Column</th>
+      <th class="center">Weekly<br>Digest</th>
+      <th class="center">End of<br>Sprint</th>
+      <th class="center">PMR</th>
+      <th class="center">Sprint<br>Plan/Report</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Issue key</code></td>
+      <td class="center tick">✓</td><td class="center tick">✓</td><td class="center tick">✓</td><td class="center tick">✓</td>
+    </tr>
+    <tr>
+      <td><code>Summary</code></td>
+      <td class="center tick">✓</td><td class="center tick">✓</td><td class="center tick">✓</td><td class="center tick">✓</td>
+    </tr>
+    <tr>
+      <td><code>Status</code></td>
+      <td class="center tick">✓</td><td class="center tick">✓</td><td class="center tick">✓</td><td class="center tick">✓</td>
+    </tr>
+    <tr>
+      <td><code>Issue Type</code></td>
+      <td class="center blob">blob</td><td class="center blob">blob</td><td class="center tick">✓ (type bucketing)</td><td class="center dash">—</td>
+    </tr>
+    <tr>
+      <td><code>Assignee</code></td>
+      <td class="center dash">—</td><td class="center tick">✓ exclusion filter</td><td class="center dash">—</td><td class="center tick">✓ exclusion filter</td>
+    </tr>
+    <tr>
+      <td><code>Epic Link</code></td>
+      <td class="center blob">blob</td><td class="center tick">✓ required*</td><td class="center tick">✓ required*</td><td class="center dash">—</td>
+    </tr>
+    <tr>
+      <td><code>Epic Name</code></td>
+      <td class="center blob">blob</td><td class="center blob">blob</td><td class="center blob">blob</td><td class="center tick">✓ display</td>
+    </tr>
+    <tr>
+      <td><code>Labels</code></td>
+      <td class="center blob">blob</td><td class="center blob">blob</td><td class="center blob">blob</td><td class="center dash">—</td>
+    </tr>
+    <tr>
+      <td><code>Components</code></td>
+      <td class="center blob">blob</td><td class="center blob">blob</td><td class="center blob">blob</td><td class="center dash">—</td>
+    </tr>
+    <tr>
+      <td><code>Sprint</code></td>
+      <td class="center tick">✓ date filter</td><td class="center tick">✓ sprint filter</td><td class="center tick">✓ past/future bucketing</td><td class="center tick">✓ sprint filter</td>
+    </tr>
+    <tr>
+      <td><code>Story Points</code></td>
+      <td class="center dash">—</td><td class="center tick">✓ MTL metrics</td><td class="center tick">✓ display</td><td class="center tick">✓ plan vs. actual</td>
+    </tr>
+    <tr>
+      <td><code>Created</code></td>
+      <td class="center dash">—</td><td class="center tick">✓</td><td class="center dash">—</td><td class="center dash">—</td>
+    </tr>
+    <tr>
+      <td><code>Updated</code></td>
+      <td class="center tick">✓ date filter</td><td class="center tick">✓</td><td class="center tick">✓ month filter</td><td class="center dash">—</td>
+    </tr>
+    <tr>
+      <td><code>Resolved</code></td>
+      <td class="center dash">—</td><td class="center tick">✓</td><td class="center tick">✓ month filter</td><td class="center tick">✓ completion date</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="note"><strong>blob</strong> = included in <code>match_blob</code> for topic keyword matching, not read as a standalone value.<br>
+* EOS and PMR exclude tickets with no <code>Epic Link</code> from slide content.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>4 · Spin Plan — Separate CSV Format</h2>
+<p class="note">The Spin/Roadmap report uses a <strong>Jira Plans export</strong>, not the standard issues CSV. When both are loaded, the issues CSV overlays live status, points, resolved date, and sprints onto the Spin records by key match.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Spin CSV Column</th>
+      <th>Used As</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>Key</code></td><td>Ticket key</td></tr>
+    <tr><td><code>Summary</code></td><td>Title</td></tr>
+    <tr><td><code>Status</code></td><td>Status</td></tr>
+    <tr><td><code>Story point estimate</code> / points column</td><td>Points</td></tr>
+    <tr><td><code>Target end</code></td><td>Target end date</td></tr>
+    <tr><td><code>Sprint</code></td><td>Sprint name</td></tr>
+    <tr><td><code>Resolved</code></td><td>Resolved date</td></tr>
+  </tbody>
+</table>
+
+<div class="footer">ReportSuite v10.7 &nbsp;·&nbsp; 2026-06-01</div>
+</body>
+</html>
