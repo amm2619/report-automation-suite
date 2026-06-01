@@ -10,22 +10,24 @@ const PROJ_COLOR  = { DX: '#06b6d4', LX: '#7c3aed', RC: '#f97316' };
 
 const DEFAULT_STATE = {
   config: {
-    jiraUrl:              '',
-    resolutions:          [...DATA.DEFAULT_RESOLUTIONS],
-    sprintDuration:       14,     // calendar days
-    sprintStart:          '',     // ISO date of first sprint
-    futureCount:          4,      // sprints to show
+    jiraUrl:         '',
+    resolutions:     [...DATA.DEFAULT_RESOLUTIONS],
+    // Explicit (locked) sprints — each has its own start/end dates.
+    // Auto-generated sprints are appended after the last locked one.
+    sprints:         [],   // [{ id, start, end }]
+    defaultDuration: 14,   // calendar days for auto-generated sprints
+    futureCount:     4,    // how many auto sprints to show after last locked one
   },
-  people:            [],          // { id, name, sid, type, project, goalPoints }
-  historical:        [],          // raw ticket objects from historical CSV
-  leave:             [],          // { sid, date, halfDay, summary }
-  leaveHalfDay:      false,       // global toggle; re-applied on next iCal import
-  backlog:           [],          // ticket objects from sprint CSV
-  assignments:       {},          // key → { personId, wfh, sprintIdx }
+  people:            [],   // { id, name, sid, type, project, goalPoints }
+  historical:        [],   // raw ticket objects from historical CSV
+  leave:             [],   // { sid, date, halfDay, summary }
+  leaveHalfDay:      false,
+  backlog:           [],   // ticket objects from sprint CSV
+  assignments:       {},   // key → { personId, wfh, sprintIdx }
   view: {
-    section:   'planner',         // 'planner' | 'team' | 'history' | 'settings'
+    section:   'planner',  // 'planner' | 'team' | 'history' | 'settings'
     sprintIdx: 0,
-    mode:      'single',          // 'single' | 'multi'
+    mode:      'single',   // 'single' | 'multi'
   },
 };
 
@@ -64,8 +66,46 @@ function getVelocity() {
 }
 
 function getSprints() {
-  if (!S.config.sprintStart) return [];
-  return DATA.generateSprints(S.config.sprintStart, S.config.sprintDuration, S.config.futureCount);
+  // Build locked sprints (explicit entries in config, sorted by start)
+  const locked = (S.config.sprints || [])
+    .slice()
+    .sort((a, b) => a.start.localeCompare(b.start))
+    .map((sp, i) => ({
+      idx:      i,
+      start:    sp.start,
+      end:      sp.end,
+      workDays: HOLIDAYS.workDays(sp.start, sp.end),
+      holidays: HOLIDAYS.inRange(sp.start, sp.end),
+      locked:   true,
+      id:       sp.id,
+    }));
+
+  if (!locked.length) return [];
+
+  // Auto-generate future sprints after the last locked one
+  const dur       = S.config.defaultDuration || 14;
+  const autoCount = S.config.futureCount ?? 4;
+  let cursor = new Date(locked[locked.length - 1].end + 'T00:00:00');
+  cursor.setDate(cursor.getDate() + 1);
+
+  const all = [...locked];
+  for (let i = 0; i < autoCount; i++) {
+    const s   = cursor.toISOString().slice(0, 10);
+    const end = new Date(cursor);
+    end.setDate(end.getDate() + dur - 1);
+    const e   = end.toISOString().slice(0, 10);
+    all.push({
+      idx:      all.length,
+      start:    s,
+      end:      e,
+      workDays: HOLIDAYS.workDays(s, e),
+      holidays: HOLIDAYS.inRange(s, e),
+      locked:   false,
+    });
+    cursor = new Date(end);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return all;
 }
 
 function currentSprint() {
@@ -286,19 +326,66 @@ function moveToSprint(key, sprintIdx) {
   renderPlanner();
 }
 
+// ─── SPRINT MANAGEMENT ───────────────────────────────────────────────────────
+
+function addSprint() {
+  const startEl = document.getElementById('asd-start');
+  const durEl   = document.getElementById('asd-dur');
+  const start   = startEl.value;
+  const dur     = parseInt(durEl.value, 10) || 14;
+  if (!start) { toast('Enter a start date for the sprint.', 'error'); return; }
+
+  const endD = new Date(start + 'T00:00:00');
+  endD.setDate(endD.getDate() + dur - 1);
+  const end = endD.toISOString().slice(0, 10);
+
+  // Check for overlap with existing locked sprints
+  const existing = S.config.sprints || [];
+  const overlaps = existing.some(sp => sp.start <= end && sp.end >= start);
+  if (overlaps) { toast('This sprint overlaps an existing locked sprint.', 'error'); return; }
+
+  if (!S.config.sprints) S.config.sprints = [];
+  S.config.sprints.push({ id: uid(), start, end });
+  S.config.sprints.sort((a, b) => a.start.localeCompare(b.start));
+  save();
+
+  // Pre-fill next suggested start
+  const next = new Date(end + 'T00:00:00');
+  next.setDate(next.getDate() + 1);
+  startEl.value = next.toISOString().slice(0, 10);
+  renderSettings();
+}
+
+function removeSprint(id) {
+  S.config.sprints = (S.config.sprints || []).filter(sp => sp.id !== id);
+  save();
+  renderSettings();
+}
+
+// Lock an auto-generated sprint by converting it to an explicit locked sprint
+function lockAutoSprint(idx) {
+  const sp = getSprints()[idx];
+  if (!sp || sp.locked) return;
+  if (!S.config.sprints) S.config.sprints = [];
+  S.config.sprints.push({ id: uid(), start: sp.start, end: sp.end });
+  S.config.sprints.sort((a, b) => a.start.localeCompare(b.start));
+  save();
+  renderSettings();
+  renderPlanner();
+}
+
 // ─── SETTINGS SAVE ────────────────────────────────────────────────────────────
 
 function saveSettings() {
-  S.config.jiraUrl        = document.getElementById('cfg-jira').value.trim();
-  S.config.sprintStart    = document.getElementById('cfg-start').value;
-  S.config.sprintDuration = parseInt(document.getElementById('cfg-dur').value,10) || 14;
-  S.config.futureCount    = parseInt(document.getElementById('cfg-future').value,10) || 4;
+  S.config.jiraUrl         = document.getElementById('cfg-jira').value.trim();
+  S.config.defaultDuration = parseInt(document.getElementById('cfg-dur').value, 10) || 14;
+  S.config.futureCount     = parseInt(document.getElementById('cfg-future').value, 10) ?? 4;
   // Resolutions: read the checkboxes + custom textarea
-  const checked  = [...document.querySelectorAll('#cfg-res-list input:checked')].map(el=>el.value);
-  const custom   = (document.getElementById('cfg-res-custom').value||'').split(',').map(s=>s.trim()).filter(Boolean);
-  S.config.resolutions = [...new Set([...checked,...custom])];
+  const checked = [...document.querySelectorAll('#cfg-res-list input:checked')].map(el => el.value);
+  const custom  = (document.getElementById('cfg-res-custom').value || '').split(',').map(s => s.trim()).filter(Boolean);
+  S.config.resolutions = [...new Set([...checked, ...custom])];
   save();
-  toast('Settings saved.','success');
+  toast('Settings saved.', 'success');
   renderApp();
 }
 
@@ -341,38 +428,69 @@ function renderApp() {
 
 function renderSettings() {
   const c = S.config;
-  document.getElementById('cfg-jira').value   = c.jiraUrl || '';
-  document.getElementById('cfg-start').value  = c.sprintStart || '';
-  document.getElementById('cfg-dur').value    = c.sprintDuration || 14;
-  document.getElementById('cfg-future').value = c.futureCount || 4;
+  document.getElementById('cfg-jira').value    = c.jiraUrl || '';
+  document.getElementById('cfg-dur').value     = c.defaultDuration || 14;
+  document.getElementById('cfg-future').value  = c.futureCount ?? 4;
+
+  // Locked sprint list
+  const sprintList = document.getElementById('cfg-sprint-list');
+  const locked     = (S.config.sprints || []).slice().sort((a, b) => a.start.localeCompare(b.start));
+  if (locked.length) {
+    sprintList.innerHTML = locked.map((sp, i) => {
+      const dur = Math.round((new Date(sp.end + 'T00:00:00') - new Date(sp.start + 'T00:00:00')) / 86400000) + 1;
+      const wd  = HOLIDAYS.workDays(sp.start, sp.end);
+      return `<div class="sprint-list-item">
+        <span class="sli-lock">🔒</span>
+        <span class="sli-num">Sprint ${i + 1}</span>
+        <span class="sli-dates">${fmtDate(sp.start)} – ${fmtDate(sp.end)}</span>
+        <span class="sli-meta">${dur} cal days · ${wd} work days</span>
+        <button class="act-btn danger sm" onclick="removeSprint('${sp.id}')" title="Remove">✕</button>
+      </div>`;
+    }).join('');
+  } else {
+    sprintList.innerHTML = '<p class="preview-hint" style="padding:6px 0">No locked sprints yet. Add one below.</p>';
+  }
+
+  // Suggest next start date (day after last locked sprint end, or today)
+  const asdStart = document.getElementById('asd-start');
+  if (!asdStart.value) {
+    if (locked.length) {
+      const last = new Date(locked[locked.length - 1].end + 'T00:00:00');
+      last.setDate(last.getDate() + 1);
+      asdStart.value = last.toISOString().slice(0, 10);
+    } else {
+      asdStart.value = new Date().toISOString().slice(0, 10);
+    }
+    document.getElementById('asd-dur').value = c.defaultDuration || 14;
+  }
 
   // Resolution checkboxes
-  const ALL_RES = ['Done','Fixed','Resolved','Completed','Complete','Closed','Won\'t Fix','Cannot Reproduce'];
-  const container = document.getElementById('cfg-res-list');
-  container.innerHTML = ALL_RES.map(r => {
+  const ALL_RES = ['Done', 'Fixed', 'Resolved', 'Completed', 'Complete', 'Closed', "Won't Fix", 'Cannot Reproduce'];
+  document.getElementById('cfg-res-list').innerHTML = ALL_RES.map(r => {
     const chk = S.config.resolutions.includes(r) ? 'checked' : '';
-    return `<label class="res-item">
-      <input type="checkbox" value="${esc(r)}" ${chk}> ${esc(r)}
-    </label>`;
+    return `<label class="res-item"><input type="checkbox" value="${esc(r)}" ${chk}> ${esc(r)}</label>`;
   }).join('');
-
-  // Custom resolutions (those not in the known list)
   const custom = S.config.resolutions.filter(r => !ALL_RES.includes(r));
   document.getElementById('cfg-res-custom').value = custom.join(', ');
 
-  // Show generated sprint schedule preview
+  // Sprint calendar preview (locked + auto)
   const sprints = getSprints();
   const preview = document.getElementById('sprint-preview');
   if (!sprints.length) {
-    preview.innerHTML = '<p class="preview-hint">Set a start date above to preview the sprint calendar.</p>';
+    preview.innerHTML = '<p class="preview-hint">Add a locked sprint above to start the calendar.</p>';
   } else {
-    preview.innerHTML = sprints.map((sp,i) => {
-      const hl = sp.holidays.map(h=>`<span class="holiday-chip">${esc(h.name)}</span>`).join('');
-      return `<div class="sp-row">
-        <span class="sp-num">Sprint ${i+1}</span>
+    preview.innerHTML = sprints.map((sp, i) => {
+      const hl      = sp.holidays.map(h => `<span class="holiday-chip">${esc(h.name)}</span>`).join('');
+      const lockBtn = sp.locked
+        ? ''
+        : `<button class="act-btn sm" onclick="lockAutoSprint(${i})" title="Lock this sprint's dates">Lock</button>`;
+      return `<div class="sp-row${sp.locked ? '' : ' sp-row-auto'}">
+        <span class="sli-lock">${sp.locked ? '🔒' : '⋯'}</span>
+        <span class="sp-num">Sprint ${i + 1}</span>
         <span class="sp-dates">${fmtDate(sp.start)} – ${fmtDate(sp.end)}</span>
         <span class="sp-wd">${sp.workDays} work days</span>
         ${hl}
+        ${lockBtn}
       </div>`;
     }).join('');
   }
@@ -484,15 +602,17 @@ function renderPlanner() {
   const sprints = getSprints();
   if (!sprints.length) {
     document.getElementById('planner-content').innerHTML =
-      '<p class="empty-hint">Configure a sprint start date in Settings first.</p>';
+      '<p class="empty-hint">Add a locked sprint in Settings to get started.</p>';
     return;
   }
 
   // Sprint tabs
   const tabsEl = document.getElementById('sprint-tabs');
-  tabsEl.innerHTML = sprints.map((sp,i) =>
-    `<button class="sp-tab${i===S.view.sprintIdx?' active':''}" onclick="selectSprint(${i})">
-      Sprint ${i+1} <span class="sp-tab-dates">${sp.start.slice(5)}</span>
+  tabsEl.innerHTML = sprints.map((sp, i) =>
+    `<button class="sp-tab${i === S.view.sprintIdx ? ' active' : ''}${sp.locked ? ' locked' : ''}"
+             onclick="selectSprint(${i})">
+      ${sp.locked ? '<span class="tab-lock">🔒</span>' : ''}Sprint ${i + 1}
+      <span class="sp-tab-dates">${sp.start.slice(5)}</span>
     </button>`
   ).join('');
 
@@ -523,9 +643,13 @@ function renderSingleSprint(sp) {
   const container = document.getElementById('planner-content');
 
   // Sprint header bar
-  const holidays = sp.holidays.map(h=>`<span class="holiday-chip">${esc(h.name)}</span>`).join('');
+  const holidays  = sp.holidays.map(h => `<span class="holiday-chip">${esc(h.name)}</span>`).join('');
+  const lockBadge = sp.locked
+    ? '<span class="locked-badge">🔒 Locked</span>'
+    : `<button class="btn btn-sm" onclick="lockAutoSprint(${sp.idx})" title="Lock this sprint's dates so they don't shift when you change the default duration">Lock Sprint</button>`;
   const spHeader = `<div class="sp-header">
     <div class="sp-hd-left">
+      ${lockBadge}
       <span class="sp-label">${fmtDate(sp.start)} – ${fmtDate(sp.end)}</span>
       <span class="sp-wd-badge">${sp.workDays} work days</span>
       ${holidays}

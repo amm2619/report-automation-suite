@@ -115,26 +115,50 @@
 
         <div class="settings-group">
           <div class="settings-group-title">Sprint Calendar</div>
+
+          <!-- Locked sprint list -->
+          <div class="cfg-row">
+            <label class="cfg-label">Locked sprints
+              <span class="cfg-hint" style="font-weight:400;margin-left:6px">Dates are fixed regardless of default duration</span>
+            </label>
+            <div id="cfg-sprint-list"></div>
+          </div>
+
+          <!-- Add sprint form -->
+          <div class="cfg-row">
+            <label class="cfg-label">Add a locked sprint</label>
+            <div class="add-sprint-row">
+              <div class="add-sprint-field">
+                <label class="cfg-hint">Start date</label>
+                <input class="cfg-input" type="date" id="asd-start">
+              </div>
+              <div class="add-sprint-field">
+                <label class="cfg-hint">Duration (calendar days)</label>
+                <input class="cfg-input" type="number" id="asd-dur" min="1" max="90" value="14"
+                       style="width:90px">
+              </div>
+              <button type="button" class="btn btn-prime btn-sm" onclick="addSprint()"
+                      style="align-self:flex-end">+ Add Sprint</button>
+            </div>
+          </div>
+
+          <!-- Auto sprint config -->
           <div class="cfg-row-inline">
             <div class="cfg-row" style="margin-bottom:0">
-              <label class="cfg-label">First sprint start date</label>
-              <input class="cfg-input" type="date" id="cfg-start">
+              <label class="cfg-label">Default duration for auto sprints (days)</label>
+              <input class="cfg-input" type="number" id="cfg-dur" min="1" max="90" value="14">
+              <div class="cfg-hint">Applied to sprints after the last locked one</div>
             </div>
             <div class="cfg-row" style="margin-bottom:0">
-              <label class="cfg-label">Sprint duration (calendar days)</label>
-              <input class="cfg-input" type="number" id="cfg-dur" min="7" max="60" value="14">
+              <label class="cfg-label">Auto sprints to show after last locked</label>
+              <input class="cfg-input" type="number" id="cfg-future" min="0" max="12" value="4">
             </div>
           </div>
-          <div class="cfg-row">
-            <label class="cfg-label">Number of future sprints to show</label>
-            <input class="cfg-input" type="number" id="cfg-future" min="1" max="12" value="4"
-                   style="max-width:120px">
-          </div>
-          <div class="cfg-row" style="margin-bottom:0">
-            <label class="cfg-label">Sprint calendar preview</label>
-            <div id="sprint-preview" class="sprint-preview">
-              <p class="preview-hint">Set a start date above to preview the sprint calendar.</p>
-            </div>
+
+          <!-- Full calendar preview -->
+          <div class="cfg-row" style="margin-bottom:0;margin-top:10px">
+            <label class="cfg-label">Full sprint calendar preview</label>
+            <div id="sprint-preview" class="sprint-preview"></div>
           </div>
         </div>
 

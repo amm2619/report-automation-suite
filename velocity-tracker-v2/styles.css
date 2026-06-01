@@ -723,6 +723,53 @@ input, button, select, textarea { font-family: inherit; }
 .sp-dates { color: var(--muted); flex: 1; }
 .sp-wd    { font-size: 0.72rem; color: var(--dim); }
 
+/* Sprint management (settings) */
+.sprint-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  flex-wrap: wrap;
+}
+.sli-lock  { font-size: 0.75rem; flex-shrink: 0; }
+.sli-num   { font-weight: 700; min-width: 56px; }
+.sli-dates { color: var(--text); flex: 1; }
+.sli-meta  { font-size: 0.72rem; color: var(--dim); }
+
+.add-sprint-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.add-sprint-field { display: flex; flex-direction: column; gap: 4px; }
+
+/* Preview row variants */
+.sp-row-auto { opacity: 0.7; }
+
+/* Lock badge inside sprint header */
+.locked-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--green);
+  background: var(--green)15;
+  border: 1px solid var(--green)44;
+  border-radius: 10px;
+  padding: 2px 9px;
+}
+
+/* Tab lock icon */
+.tab-lock { font-size: 0.62rem; margin-right: 1px; }
+
 /* Holiday chips */
 .holiday-chip {
   font-size: 0.65rem;
