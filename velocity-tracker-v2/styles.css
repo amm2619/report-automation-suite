@@ -682,8 +682,15 @@ input, button, select, textarea { font-family: inherit; }
   color: var(--text);
   font-size: 0.83rem;
   transition: border-color 0.15s;
+  color-scheme: dark;
 }
 .cfg-input:focus { outline: none; border-color: var(--lx); }
+.cfg-input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+  opacity: 0.6;
+}
+.cfg-input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 
 /* Resolution list */
 .res-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px; }
@@ -915,6 +922,7 @@ input, button, select, textarea { font-family: inherit; }
   color: var(--text);
   font-size: 0.83rem;
   transition: border-color 0.15s;
+  color-scheme: dark;
 }
 .form-input:focus { outline: none; border-color: var(--lx); }
 
