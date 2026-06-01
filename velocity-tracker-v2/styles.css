@@ -645,10 +645,20 @@ input, button, select, textarea { font-family: inherit; }
 /* ── Settings ────────────────────────────────────────────────────────────── */
 .settings-body {
   padding: 20px;
-  max-width: 680px;
+  max-width: 1280px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.settings-col {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0;
+}
+@media (max-width: 960px) {
+  .settings-body { grid-template-columns: 1fr; }
 }
 .settings-group {
   background: var(--surf1);

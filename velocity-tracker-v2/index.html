@@ -104,72 +104,78 @@
       </div>
       <div class="settings-body">
 
-        <div class="settings-group">
-          <div class="settings-group-title">Jira Integration</div>
-          <div class="cfg-row">
-            <label class="cfg-label">Jira Base URL</label>
-            <input class="cfg-input" type="url" id="cfg-jira"
-                   placeholder="https://your-org.atlassian.net">
-            <div class="cfg-hint">Ticket keys become clickable links to Jira.</div>
+        <!-- ── Left column: sprint calendar (tallest group) ──────────── -->
+        <div class="settings-col">
+          <div class="settings-group">
+            <div class="settings-group-title">Sprint Calendar</div>
+
+            <!-- Locked sprint list -->
+            <div class="cfg-row">
+              <label class="cfg-label">Locked sprints
+                <span class="cfg-hint" style="font-weight:400;margin-left:6px">Dates are fixed regardless of default duration</span>
+              </label>
+              <div id="cfg-sprint-list"></div>
+            </div>
+
+            <!-- Add sprint form -->
+            <div class="cfg-row">
+              <label class="cfg-label">Add a locked sprint</label>
+              <div class="add-sprint-row">
+                <div class="add-sprint-field">
+                  <label class="cfg-hint">Start date</label>
+                  <input class="cfg-input" type="date" id="asd-start">
+                </div>
+                <div class="add-sprint-field">
+                  <label class="cfg-hint">Duration (calendar days)</label>
+                  <input class="cfg-input" type="number" id="asd-dur" min="1" max="90" value="14"
+                         style="width:90px">
+                </div>
+                <button type="button" class="btn btn-prime btn-sm" onclick="addSprint()"
+                        style="align-self:flex-end">+ Add Sprint</button>
+              </div>
+            </div>
+
+            <!-- Hidden inputs kept for saveSettings() state compatibility -->
+            <input type="hidden" id="cfg-dur" value="14">
+            <input type="hidden" id="cfg-future" value="0">
           </div>
         </div>
 
-        <div class="settings-group">
-          <div class="settings-group-title">Sprint Calendar</div>
-
-          <!-- Locked sprint list -->
-          <div class="cfg-row">
-            <label class="cfg-label">Locked sprints
-              <span class="cfg-hint" style="font-weight:400;margin-left:6px">Dates are fixed regardless of default duration</span>
-            </label>
-            <div id="cfg-sprint-list"></div>
-          </div>
-
-          <!-- Add sprint form -->
-          <div class="cfg-row">
-            <label class="cfg-label">Add a locked sprint</label>
-            <div class="add-sprint-row">
-              <div class="add-sprint-field">
-                <label class="cfg-hint">Start date</label>
-                <input class="cfg-input" type="date" id="asd-start">
-              </div>
-              <div class="add-sprint-field">
-                <label class="cfg-hint">Duration (calendar days)</label>
-                <input class="cfg-input" type="number" id="asd-dur" min="1" max="90" value="14"
-                       style="width:90px">
-              </div>
-              <button type="button" class="btn btn-prime btn-sm" onclick="addSprint()"
-                      style="align-self:flex-end">+ Add Sprint</button>
+        <!-- ── Right column: jira, resolutions, leave ────────────────── -->
+        <div class="settings-col">
+          <div class="settings-group">
+            <div class="settings-group-title">Jira Integration</div>
+            <div class="cfg-row" style="margin-bottom:0">
+              <label class="cfg-label">Jira Base URL</label>
+              <input class="cfg-input" type="url" id="cfg-jira"
+                     placeholder="https://your-org.atlassian.net">
+              <div class="cfg-hint">Ticket keys become clickable links to Jira.</div>
             </div>
           </div>
 
-          <!-- Hidden inputs kept for saveSettings() state compatibility -->
-          <input type="hidden" id="cfg-dur" value="14">
-          <input type="hidden" id="cfg-future" value="0">
-        </div>
-
-        <div class="settings-group">
-          <div class="settings-group-title">Done Resolutions</div>
-          <div class="cfg-row">
-            <label class="cfg-label">Tickets with these resolutions count as completed</label>
-            <div id="cfg-res-list" class="res-list"></div>
+          <div class="settings-group">
+            <div class="settings-group-title">Done Resolutions</div>
+            <div class="cfg-row">
+              <label class="cfg-label">Tickets with these resolutions count as completed</label>
+              <div id="cfg-res-list" class="res-list"></div>
+            </div>
+            <div class="cfg-row" style="margin-bottom:0">
+              <label class="cfg-label">Additional resolutions (comma-separated)</label>
+              <input class="cfg-input" type="text" id="cfg-res-custom"
+                     placeholder="e.g. Accepted, Released">
+            </div>
           </div>
-          <div class="cfg-row" style="margin-bottom:0">
-            <label class="cfg-label">Additional resolutions (comma-separated)</label>
-            <input class="cfg-input" type="text" id="cfg-res-custom"
-                   placeholder="e.g. Accepted, Released">
-          </div>
-        </div>
 
-        <div class="settings-group">
-          <div class="settings-group-title">Leave Import Options</div>
-          <div class="cfg-row" style="margin-bottom:0">
-            <label class="cfg-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
-              <input type="checkbox" id="cfg-half-day"
-                     onchange="S.leaveHalfDay=this.checked;save()">
-              Treat imported iCal events as half days (0.5 day each)
-            </label>
-            <div class="cfg-hint">Toggle before importing. Re-import to update existing leave records.</div>
+          <div class="settings-group">
+            <div class="settings-group-title">Leave Import Options</div>
+            <div class="cfg-row" style="margin-bottom:0">
+              <label class="cfg-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="cfg-half-day"
+                       onchange="S.leaveHalfDay=this.checked;save()">
+                Treat imported iCal events as half days (0.5 day each)
+              </label>
+              <div class="cfg-hint">Toggle before importing. Re-import to update existing leave records.</div>
+            </div>
           </div>
         </div>
 
