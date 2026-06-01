@@ -2,25 +2,31 @@
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'vt2.v1';
-const PROJECTS    = ['DX', 'LX', 'RC', 'AFX'];
-const ALL_TABS    = ['All', ...PROJECTS];
-
-const PROJ_COLOR = {
-  DX:  '#06b6d4',
-  LX:  '#7c3aed',
-  RC:  '#f97316',
-  AFX: '#ec4899',
-  All: '#a78bfa',
-};
+const STORAGE_KEY = 'vp2.v1';
+const PROJECTS    = ['DX', 'LX', 'RC'];
+const PROJ_COLOR  = { DX: '#06b6d4', LX: '#7c3aed', RC: '#f97316' };
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-const DEFAULT = {
-  tickets: [],
-  manual: {},        // sprintName → { name, start, end, plan:{}, comp:{} }
-  config: { jiraUrl: '' },
-  view: { project: 'All', metric: 'points' },
+const DEFAULT_STATE = {
+  config: {
+    jiraUrl:              '',
+    resolutions:          [...DATA.DEFAULT_RESOLUTIONS],
+    sprintDuration:       14,     // calendar days
+    sprintStart:          '',     // ISO date of first sprint
+    futureCount:          4,      // sprints to show
+  },
+  people:            [],          // { id, name, sid, type, project, goalPoints }
+  historical:        [],          // raw ticket objects from historical CSV
+  leave:             [],          // { sid, date, halfDay, summary }
+  leaveHalfDay:      false,       // global toggle; re-applied on next iCal import
+  backlog:           [],          // ticket objects from sprint CSV
+  assignments:       {},          // key → { personId, wfh, sprintIdx }
+  view: {
+    section:   'planner',         // 'planner' | 'team' | 'history' | 'settings'
+    sprintIdx: 0,
+    mode:      'single',          // 'single' | 'multi'
+  },
 };
 
 let S = loadState();
@@ -28,665 +34,716 @@ let S = loadState();
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return clone(DEFAULT);
-    return Object.assign(clone(DEFAULT), JSON.parse(raw));
-  } catch (_) {
-    return clone(DEFAULT);
-  }
+    if (!raw) return deepClone(DEFAULT_STATE);
+    return deepMerge(deepClone(DEFAULT_STATE), JSON.parse(raw));
+  } catch (_) { return deepClone(DEFAULT_STATE); }
 }
 
-function saveState() {
+function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(S));
 }
 
-function clone(o) {
-  return JSON.parse(JSON.stringify(o));
-}
-
-// ─── CSV parsing ──────────────────────────────────────────────────────────────
-
-function parseCSV(text) {
-  const lines = text.split(/\r?\n/);
-  if (!lines.length) return [];
-  const first   = lines[0] || '';
-  const tabs    = (first.match(/\t/g)  || []).length;
-  const commas  = (first.match(/,/g)   || []).length;
-  const delim   = tabs > commas ? '\t' : ',';
-  const re      = delim === '\t'
-    ? /("(?:[^"]|"")*"|[^\t]*)\t?/g
-    : /("(?:[^"]|"")*"|[^,]*),?/g;
-
-  function parseLine(line) {
-    const out = [];
-    const rx  = new RegExp(re.source, 'g');
-    let m;
-    while ((m = rx.exec(line)) !== null) {
-      if (m.index === rx.lastIndex) { rx.lastIndex++; break; }
-      let v = m[1];
-      if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1).replace(/""/g, '"');
-      out.push(v);
-    }
-    return out;
-  }
-
-  const seen = {};
-  const headers = parseLine(lines[0]).map(h => {
-    const k = h.trim();
-    if (seen[k] === undefined) { seen[k] = 0; return k; }
-    return `${k}.${++seen[k]}`;
-  });
-
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const vals = parseLine(lines[i]);
-    const row  = {};
-    headers.forEach((h, j) => { row[h] = (vals[j] || '').trim(); });
-    rows.push(row);
-  }
-  return rows;
-}
-
-function resolveField(row, name) {
-  if (row[name] !== undefined) return row[name] || '';
-  const tries = [
-    `Custom field (${name})`,
-    `customfield_${name}`,
-    name.replace(/ /g, '_'),
-    name.toLowerCase(),
-  ];
-  for (const t of tries) {
-    if (row[t] !== undefined) return row[t] || '';
-  }
-  const lower = name.toLowerCase();
-  for (const k of Object.keys(row)) {
-    if (k.toLowerCase().includes(lower)) return row[k] || '';
-  }
-  return '';
-}
-
-function normSprint(raw) {
-  if (!raw) return '';
-  let s = raw.trim();
-  const blob = s.match(/\bname=([^,\]]+)/i);
-  if (blob) s = blob[1].trim();
-  s = s.replace(/\s*\[EXT\](?:\[COMPLETED\])?/gi, '').trim();
-  const num = s.match(/(\d{2,4}\.\d+\.\d+)/);
-  return num ? num[1] : s;
-}
-
-function collectSprints(row) {
-  const seen = new Set();
-  const out  = [];
-  for (const [k, v] of Object.entries(row)) {
-    if (!/^sprint(\.\d+)?$/i.test(k.trim()) || !v) continue;
-    for (const part of String(v).split(/\s*\+\s*/)) {
-      const n = normSprint(part);
-      if (n && !seen.has(n)) { seen.add(n); out.push(n); }
-    }
+function deepClone(o)        { return JSON.parse(JSON.stringify(o)); }
+function deepMerge(base, src) {
+  if (typeof src !== 'object' || src === null) return src;
+  const out = { ...base };
+  for (const k of Object.keys(src)) {
+    out[k] = (typeof src[k] === 'object' && !Array.isArray(src[k]) && src[k] !== null)
+      ? deepMerge(base[k] || {}, src[k])
+      : src[k];
   }
   return out;
 }
 
-function bucketProject(key) {
-  const m = (key || '').match(/^([A-Z]+)/);
-  if (!m) return '';
-  return m[1] === 'RCR' ? 'RC' : m[1];
+// ─── Derived data helpers ─────────────────────────────────────────────────────
+
+function getVelocity() {
+  const projMap = {};
+  S.people.forEach(p => { if (p.project) projMap[p.name] = p.project; });
+  return DATA.computeVelocity(S.historical, S.config.resolutions, projMap);
 }
 
-function parsePoints(row) {
-  const raw = resolveField(row, 'Story Points') || resolveField(row, 'Story point estimate') || '0';
-  return parseFloat(raw) || 0;
+function getSprints() {
+  if (!S.config.sprintStart) return [];
+  return DATA.generateSprints(S.config.sprintStart, S.config.sprintDuration, S.config.futureCount);
 }
 
-const DONE_SET = new Set(['done', 'closed', 'resolved']);
-const isDone   = status => DONE_SET.has((status || '').toLowerCase().trim());
-
-function buildTicket(row) {
-  const key = (resolveField(row, 'Issue key') || resolveField(row, 'Key') || '').trim();
-  return {
-    key,
-    project: bucketProject(key),
-    sprints: collectSprints(row),
-    points:  parsePoints(row),
-    done:    isDone(resolveField(row, 'Status')),
-  };
+function currentSprint() {
+  const all = getSprints();
+  return all[S.view.sprintIdx] || all[0] || null;
 }
 
-// ─── CSV load ─────────────────────────────────────────────────────────────────
+function personById(id) { return S.people.find(p => p.id === id); }
 
-function loadCSV(text, filename) {
-  const rows = parseCSV(text);
-  if (!rows.length) { showToast('No rows found in CSV.', 'error'); return; }
-
-  const hasSprintCol = rows.some(r =>
-    Object.keys(r).some(k => /^sprint(\.\d+)?$/i.test(k.trim()))
-  );
-  if (!hasSprintCol) {
-    showToast('No Sprint column found — make sure your Jira export includes Sprint.', 'error');
-    return;
-  }
-
-  const tickets = rows
-    .map(buildTicket)
-    .filter(t => t.key && t.sprints.length && PROJECTS.includes(t.project));
-
-  if (!tickets.length) {
-    showToast('No valid project tickets found. Check Issue Key and Sprint columns.', 'error');
-    return;
-  }
-
-  S.tickets = tickets;
-  saveState();
-  showToast(`Loaded ${tickets.length} tickets from ${filename}`, 'success');
-  render();
-}
-
-// ─── Series computation ───────────────────────────────────────────────────────
-
-function compareSprints(a, b) {
-  const p = s => { const m = s.match(/^(\d+)\.(\d+)\.(\d+)/); return m ? [+m[1],+m[2],+m[3]] : null; };
-  const pa = p(a), pb = p(b);
-  if (pa && pb) {
-    for (let i = 0; i < 3; i++) if (pa[i] !== pb[i]) return pa[i] - pb[i];
-    return 0;
-  }
-  return (pa ? -1 : pb ? 1 : a.localeCompare(b));
-}
-
-function empty() {
-  const o = { All: 0 };
-  PROJECTS.forEach(p => { o[p] = 0; });
-  return o;
-}
-
-function buildSeries() {
-  const names = new Set();
-  S.tickets.forEach(t => t.sprints.forEach(s => names.add(s)));
-  Object.keys(S.manual).forEach(n => names.add(n));
-
-  return [...names].sort(compareSprints).map(name => {
-    const plan  = empty(), comp  = empty();
-    const planN = empty(), compN = empty();
-
-    S.tickets.forEach(t => {
-      if (!t.sprints.includes(name)) return;
-      if (!PROJECTS.includes(t.project)) return;
-      const p = t.project;
-      plan[p]  += t.points; plan.All  += t.points; planN[p]++; planN.All++;
-      if (t.done) { comp[p] += t.points; comp.All += t.points; compN[p]++; compN.All++; }
-    });
-
-    const m = S.manual[name];
-    let start = '', end = '';
-    if (m) {
-      start = m.start || '';
-      end   = m.end   || '';
-      PROJECTS.forEach(p => {
-        if (m.plan?.[p] !== undefined) plan[p]  = m.plan[p];
-        if (m.comp?.[p] !== undefined) comp[p]  = m.comp[p];
-      });
-      plan.All = PROJECTS.reduce((s, p) => s + plan[p], 0);
-      comp.All = PROJECTS.reduce((s, p) => s + comp[p], 0);
-    }
-    return { name, start, end, plan, comp, planN, compN };
+function assignedTickets(personId, sprintIdx) {
+  return S.backlog.filter(t => {
+    const a = S.assignments[t.key];
+    return a && a.personId === personId && (sprintIdx === undefined || a.sprintIdx === sprintIdx);
   });
 }
 
-function statsFor(series, project, metric) {
-  const pk = metric === 'count' ? 'planN' : 'plan';
-  const ck = metric === 'count' ? 'compN' : 'comp';
-  const committed = series.map(s => s[pk][project] || 0);
-  const completed = series.map(s => s[ck][project] || 0);
-  const sum = a => a.reduce((x, y) => x + y, 0);
-  const avg = a => a.length ? sum(a) / a.length : 0;
-  const totC = sum(committed), totD = sum(completed);
-  return {
-    committed, completed,
-    avg:            avg(completed),
-    recent:         avg(completed.slice(-3)),
-    completionRate: totC > 0 ? (totD / totC) * 100 : 0,
-    sprintCount:    series.length,
-    totCommitted:   totC,
-    totCompleted:   totD,
-    max:            Math.max(1, ...committed, ...completed),
-  };
+function unassignedTickets(sprintIdx) {
+  return S.backlog.filter(t => {
+    const a = S.assignments[t.key];
+    return !a || a.sprintIdx !== (sprintIdx === undefined ? S.view.sprintIdx : sprintIdx);
+  });
 }
 
-function rollingAvg(arr, w = 3) {
-  return arr.map((_, i) => {
-    const sl = arr.slice(Math.max(0, i - w + 1), i + 1);
-    return sl.reduce((a, b) => a + b, 0) / sl.length;
-  });
+function personCapacity(person) {
+  const sp = currentSprint();
+  if (!sp) return null;
+  return DATA.computeCapacity(person, sp.start, sp.end, S.leave, getVelocity());
+}
+
+function assignedPts(personId) {
+  const si = S.view.sprintIdx;
+  return assignedTickets(personId, si).reduce((s, t) => {
+    const a = S.assignments[t.key];
+    return s + (a ? (t.points || 0) : 0);
+  }, 0);
+}
+
+function wfhPts(personId) {
+  const si = S.view.sprintIdx;
+  return assignedTickets(personId, si).reduce((s, t) => {
+    const a = S.assignments[t.key];
+    return s + (a && a.wfh ? (t.points || 0) : 0);
+  }, 0);
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
-function esc(s) {
-  return String(s || '').replace(/[&<>"']/g, c =>
-    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]
-  );
-}
-
-function fmt(n, d = 1) {
-  if (typeof n !== 'number' || !isFinite(n)) return '0';
-  return n === Math.floor(n) ? String(n) : n.toFixed(d);
-}
-
-function pctTone(pct) {
-  return pct >= 90 ? 'good' : pct >= 70 ? 'warn' : 'bad';
-}
-
-function uid() {
-  return window.crypto?.randomUUID?.() ?? 'id-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+function esc(s)          { return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+function fmt(n,d=1)      { return typeof n==='number'&&isFinite(n)?(n===Math.floor(n)?String(n):n.toFixed(d)):'0'; }
+function uid()           { return window.crypto?.randomUUID?.() ?? 'id-'+Math.random().toString(36).slice(2)+Date.now().toString(36); }
+function fmtDate(iso)    { if(!iso)return''; const d=new Date(iso+'T00:00:00'); return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+function jiraLink(key)   {
+  const base = (S.config.jiraUrl||'').replace(/\/$/,'');
+  return base ? `<a href="${base}/browse/${esc(key)}" target="_blank" class="ticket-key">${esc(key)}</a>`
+              : `<span class="ticket-key">${esc(key)}</span>`;
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
-function showToast(msg, type = 'info') {
+function toast(msg, type='info') {
   document.querySelector('.toast')?.remove();
-  const el = document.createElement('div');
-  el.className = `toast toast-${type}`;
-  el.textContent = msg;
+  const el = Object.assign(document.createElement('div'), { className:`toast toast-${type}`, textContent:msg });
   document.body.appendChild(el);
-  setTimeout(() => {
-    el.classList.add('fading');
-    setTimeout(() => el.remove(), 280);
-  }, 3200);
+  setTimeout(()=>{ el.classList.add('fading'); setTimeout(()=>el.remove(),280); }, 3400);
 }
 
-// ─── Export / Import ──────────────────────────────────────────────────────────
+// ─── Description panel ────────────────────────────────────────────────────────
 
-function exportJSON() {
-  const blob = new Blob(
-    [JSON.stringify({ tickets: S.tickets, manual: S.manual, config: S.config }, null, 2)],
-    { type: 'application/json' }
-  );
-  const url = URL.createObjectURL(blob);
-  const a   = Object.assign(document.createElement('a'), {
-    href:     url,
-    download: `velocity-${new Date().toISOString().slice(0, 10)}.json`,
-  });
-  a.click();
-  URL.revokeObjectURL(url);
+function openDesc(key) {
+  const t = S.backlog.find(x => x.key === key);
+  if (!t) return;
+  const panel = document.getElementById('desc-panel');
+  document.getElementById('desc-key').innerHTML = jiraLink(key);
+  document.getElementById('desc-summary').textContent = t.summary;
+  document.getElementById('desc-body').textContent = t.description || '(No description)';
+  panel.classList.remove('hidden');
+}
+function closeDesc() { document.getElementById('desc-panel').classList.add('hidden'); }
+
+// ─── Section navigation ───────────────────────────────────────────────────────
+
+function goTo(section) {
+  S.view.section = section;
+  renderApp();
 }
 
-function importJSON(text) {
-  try {
-    const d = JSON.parse(text);
-    if (d.tickets) S.tickets = d.tickets;
-    if (d.manual)  S.manual  = d.manual;
-    if (d.config)  Object.assign(S.config, d.config);
-    saveState();
-    showToast('Data imported.', 'success');
-    render();
-  } catch (_) {
-    showToast('Invalid JSON — check the file and try again.', 'error');
-  }
+// ─── FILE HANDLERS ────────────────────────────────────────────────────────────
+
+function readFile(file, cb) {
+  const r = new FileReader();
+  r.onload = e => cb(e.target.result, file.name);
+  r.readAsText(file);
 }
 
-// ─── Manual sprint CRUD ───────────────────────────────────────────────────────
+function handleHistoricalCSV(text, filename) {
+  const rows    = DATA.parseCSV(text);
+  const tickets = rows.map(DATA.buildTicket).filter(t => t.key && t.sprints.length);
+  if (!tickets.length) { toast('No tickets found in historical CSV.','error'); return; }
 
-function saveManualSprint(data) {
-  S.manual[data.name] = data;
-  saveState();
-  render();
-}
-
-function deleteManualSprint(name) {
-  delete S.manual[name];
-  saveState();
-  render();
-}
-
-// ─── Rendering ────────────────────────────────────────────────────────────────
-
-function hasData() {
-  return S.tickets.length > 0 || Object.keys(S.manual).length > 0;
-}
-
-function render() {
-  const has = hasData();
-  document.getElementById('upload-zone').classList.toggle('hidden', has);
-  document.getElementById('dashboard').classList.toggle('hidden', !has);
-  if (!has) return;
-
-  const series           = buildSeries();
-  const { project, metric } = S.view;
-
-  renderStatsBar(series);
-  renderKPIs(series, project, metric);
-  renderSparkgrid(series, metric);
-  renderChart(series, project, metric);
-  renderTable(series, project, metric);
-  syncActiveStates();
-}
-
-function renderStatsBar(series) {
-  const el   = document.getElementById('stats-bar');
-  const projs = [...new Set(S.tickets.map(t => t.project))].filter(p => PROJECTS.includes(p)).sort();
-  const parts = [];
-  if (S.tickets.length) parts.push(`<strong>${S.tickets.length}</strong> tickets`);
-  const mc = Object.keys(S.manual).length;
-  if (mc) parts.push(`<strong>${mc}</strong> manual sprint${mc !== 1 ? 's' : ''}`);
-  parts.push(`<strong>${series.length}</strong> sprints`);
-  if (projs.length) {
-    parts.push('Projects: ' + projs.map(p =>
-      `<span class="proj-chip" style="color:${PROJ_COLOR[p]}">${p}</span>`
-    ).join(''));
-  }
-  el.innerHTML = parts.join('<span class="sep">·</span>')
-    + '<button class="upload-link" onclick="document.getElementById(\'csv-input\').click()">Upload new CSV</button>';
-}
-
-function renderKPIs(series, project, metric) {
-  const st   = statsFor(series, project, metric);
-  const unit = metric === 'count' ? 'stories' : 'pts';
-  const tone = pctTone(st.completionRate);
-  const items = [
-    { lbl:'Avg Velocity',   val:fmt(st.avg),   unit, sub:'all sprints',       cls:'kpi-1' },
-    { lbl:'Last 3 Sprints', val:fmt(st.recent), unit, sub:'rolling average',  cls:'kpi-2' },
-    { lbl:'Completion',     val:fmt(st.completionRate, 0)+'%', unit:'', sub:'planned vs done', cls:`kpi-3-${tone}` },
-    { lbl:'Sprints',        val:String(st.sprintCount),        unit:'', sub:'tracked total',   cls:'kpi-4' },
-  ];
-  document.getElementById('kpi-row').innerHTML = items.map(it =>
-    `<div class="kpi-card ${it.cls}">
-      <div class="kpi-label">${esc(it.lbl)}</div>
-      <div class="kpi-value">${esc(it.val)}<span class="kpi-unit">${esc(it.unit)}</span></div>
-      <div class="kpi-sub">${esc(it.sub)}</div>
-    </div>`
-  ).join('');
-}
-
-function renderSparkgrid(series, metric) {
-  const ck = metric === 'count' ? 'compN' : 'comp';
-  document.getElementById('sparkgrid').innerHTML = PROJECTS.map(p => {
-    const data   = series.map(s => s[ck][p] || 0);
-    const st     = statsFor(series, p, metric);
-    const color  = PROJ_COLOR[p];
-    const isActive = S.view.project === p;
-    const W = 200, H = 44, pad = 3;
-    const iW = W - pad * 2, iH = H - pad * 2;
-    const mx = Math.max(1, ...data);
-    const step = data.length > 1 ? iW / (data.length - 1) : 0;
-    const pts  = data.map((v, i) =>
-      `${(pad + i * step).toFixed(1)},${(pad + iH - (v / mx) * iH).toFixed(1)}`
-    ).join(' ');
-    const lx = (pad + (data.length - 1) * step).toFixed(1);
-    const ly = (pad + iH - ((data.at(-1) || 0) / mx) * iH).toFixed(1);
-    return `<button class="spark-card${isActive ? ' active' : ''}" data-project="${p}"
-              style="--spark-color:${color}" onclick="setProject('${p}')">
-      <div class="spark-head">
-        <span class="spark-name" style="color:${color}">${esc(p)}</span>
-        <span class="spark-val"  style="color:${color}">${fmt(st.recent)}</span>
-      </div>
-      <svg class="spark-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-        <polyline fill="none" stroke="${color}" stroke-width="2" opacity=".85" points="${pts}"/>
-        <circle cx="${lx}" cy="${ly}" r="3.5" fill="${color}"/>
-      </svg>
-      <div class="spark-foot">avg ${fmt(st.avg)} · ${st.sprintCount} sprint${st.sprintCount !== 1 ? 's' : ''}</div>
-    </button>`;
-  }).join('');
-}
-
-function renderChart(series, project, metric) {
-  const el    = document.getElementById('chart-area');
-  const color = PROJ_COLOR[project];
-
-  document.getElementById('chart-dot').style.background = color;
-  document.getElementById('chart-proj-name').textContent =
-    project === 'All' ? 'All Projects' : project;
-  document.getElementById('leg-comp-swatch').style.background = color;
-
-  if (!series.length) {
-    el.innerHTML = '<div class="chart-empty">No sprint data yet — upload a CSV or add sprints manually.</div>';
-    return;
-  }
-
-  const st    = statsFor(series, project, metric);
-  const trend = rollingAvg(st.completed);
-
-  const W  = 800, H  = 260;
-  const pL = 42,  pR = 14, pT = 16, pB = 38;
-  const iW = W - pL - pR, iH = H - pT - pB;
-  const n  = series.length;
-  const slot = n ? iW / n : 0;
-  const mx   = Math.max(st.max, ...trend, 1);
-  const yS   = v => pT + iH - (v / mx) * iH;
-
-  let yLines = '';
-  for (let i = 0; i <= 4; i++) {
-    const v = Math.round(mx * i / 4);
-    const y = yS(v).toFixed(1);
-    yLines += `<line class="v-grid" x1="${pL}" y1="${y}" x2="${W - pR}" y2="${y}"/>
-               <text class="v-axis" x="${pL - 5}" y="${(+y + 4).toFixed(1)}" text-anchor="end">${v}</text>`;
-  }
-
-  let bars = '', tPts = [], xLbls = '';
-  series.forEach((s, i) => {
-    const cx  = pL + slot * i + slot / 2;
-    const bw  = Math.max(5, Math.min(slot * 0.36, 20));
-    const cV  = st.committed[i] || 0;
-    const dV  = st.completed[i] || 0;
-    const cY  = yS(cV), dY = yS(dV);
-    const cH  = pT + iH - cY, dH = pT + iH - dY;
-    bars += `<rect class="v-bar v-bar-plan" x="${(cx - bw - 1).toFixed(1)}" y="${cY.toFixed(1)}"
-               width="${bw.toFixed(1)}" height="${cH.toFixed(1)}">
-               <title>${esc(s.name)} — planned: ${fmt(cV)}</title></rect>
-             <rect class="v-bar" x="${(cx + 1).toFixed(1)}" y="${dY.toFixed(1)}"
-               width="${bw.toFixed(1)}" height="${dH.toFixed(1)}" style="fill:${color}">
-               <title>${esc(s.name)} — completed: ${fmt(dV)}</title></rect>`;
-    tPts.push(`${cx.toFixed(1)},${yS(trend[i]).toFixed(1)}`);
-    const lbl = s.name.length > 9 ? s.name.slice(0, 8) + '…' : s.name;
-    xLbls += `<text class="v-axis" x="${cx.toFixed(1)}" y="${H - 8}" text-anchor="middle">${esc(lbl)}</text>`;
-  });
-
-  const tLine = tPts.length
-    ? `<polyline class="v-trend" points="${tPts.join(' ')}"
-         fill="none" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-       ${tPts.map(p => { const [x, y] = p.split(','); return `<circle class="v-trend-dot" cx="${x}" cy="${y}" r="3" fill="#fbbf24"/>`; }).join('')}`
-    : '';
-
-  el.innerHTML =
-    `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-      ${yLines}${bars}${tLine}${xLbls}
-    </svg>`;
-}
-
-function renderTable(series, project, metric) {
-  const pk   = metric === 'count' ? 'planN' : 'plan';
-  const ck   = metric === 'count' ? 'compN' : 'comp';
-  const unit = metric === 'count' ? '' : ' pts';
-  const tbody = document.getElementById('sprint-tbody');
-
-  if (!series.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-row">No sprints yet — upload a CSV or add a sprint manually.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = series.map((s, i) => {
-    const c    = s[pk][project] || 0;
-    const d    = s[ck][project] || 0;
-    const pct  = c > 0 ? Math.round((d / c) * 100) : null;
-    const tone = pct !== null ? pctTone(pct) : '';
-    const prev = i > 0 ? (series[i - 1][ck][project] || 0) : null;
-    const tr   = prev === null ? ''
-      : d > prev ? '<span class="trend-up">↑</span>'
-      : d < prev ? '<span class="trend-dn">↓</span>'
-      : '<span class="trend-eq">=</span>';
-    const isM  = !!S.manual[s.name];
-    const date = s.start && s.end ? `${s.start} – ${s.end}` : s.start || '';
-    return `<tr>
-      <td><span class="sprint-name">${esc(s.name)}</span>${isM ? '<span class="manual-badge">manual</span>' : ''}</td>
-      <td class="r">${date ? `<span class="date-str">${esc(date)}</span>` : '<span class="trend-eq">—</span>'}</td>
-      <td class="r num">${c ? fmt(c) + unit : '—'}</td>
-      <td class="r num">${d ? fmt(d) + unit : '—'}</td>
-      <td class="r num pct-${tone}">${pct !== null ? pct + '%' : '—'}</td>
-      <td class="r">${tr}</td>
-      <td class="r">
-        ${isM
-          ? `<button class="act-btn" onclick="openModal('${esc(s.name)}')">Edit</button>
-             <button class="act-btn danger" onclick="confirmDel('${esc(s.name)}')">Del</button>`
-          : ''}
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-function syncActiveStates() {
-  document.querySelectorAll('.proj-pill').forEach(el =>
-    el.classList.toggle('active', el.dataset.project === S.view.project)
-  );
-  document.querySelectorAll('.metric-opt').forEach(el =>
-    el.classList.toggle('active', el.dataset.metric === S.view.metric)
-  );
-}
-
-// ─── View setters ─────────────────────────────────────────────────────────────
-
-function setProject(p) {
-  S.view.project = p;
-  const series = buildSeries();
-  renderKPIs(series, p, S.view.metric);
-  renderSparkgrid(series, S.view.metric);
-  renderChart(series, p, S.view.metric);
-  renderTable(series, p, S.view.metric);
-  syncActiveStates();
-}
-
-function setMetric(m) {
-  S.view.metric = m;
-  render();
-}
-
-// ─── Sprint modal ─────────────────────────────────────────────────────────────
-
-function openModal(sprintName) {
-  const modal = document.getElementById('sprint-modal');
-  document.getElementById('sprint-form').reset();
-  document.getElementById('sprint-name-input').dataset.original = '';
-
-  if (sprintName) {
-    document.getElementById('modal-title').textContent = 'Edit Sprint';
-    const m = S.manual[sprintName];
-    if (m) {
-      document.getElementById('sprint-name-input').value = m.name;
-      document.getElementById('sprint-start').value      = m.start || '';
-      document.getElementById('sprint-end').value        = m.end   || '';
-      PROJECTS.forEach(p => {
-        const pi = document.getElementById(`plan-${p}`);
-        const ci = document.getElementById(`comp-${p}`);
-        if (pi) pi.value = m.plan?.[p] ?? '';
-        if (ci) ci.value = m.comp?.[p] ?? '';
-      });
-      document.getElementById('sprint-name-input').dataset.original = sprintName;
+  // Auto-detect people
+  const names = [...new Set(tickets.map(t=>t.assignee).filter(Boolean))];
+  names.forEach(name => {
+    if (!S.people.find(p=>p.name===name)) {
+      S.people.push({ id:uid(), name, sid:'', type:'gov', project:'', goalPoints:null });
     }
-  } else {
-    document.getElementById('modal-title').textContent = 'Add Sprint';
-  }
+  });
 
+  S.historical = tickets;
+  save();
+  toast(`Loaded ${tickets.length} historical tickets from ${filename}`,'success');
+  renderApp();
+}
+
+function handleBacklogCSV(text, filename) {
+  const rows    = DATA.parseCSV(text);
+  const tickets = rows.map(DATA.buildTicket).filter(t => t.key);
+  if (!tickets.length) { toast('No tickets found in sprint CSV.','error'); return; }
+
+  // Auto-detect people from assignees
+  const names = [...new Set(tickets.map(t=>t.assignee).filter(Boolean))];
+  names.forEach(name => {
+    if (!S.people.find(p=>p.name===name)) {
+      S.people.push({ id:uid(), name, sid:'', type:'gov', project:'', goalPoints:null });
+    }
+  });
+
+  S.backlog = tickets;
+  save();
+  toast(`Loaded ${tickets.length} backlog tickets from ${filename}`,'success');
+  renderApp();
+}
+
+function handleICAL(text, filename) {
+  const events = ICAL_PARSER.parse(text);
+  if (!events.length) { toast('No events found in iCal file.','error'); return; }
+  const dates = ICAL_PARSER.toLeaveDates(events, S.leaveHalfDay);
+  if (!dates.length) { toast('No leave dates extracted.','error'); return; }
+
+  // Merge with existing leave (replace same sid+date)
+  const existing = S.leave.filter(l => !dates.find(d=>d.sid===l.sid&&d.date===l.date));
+  S.leave = [...existing, ...dates];
+  save();
+  toast(`Imported ${dates.length} leave day records from ${filename}`,'success');
+  renderApp();
+}
+
+// ─── PEOPLE CRUD ──────────────────────────────────────────────────────────────
+
+function openPersonModal(id) {
+  const modal = document.getElementById('person-modal');
+  const p     = id ? S.people.find(x=>x.id===id) : null;
+  document.getElementById('pm-id').value         = id || '';
+  document.getElementById('pm-name').value       = p?.name        || '';
+  document.getElementById('pm-sid').value        = p?.sid         || '';
+  document.getElementById('pm-type').value       = p?.type        || 'gov';
+  document.getElementById('pm-project').value    = p?.project     || '';
+  document.getElementById('pm-goal').value       = p?.goalPoints  ?? '';
+  document.getElementById('pm-title').textContent = id ? 'Edit Person' : 'Add Person';
   modal.classList.remove('hidden');
-  document.getElementById('sprint-name-input').focus();
+  document.getElementById('pm-name').focus();
 }
 
-function closeModal() {
-  document.getElementById('sprint-modal').classList.add('hidden');
-}
-
-function handleSprintSubmit(e) {
-  e.preventDefault();
-  const name = document.getElementById('sprint-name-input').value.trim();
-  if (!name) { showToast('Sprint name is required.', 'error'); return; }
-
-  const original = document.getElementById('sprint-name-input').dataset.original;
-  if (original && original !== name) delete S.manual[original];
-
-  const plan = {}, comp = {};
-  PROJECTS.forEach(p => {
-    plan[p] = parseFloat(document.getElementById(`plan-${p}`)?.value) || 0;
-    comp[p] = parseFloat(document.getElementById(`comp-${p}`)?.value) || 0;
-  });
-
-  saveManualSprint({
-    name,
-    start: document.getElementById('sprint-start').value,
-    end:   document.getElementById('sprint-end').value,
-    plan,
-    comp,
-  });
-  closeModal();
-  showToast(`Sprint "${name}" saved.`, 'success');
-}
-
-function confirmDel(name) {
-  if (confirm(`Delete manual sprint "${name}"? This cannot be undone.`)) {
-    deleteManualSprint(name);
-    showToast(`Sprint "${name}" deleted.`, 'info');
-  }
-}
-
-// ─── File handlers ────────────────────────────────────────────────────────────
-
-function readCSV(file) {
-  if (!file.name.match(/\.(csv|tsv|txt)$/i)) {
-    showToast('Please use a .csv file.', 'error');
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = ev => loadCSV(ev.target.result, file.name);
-  reader.readAsText(file);
-}
-
-function resetAll() {
-  if (!confirm('Clear ALL data — tickets and manual sprints? This cannot be undone.')) return;
-  S.tickets = [];
-  S.manual  = {};
-  saveState();
-  render();
-  showToast('All data cleared.', 'info');
-}
-
-// ─── Init ─────────────────────────────────────────────────────────────────────
+function closePersonModal() { document.getElementById('person-modal').classList.add('hidden'); }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const zone       = document.getElementById('upload-zone');
-  const csvInput   = document.getElementById('csv-input');
-  const importInput = document.getElementById('import-input');
-
-  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragging'); });
-  zone.addEventListener('dragleave', ()  => zone.classList.remove('dragging'));
-  zone.addEventListener('drop', e => {
+  document.getElementById('person-form').addEventListener('submit', e => {
     e.preventDefault();
-    zone.classList.remove('dragging');
-    const f = e.dataTransfer.files[0];
-    if (f) readCSV(f);
+    const id      = document.getElementById('pm-id').value;
+    const name    = document.getElementById('pm-name').value.trim();
+    const sid     = document.getElementById('pm-sid').value.trim().toLowerCase();
+    const type    = document.getElementById('pm-type').value;
+    const project = document.getElementById('pm-project').value;
+    const goal    = parseFloat(document.getElementById('pm-goal').value) || null;
+    if (!name) { toast('Name is required.','error'); return; }
+
+    if (id) {
+      const p = S.people.find(x=>x.id===id);
+      if (p) Object.assign(p, { name, sid, type, project, goalPoints:goal });
+    } else {
+      S.people.push({ id:uid(), name, sid, type, project, goalPoints:goal });
+    }
+    save();
+    closePersonModal();
+    renderApp();
   });
-  zone.addEventListener('click', () => csvInput.click());
+});
 
-  csvInput.addEventListener('change', e => {
-    const f = e.target.files[0];
-    if (f) readCSV(f);
-    csvInput.value = '';
+function deletePerson(id) {
+  if (!confirm('Remove this person?')) return;
+  S.people = S.people.filter(p=>p.id!==id);
+  save();
+  renderApp();
+}
+
+// ─── ASSIGNMENT ───────────────────────────────────────────────────────────────
+
+function assignTicket(key, personId) {
+  if (!personId) {
+    delete S.assignments[key];
+  } else {
+    S.assignments[key] = Object.assign(S.assignments[key]||{}, { personId, sprintIdx:S.view.sprintIdx });
+  }
+  save();
+  renderPlanner();
+}
+
+function toggleWFH(key) {
+  if (!S.assignments[key]) return;
+  S.assignments[key].wfh = !S.assignments[key].wfh;
+  save();
+  renderPlanner();
+}
+
+function moveToSprint(key, sprintIdx) {
+  if (!S.assignments[key]) return;
+  S.assignments[key].sprintIdx = sprintIdx;
+  save();
+  renderPlanner();
+}
+
+// ─── SETTINGS SAVE ────────────────────────────────────────────────────────────
+
+function saveSettings() {
+  S.config.jiraUrl        = document.getElementById('cfg-jira').value.trim();
+  S.config.sprintStart    = document.getElementById('cfg-start').value;
+  S.config.sprintDuration = parseInt(document.getElementById('cfg-dur').value,10) || 14;
+  S.config.futureCount    = parseInt(document.getElementById('cfg-future').value,10) || 4;
+  // Resolutions: read the checkboxes + custom textarea
+  const checked  = [...document.querySelectorAll('#cfg-res-list input:checked')].map(el=>el.value);
+  const custom   = (document.getElementById('cfg-res-custom').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  S.config.resolutions = [...new Set([...checked,...custom])];
+  save();
+  toast('Settings saved.','success');
+  renderApp();
+}
+
+// ─── EXPORT / IMPORT ──────────────────────────────────────────────────────────
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'),{href:url,download:`sprint-plan-${new Date().toISOString().slice(0,10)}.json`});
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function importData(text) {
+  try {
+    const d = JSON.parse(text);
+    S = deepMerge(deepClone(DEFAULT_STATE), d);
+    save(); toast('Data imported.','success'); renderApp();
+  } catch(_) { toast('Invalid JSON file.','error'); }
+}
+
+// ─── RENDER: shell ────────────────────────────────────────────────────────────
+
+function renderApp() {
+  // Nav active states
+  document.querySelectorAll('.nav-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.section === S.view.section)
+  );
+  document.querySelectorAll('.section-panel').forEach(el =>
+    el.classList.toggle('hidden', el.dataset.section !== S.view.section)
+  );
+  switch (S.view.section) {
+    case 'planner':  renderPlanner();  break;
+    case 'team':     renderTeam();     break;
+    case 'history':  renderHistory();  break;
+    case 'settings': renderSettings(); break;
+  }
+}
+
+// ─── RENDER: Settings ─────────────────────────────────────────────────────────
+
+function renderSettings() {
+  const c = S.config;
+  document.getElementById('cfg-jira').value   = c.jiraUrl || '';
+  document.getElementById('cfg-start').value  = c.sprintStart || '';
+  document.getElementById('cfg-dur').value    = c.sprintDuration || 14;
+  document.getElementById('cfg-future').value = c.futureCount || 4;
+
+  // Resolution checkboxes
+  const ALL_RES = ['Done','Fixed','Resolved','Completed','Complete','Closed','Won\'t Fix','Cannot Reproduce'];
+  const container = document.getElementById('cfg-res-list');
+  container.innerHTML = ALL_RES.map(r => {
+    const chk = S.config.resolutions.includes(r) ? 'checked' : '';
+    return `<label class="res-item">
+      <input type="checkbox" value="${esc(r)}" ${chk}> ${esc(r)}
+    </label>`;
+  }).join('');
+
+  // Custom resolutions (those not in the known list)
+  const custom = S.config.resolutions.filter(r => !ALL_RES.includes(r));
+  document.getElementById('cfg-res-custom').value = custom.join(', ');
+
+  // Show generated sprint schedule preview
+  const sprints = getSprints();
+  const preview = document.getElementById('sprint-preview');
+  if (!sprints.length) {
+    preview.innerHTML = '<p class="preview-hint">Set a start date above to preview the sprint calendar.</p>';
+  } else {
+    preview.innerHTML = sprints.map((sp,i) => {
+      const hl = sp.holidays.map(h=>`<span class="holiday-chip">${esc(h.name)}</span>`).join('');
+      return `<div class="sp-row">
+        <span class="sp-num">Sprint ${i+1}</span>
+        <span class="sp-dates">${fmtDate(sp.start)} – ${fmtDate(sp.end)}</span>
+        <span class="sp-wd">${sp.workDays} work days</span>
+        ${hl}
+      </div>`;
+    }).join('');
+  }
+}
+
+// ─── RENDER: Team ─────────────────────────────────────────────────────────────
+
+function renderTeam() {
+  const vel     = getVelocity();
+  const sprints = getSprints();
+  const sp      = sprints[S.view.sprintIdx] || null;
+
+  const container = document.getElementById('team-list');
+  if (!S.people.length) {
+    container.innerHTML = '<p class="empty-hint">No team members yet. Upload a historical CSV or add people manually.</p>';
+    return;
+  }
+
+  container.innerHTML = S.people.map(p => {
+    const v    = vel[p.name];
+    const hist = v && v.sprintCount >= 2;
+    const avg  = hist ? fmt(v.avg) : (p.goalPoints ? fmt(p.goalPoints)+' (goal)' : '—');
+    const cap  = sp ? DATA.computeCapacity(p, sp.start, sp.end, S.leave, vel) : null;
+
+    const leaveHtml = cap && cap.leaveDates.length
+      ? cap.leaveDates.map(d=>`<span class="leave-chip">${d}</span>`).join('')
+      : '';
+
+    const wfhBadge = p.type === 'contractor'
+      ? `<span class="type-badge ctr">CONTRACTOR</span>
+         ${cap ? `<span class="wfh-budget">WFH budget: ${fmt(cap.wfhBudgetPts)} pts / ${cap.wfhBudgetDays} days</span>` : ''}`
+      : `<span class="type-badge gov">GOV</span>`;
+
+    const projBadge = p.project
+      ? `<span class="proj-badge" style="background:${PROJ_COLOR[p.project]}20;color:${PROJ_COLOR[p.project]}">${p.project}</span>`
+      : '<span class="proj-badge no-proj">No project</span>';
+
+    return `<div class="person-card" id="pc-${p.id}">
+      <div class="pc-head">
+        <div class="pc-name-row">
+          <span class="pc-name">${esc(p.name)}</span>
+          ${projBadge}
+          ${wfhBadge}
+        </div>
+        <div class="pc-actions">
+          <button class="act-btn" onclick="openPersonModal('${p.id}')">Edit</button>
+          <button class="act-btn danger" onclick="deletePerson('${p.id}')">Remove</button>
+        </div>
+      </div>
+      <div class="pc-meta">
+        <span>SID: <code>${esc(p.sid||'—')}</code></span>
+        <span>Avg velocity: <strong>${avg}</strong> pts${hist?` (${v.sprintCount} sprints)`:''}</span>
+        ${cap?`<span>Sprint capacity: <strong>${cap.adjustedCapacity}</strong> pts (${cap.availDays}/${cap.totalWorkDays} days)</span>`:''}
+      </div>
+      ${leaveHtml?`<div class="leave-row">Leave: ${leaveHtml}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ─── RENDER: History (velocity dashboard) ─────────────────────────────────────
+
+function renderHistory() {
+  const vel = getVelocity();
+  const container = document.getElementById('history-content');
+
+  if (!S.historical.length) {
+    container.innerHTML = '<p class="empty-hint">Upload a historical Jira CSV to see velocity per person.</p>';
+    return;
+  }
+
+  const rows = Object.entries(vel).sort((a,b)=>b[1].avg-a[1].avg).map(([name,v]) => {
+    const person = S.people.find(p=>p.name===name);
+    const proj   = person?.project;
+    const color  = proj ? PROJ_COLOR[proj] : '#6b7280';
+    const sprintCols = Object.entries(v.sprintPoints)
+      .sort(([a],[b])=>a.localeCompare(b))
+      .map(([s,pts])=>`<td class="num">${pts}</td>`)
+      .join('');
+
+    return `<tr>
+      <td><span class="hist-name">${esc(name)}</span></td>
+      <td>${proj?`<span class="proj-badge" style="background:${color}20;color:${color}">${proj}</span>`:'—'}</td>
+      <td class="num"><strong>${fmt(v.avg)}</strong></td>
+      <td class="num">${v.sprintCount}</td>
+      ${sprintCols}
+    </tr>`;
+  }).join('');
+
+  // Collect all sprint keys for header
+  const allSprints = [...new Set(Object.values(vel).flatMap(v=>Object.keys(v.sprintPoints)))].sort();
+
+  container.innerHTML = `
+    <div class="table-wrap">
+      <table class="history">
+        <thead>
+          <tr>
+            <th>Name</th><th>Project</th><th class="num">Avg</th><th class="num">Sprints</th>
+            ${allSprints.map(s=>`<th class="num">${esc(s)}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ─── RENDER: Planner ──────────────────────────────────────────────────────────
+
+function renderPlanner() {
+  const sprints = getSprints();
+  if (!sprints.length) {
+    document.getElementById('planner-content').innerHTML =
+      '<p class="empty-hint">Configure a sprint start date in Settings first.</p>';
+    return;
+  }
+
+  // Sprint tabs
+  const tabsEl = document.getElementById('sprint-tabs');
+  tabsEl.innerHTML = sprints.map((sp,i) =>
+    `<button class="sp-tab${i===S.view.sprintIdx?' active':''}" onclick="selectSprint(${i})">
+      Sprint ${i+1} <span class="sp-tab-dates">${sp.start.slice(5)}</span>
+    </button>`
+  ).join('');
+
+  // Mode toggle
+  document.querySelectorAll('.mode-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === S.view.mode)
+  );
+
+  if (S.view.mode === 'multi') {
+    renderMultiSprint(sprints);
+  } else {
+    renderSingleSprint(sprints[S.view.sprintIdx]);
+  }
+}
+
+function selectSprint(idx) {
+  S.view.sprintIdx = idx;
+  renderPlanner();
+}
+
+function setMode(mode) {
+  S.view.mode = mode;
+  renderPlanner();
+}
+
+function renderSingleSprint(sp) {
+  const vel = getVelocity();
+  const container = document.getElementById('planner-content');
+
+  // Sprint header bar
+  const holidays = sp.holidays.map(h=>`<span class="holiday-chip">${esc(h.name)}</span>`).join('');
+  const spHeader = `<div class="sp-header">
+    <div class="sp-hd-left">
+      <span class="sp-label">${fmtDate(sp.start)} – ${fmtDate(sp.end)}</span>
+      <span class="sp-wd-badge">${sp.workDays} work days</span>
+      ${holidays}
+    </div>
+    <div class="sp-hd-right">
+      <label class="btn btn-sm">
+        ⬆ Load Backlog CSV
+        <input type="file" accept=".csv,.tsv" onchange="handleBacklogUpload(event)" style="display:none">
+      </label>
+    </div>
+  </div>`;
+
+  // People with assignments
+  const activePeople = S.people.filter(p=>p.project||true); // show all
+  const assigned   = activePeople.map(p => renderPersonLane(p, sp, vel)).join('');
+  const unassigned = renderUnassigned(sp.idx);
+
+  container.innerHTML = spHeader
+    + `<div class="planner-body">
+        <div class="lanes">${assigned || '<p class="empty-hint">No team members — add people in the Team tab.</p>'}</div>
+        ${unassigned}
+       </div>`;
+}
+
+function renderPersonLane(person, sp, vel) {
+  const cap       = DATA.computeCapacity(person, sp.start, sp.end, S.leave, vel);
+  const asgPts    = assignedPts(person.id);
+  const wfhPt     = wfhPts(person.id);
+  const remaining = cap.adjustedCapacity - asgPts;
+  const overBudget = remaining < 0;
+  const wfhOver   = person.type === 'contractor' && wfhPt > cap.wfhBudgetPts;
+  const pct       = cap.adjustedCapacity > 0 ? Math.min(100, Math.round(asgPts/cap.adjustedCapacity*100)) : 0;
+  const color     = PROJ_COLOR[person.project] || '#6b7280';
+
+  const tickets  = assignedTickets(person.id, S.view.sprintIdx);
+  const tHtml    = tickets.length ? tickets.map(t=>renderTicketRow(t, person.id)).join('') : '';
+
+  const capHist  = cap.hasHistory ? '' : '<span class="goal-note">goal</span>';
+  const wfhBar   = person.type === 'contractor'
+    ? `<div class="wfh-bar-wrap" title="WFH: ${fmt(wfhPt)} / ${fmt(cap.wfhBudgetPts)} pts budget">
+        <span class="wfh-bar-label${wfhOver?' over':''}">WFH ${fmt(wfhPt)}/${fmt(cap.wfhBudgetPts)} pts</span>
+        <div class="wfh-bar"><div class="wfh-fill${wfhOver?' over':''}" style="width:${Math.min(100,cap.wfhBudgetPts?Math.round(wfhPt/cap.wfhBudgetPts*100):0)}%"></div></div>
+       </div>`
+    : '';
+
+  return `<div class="person-lane${overBudget?' over-budget':''}">
+    <div class="lane-head">
+      <div class="lane-name-row">
+        <span class="lane-name" style="border-left:3px solid ${color}">${esc(person.name)}</span>
+        <span class="type-badge ${person.type==='contractor'?'ctr':'gov'}">${person.type==='contractor'?'CTR':'GOV'}</span>
+        ${capHist}
+      </div>
+      <div class="lane-cap">
+        <span class="cap-nums${overBudget?' over':''}">
+          ${asgPts} / ${cap.adjustedCapacity} pts
+          <span class="cap-remain">${remaining >= 0 ? `(${remaining} left)` : `(${-remaining} over)`}</span>
+        </span>
+        <div class="cap-bar">
+          <div class="cap-fill${overBudget?' over':''}" style="width:${pct}%"></div>
+        </div>
+        ${wfhBar}
+      </div>
+    </div>
+    <div class="lane-tickets">${tHtml}</div>
+    <div class="lane-footer">
+      <select class="assign-sel" onchange="assignFromUnassigned('${person.id}',this)">
+        <option value="">+ Assign a ticket…</option>
+        ${unassignedTickets(S.view.sprintIdx).map(t=>
+          `<option value="${esc(t.key)}">${esc(t.key)} — ${esc(t.summary.slice(0,50))} (${t.points}pts)</option>`
+        ).join('')}
+      </select>
+    </div>
+  </div>`;
+}
+
+function renderTicketRow(t, personId) {
+  const a     = S.assignments[t.key] || {};
+  const wfh   = !!a.wfh;
+  const color = PROJ_COLOR[t.project] || '#6b7280';
+  const epic  = t.epicName ? `<span class="epic-label">${esc(t.epicName)}</span>` : '';
+  const desc  = t.description
+    ? `<button class="desc-btn" onclick="openDesc('${esc(t.key)}')" title="View description">⋯</button>`
+    : '';
+
+  return `<div class="ticket-row" data-key="${esc(t.key)}">
+    <div class="ticket-main">
+      <span class="t-key" style="color:${color}">${jiraLink(t.key)}</span>
+      ${epic}
+      <span class="t-summary">${esc(t.summary)}</span>
+    </div>
+    <div class="ticket-meta">
+      <span class="t-pts">${t.points || '?'} pts</span>
+      <button class="wfh-pill${wfh?' active':''}" onclick="toggleWFH('${esc(t.key)}')" title="Toggle WFH">WFH</button>
+      ${desc}
+      <button class="act-btn danger sm" onclick="assignTicket('${esc(t.key)}','')" title="Unassign">✕</button>
+    </div>
+  </div>`;
+}
+
+function renderUnassigned(sprintIdx) {
+  const tickets = unassignedTickets(sprintIdx);
+  if (!tickets.length) return '';
+  const rows = tickets.map(t => {
+    const color = PROJ_COLOR[t.project] || '#6b7280';
+    const epic  = t.epicName ? `<span class="epic-label">${esc(t.epicName)}</span>` : '';
+    const desc  = t.description
+      ? `<button class="desc-btn" onclick="openDesc('${esc(t.key)}')" title="View description">⋯</button>`
+      : '';
+    const sel = `<select class="assign-sel sm" onchange="assignFromSelect('${esc(t.key)}',this)">
+      <option value="">Assign to…</option>
+      ${S.people.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+    </select>`;
+    const spSel = getSprints().length > 1
+      ? `<select class="assign-sel sm" onchange="moveToSprint('${esc(t.key)}',+this.value)">
+          ${getSprints().map((sp,i)=>`<option value="${i}"${i===S.view.sprintIdx?' selected':''}>Sprint ${i+1}</option>`).join('')}
+        </select>`
+      : '';
+    return `<div class="ticket-row unassigned">
+      <div class="ticket-main">
+        <span class="t-key" style="color:${color}">${jiraLink(t.key)}</span>
+        ${epic}
+        <span class="t-summary">${esc(t.summary)}</span>
+        <span class="t-pts">${t.points||'?'} pts</span>
+      </div>
+      <div class="ticket-meta">${desc}${sel}${spSel}</div>
+    </div>`;
+  }).join('');
+  return `<div class="unassigned-pool">
+    <div class="pool-hd">Unassigned (${tickets.length})</div>
+    ${rows}
+  </div>`;
+}
+
+function renderMultiSprint(sprints) {
+  const vel       = getVelocity();
+  const container = document.getElementById('planner-content');
+
+  const cols = sprints.map((sp,i) => {
+    const totalCapacity = S.people.reduce((s,p) => {
+      const cap = DATA.computeCapacity(p, sp.start, sp.end, S.leave, vel);
+      return s + cap.adjustedCapacity;
+    }, 0);
+    const totalAssigned = S.people.reduce((s,p) => {
+      return s + assignedTickets(p.id, i).reduce((x,t) => x+(t.points||0), 0);
+    }, 0);
+    const pct = totalCapacity > 0 ? Math.min(100,Math.round(totalAssigned/totalCapacity*100)) : 0;
+    const hl  = sp.holidays.map(h=>`<span class="holiday-chip sm">${esc(h.name)}</span>`).join('');
+
+    return `<div class="multi-col">
+      <div class="multi-col-hd">
+        <div class="mc-title">Sprint ${i+1}</div>
+        <div class="mc-dates">${sp.start.slice(5)} – ${sp.end.slice(5)}</div>
+        <div class="mc-wd">${sp.workDays} days ${hl}</div>
+        <div class="cap-bar" style="margin-top:6px">
+          <div class="cap-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="mc-cap">${totalAssigned} / ${totalCapacity} pts</div>
+      </div>
+      <div class="mc-tickets">
+        ${S.backlog.filter(t=>(S.assignments[t.key]?.sprintIdx??0)===i&&S.assignments[t.key]?.personId)
+          .map(t=>{
+            const a = S.assignments[t.key];
+            const person = personById(a.personId);
+            const color = PROJ_COLOR[t.project]||'#6b7280';
+            return `<div class="mc-ticket">
+              <span style="color:${color}">${esc(t.key)}</span>
+              <span class="mc-pts">${t.points||'?'}</span>
+              ${person?`<span class="mc-assignee">${esc(person.name.split(' ')[0])}</span>`:''}
+              ${a.wfh?'<span class="wfh-pill active sm">WFH</span>':''}
+            </div>`;
+          }).join('') || '<p class="mc-empty">No tickets assigned</p>'}
+      </div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `<div class="multi-grid">${cols}</div>`;
+}
+
+// ─── ASSIGN HELPERS ───────────────────────────────────────────────────────────
+
+function assignFromSelect(key, sel) {
+  const personId = sel.value;
+  assignTicket(key, personId);
+  sel.value = '';
+}
+
+function assignFromUnassigned(personId, sel) {
+  const key = sel.value;
+  if (!key) return;
+  assignTicket(key, personId);
+  sel.value = '';
+}
+
+function handleBacklogUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  readFile(file, handleBacklogCSV);
+  e.target.value = '';
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  // File inputs
+  document.getElementById('hist-input').addEventListener('change', e => {
+    const f = e.target.files[0]; if(f) readFile(f,handleHistoricalCSV); e.target.value='';
+  });
+  document.getElementById('ical-input').addEventListener('change', e => {
+    const f = e.target.files[0]; if(f) readFile(f,handleICAL); e.target.value='';
+  });
+  document.getElementById('import-input').addEventListener('change', e => {
+    const f = e.target.files[0]; if(f) readFile(f,t=>importData(t)); e.target.value='';
   });
 
-  importInput.addEventListener('change', e => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const r = new FileReader();
-    r.onload = ev => importJSON(ev.target.result);
-    r.readAsText(f);
-    importInput.value = '';
+  // ESC closes panels/modals
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeDesc(); closePersonModal(); }
   });
 
-  document.addEventListener('dragover', e => e.preventDefault());
-  document.addEventListener('drop', e => {
-    if (e.target.closest('#upload-zone')) return;
-    e.preventDefault();
-    const f = e.dataTransfer.files[0];
-    if (f && /\.(csv|tsv)$/i.test(f.name)) readCSV(f);
-  });
-
-  document.getElementById('sprint-form').addEventListener('submit', handleSprintSubmit);
-
-  render();
+  renderApp();
 });

@@ -3,236 +3,264 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Velocity Tracker</title>
+  <title>Sprint Planner</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<!-- ═══ Header ════════════════════════════════════════════════════════════════ -->
-<header class="header">
-  <div class="header-brand">
-    <div class="brand-mark">V</div>
-    <span class="brand-name"><em>Velocity</em> Tracker</span>
-  </div>
-  <div class="header-actions">
-    <button class="btn btn-prime" onclick="document.getElementById('csv-input').click()">
-      ⬆ Upload CSV
-    </button>
-    <button class="btn" onclick="exportJSON()">↓ Export</button>
-    <button class="btn" onclick="document.getElementById('import-input').click()">↑ Import</button>
-    <button class="btn btn-danger" onclick="resetAll()">Reset</button>
-  </div>
-</header>
+<div class="app-shell">
 
-<!-- hidden file inputs -->
-<input type="file" id="csv-input"    accept=".csv,.tsv,.txt">
-<input type="file" id="import-input" accept=".json">
+  <!-- ═══ Header ══════════════════════════════════════════════════════════ -->
+  <header class="app-header">
+    <div class="app-logo"><em>Sprint</em> Planner</div>
+    <div class="header-spacer"></div>
+    <div class="header-actions">
+      <button class="btn btn-sm" onclick="exportData()">↓ Export</button>
+      <label class="btn btn-sm" style="cursor:pointer">
+        ↑ Import
+        <input type="file" id="import-input" accept=".json" style="display:none">
+      </label>
+      <button class="btn btn-sm btn-danger"
+              onclick="if(confirm('Reset all data?')){localStorage.removeItem('vp2.v1');location.reload()}">
+        Reset
+      </button>
+    </div>
+  </header>
 
-<!-- ═══ Toolbar ═══════════════════════════════════════════════════════════════ -->
-<div class="toolbar">
-  <!-- Project pills -->
-  <div class="proj-pills">
-    <button class="proj-pill active" data-project="All"
-            style="--pill-color:#a78bfa" onclick="setProject('All')">
-      <span class="dot"></span> All Projects
-    </button>
-    <button class="proj-pill" data-project="DX"
-            style="--pill-color:#06b6d4" onclick="setProject('DX')">
-      <span class="dot"></span> DX
-    </button>
-    <button class="proj-pill" data-project="LX"
-            style="--pill-color:#7c3aed" onclick="setProject('LX')">
-      <span class="dot"></span> LX
-    </button>
-    <button class="proj-pill" data-project="RC"
-            style="--pill-color:#f97316" onclick="setProject('RC')">
-      <span class="dot"></span> RC
-    </button>
-    <button class="proj-pill" data-project="AFX"
-            style="--pill-color:#ec4899" onclick="setProject('AFX')">
-      <span class="dot"></span> AFX
-    </button>
-  </div>
+  <!-- ═══ Sidebar nav ══════════════════════════════════════════════════════ -->
+  <nav class="app-nav">
 
-  <!-- Metric toggle -->
-  <div class="metric-switch">
-    <button class="metric-opt active" data-metric="points" onclick="setMetric('points')">Story Points</button>
-    <button class="metric-opt"        data-metric="count"  onclick="setMetric('count')">Story Count</button>
+    <button class="nav-btn active" data-section="planner" onclick="goTo('planner')">
+      <span class="nav-icon">📋</span> Planner
+    </button>
+    <button class="nav-btn" data-section="team" onclick="goTo('team')">
+      <span class="nav-icon">👥</span> Team
+    </button>
+    <button class="nav-btn" data-section="history" onclick="goTo('history')">
+      <span class="nav-icon">📈</span> History
+    </button>
+    <button class="nav-btn" data-section="settings" onclick="goTo('settings')">
+      <span class="nav-icon">⚙</span> Settings
+    </button>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">Data</div>
+
+    <div class="nav-upload-btns">
+      <label class="nav-upload-btn" title="Upload historical Jira CSV to calculate velocity">
+        <span>📂</span> Historical CSV
+        <input type="file" id="hist-input" accept=".csv,.tsv,.txt" style="display:none">
+      </label>
+      <label class="nav-upload-btn" title="Upload current sprint backlog CSV">
+        <span>📂</span> Backlog CSV
+        <input type="file" id="backlog-input" accept=".csv,.tsv,.txt" style="display:none">
+      </label>
+      <label class="nav-upload-btn" title="Import iCalendar (.ics) leave file">
+        <span>📅</span> iCal Leave
+        <input type="file" id="ical-input" accept=".ics,.ical" style="display:none">
+      </label>
+    </div>
+
+  </nav>
+
+  <!-- ═══ Main ═════════════════════════════════════════════════════════════ -->
+  <main class="app-main">
+
+    <!-- ─── Planner ─────────────────────────────────────────────────────── -->
+    <div class="section-panel" data-section="planner">
+      <div class="planner-toolbar">
+        <div class="sprint-tabs" id="sprint-tabs"></div>
+        <div class="mode-toggle">
+          <button class="mode-btn active" data-mode="single" onclick="setMode('single')">Single</button>
+          <button class="mode-btn" data-mode="multi" onclick="setMode('multi')">Multi</button>
+        </div>
+      </div>
+      <div id="planner-content"></div>
+    </div>
+
+    <!-- ─── Team ────────────────────────────────────────────────────────── -->
+    <div class="section-panel hidden" data-section="team">
+      <div class="section-header">
+        <div class="section-title">Team Members</div>
+        <button class="btn btn-prime btn-sm" onclick="openPersonModal(null)">+ Add Person</button>
+      </div>
+      <div id="team-list"></div>
+    </div>
+
+    <!-- ─── History ─────────────────────────────────────────────────────── -->
+    <div class="section-panel hidden" data-section="history">
+      <div class="section-header">
+        <div class="section-title">Velocity History</div>
+      </div>
+      <div id="history-content"></div>
+    </div>
+
+    <!-- ─── Settings ────────────────────────────────────────────────────── -->
+    <div class="section-panel hidden" data-section="settings">
+      <div class="section-header">
+        <div class="section-title">Settings</div>
+        <button class="btn btn-prime btn-sm" onclick="saveSettings()">Save</button>
+      </div>
+      <div class="settings-body">
+
+        <div class="settings-group">
+          <div class="settings-group-title">Jira Integration</div>
+          <div class="cfg-row">
+            <label class="cfg-label">Jira Base URL</label>
+            <input class="cfg-input" type="url" id="cfg-jira"
+                   placeholder="https://your-org.atlassian.net">
+            <div class="cfg-hint">Ticket keys become clickable links to Jira.</div>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-group-title">Sprint Calendar</div>
+          <div class="cfg-row-inline">
+            <div class="cfg-row" style="margin-bottom:0">
+              <label class="cfg-label">First sprint start date</label>
+              <input class="cfg-input" type="date" id="cfg-start">
+            </div>
+            <div class="cfg-row" style="margin-bottom:0">
+              <label class="cfg-label">Sprint duration (calendar days)</label>
+              <input class="cfg-input" type="number" id="cfg-dur" min="7" max="60" value="14">
+            </div>
+          </div>
+          <div class="cfg-row">
+            <label class="cfg-label">Number of future sprints to show</label>
+            <input class="cfg-input" type="number" id="cfg-future" min="1" max="12" value="4"
+                   style="max-width:120px">
+          </div>
+          <div class="cfg-row" style="margin-bottom:0">
+            <label class="cfg-label">Sprint calendar preview</label>
+            <div id="sprint-preview" class="sprint-preview">
+              <p class="preview-hint">Set a start date above to preview the sprint calendar.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-group-title">Done Resolutions</div>
+          <div class="cfg-row">
+            <label class="cfg-label">Tickets with these resolutions count as completed</label>
+            <div id="cfg-res-list" class="res-list"></div>
+          </div>
+          <div class="cfg-row" style="margin-bottom:0">
+            <label class="cfg-label">Additional resolutions (comma-separated)</label>
+            <input class="cfg-input" type="text" id="cfg-res-custom"
+                   placeholder="e.g. Accepted, Released">
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-group-title">Leave Import Options</div>
+          <div class="cfg-row" style="margin-bottom:0">
+            <label class="cfg-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="cfg-half-day"
+                     onchange="S.leaveHalfDay=this.checked;save()">
+              Treat imported iCal events as half days (0.5 day each)
+            </label>
+            <div class="cfg-hint">Toggle before importing. Re-import to update existing leave records.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main><!-- /app-main -->
+
+</div><!-- /app-shell -->
+
+<!-- ═══ Description slide-in panel ══════════════════════════════════════════ -->
+<div id="desc-panel" class="desc-panel hidden">
+  <div class="desc-panel-head">
+    <div>
+      <div id="desc-key"></div>
+      <div id="desc-summary"></div>
+    </div>
+    <button class="desc-close" onclick="closeDesc()" title="Close">✕</button>
   </div>
+  <div class="desc-panel-body" id="desc-body"></div>
 </div>
 
-<!-- ═══ Main ══════════════════════════════════════════════════════════════════ -->
-<main class="main">
-
-  <!-- Upload zone (shown when no data) -->
-  <div id="upload-zone" class="upload-zone">
-    <div class="upload-icon">📊</div>
-    <div class="upload-title">Drop your Jira CSV here</div>
-    <div class="upload-sub">
-      Supports standard Jira CSV exports. Needs Issue Key, Sprint, Status, and Story Points columns.
-    </div>
-    <button class="btn btn-prime" style="pointer-events:none">Browse file</button>
-    <div class="upload-hint">or add sprints manually using the button below</div>
-  </div>
-
-  <!-- Dashboard (shown when data present) -->
-  <div id="dashboard" class="hidden">
-
-    <!-- Stats bar -->
-    <div id="stats-bar" class="stats-bar"></div>
-
-    <!-- KPI row -->
-    <div id="kpi-row" class="kpi-row"></div>
-
-    <!-- Per-project sparklines -->
-    <div class="section-hd">Per-Project Velocity</div>
-    <div id="sparkgrid" class="sparkgrid"></div>
-
-    <!-- Detail chart -->
-    <div class="chart-block">
-      <div class="chart-hd">
-        <div class="chart-title">
-          <div class="chart-dot" id="chart-dot"></div>
-          <span id="chart-proj-name"></span>
-        </div>
-        <div class="chart-legend">
-          <span class="leg"><span class="leg-sw leg-sw-plan"></span>Planned</span>
-          <span class="leg"><span class="leg-sw" id="leg-comp-swatch"></span>Completed</span>
-          <span class="leg"><span class="leg-sw leg-sw-line"></span>3-sprint avg</span>
-        </div>
-      </div>
-      <div id="chart-area"></div>
-    </div>
-
-    <!-- Sprint history -->
-    <div class="table-hd">
-      <div class="section-hd" style="margin:0">Sprint History</div>
-      <button class="btn btn-prime" onclick="openModal()">+ Add Sprint</button>
-    </div>
-    <div class="table-wrap">
-      <table class="history">
-        <thead>
-          <tr>
-            <th>Sprint</th>
-            <th class="r">Dates</th>
-            <th class="r">Planned</th>
-            <th class="r">Completed</th>
-            <th class="r">%</th>
-            <th class="r">Trend</th>
-            <th class="r"></th>
-          </tr>
-        </thead>
-        <tbody id="sprint-tbody"></tbody>
-      </table>
-    </div>
-
-  </div><!-- /dashboard -->
-
-</main>
-
-<!-- ═══ Add/Edit Sprint Modal ════════════════════════════════════════════════ -->
-<div id="sprint-modal" class="modal-bg hidden" onclick="if(event.target===this)closeModal()">
+<!-- ═══ Person modal ═════════════════════════════════════════════════════════ -->
+<div id="person-modal" class="modal-bg hidden" onclick="if(event.target===this)closePersonModal()">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal()" title="Close">&times;</button>
-    <h3 id="modal-title">Add Sprint</h3>
-    <p>Enter planned and completed values per project. Leave blank for projects not in this sprint.</p>
+    <button class="modal-close" onclick="closePersonModal()">✕</button>
+    <div class="modal-title" id="pm-title">Add Person</div>
 
-    <form id="sprint-form" autocomplete="off">
+    <form id="person-form" autocomplete="off">
+      <input type="hidden" id="pm-id">
 
-      <div class="form-row">
-        <div class="form-field" style="grid-column:1/-1">
-          <label class="form-label" for="sprint-name-input">Sprint name *</label>
-          <input class="form-input" type="text" id="sprint-name-input"
-                 placeholder="e.g. 26.3.1" required>
+      <div class="form-row full">
+        <div class="form-field">
+          <label class="form-label" for="pm-name">Full name *</label>
+          <input class="form-input" type="text" id="pm-name" required
+                 placeholder="As it appears in Jira Assignee field">
         </div>
       </div>
 
       <div class="form-row">
         <div class="form-field">
-          <label class="form-label" for="sprint-start">Start date</label>
-          <input class="form-input" type="date" id="sprint-start">
+          <label class="form-label" for="pm-sid">
+            SID
+            <span style="font-weight:400;font-size:0.7rem;color:var(--dim)">(from iCal mailto:)</span>
+          </label>
+          <input class="form-input" type="text" id="pm-sid"
+                 placeholder="e.g. jsmith">
         </div>
         <div class="form-field">
-          <label class="form-label" for="sprint-end">End date</label>
-          <input class="form-input" type="date" id="sprint-end">
+          <label class="form-label" for="pm-type">Type</label>
+          <select class="form-input" id="pm-type">
+            <option value="gov">Government (GOV)</option>
+            <option value="contractor">Contractor (CTR)</option>
+          </select>
         </div>
       </div>
 
-      <div class="form-section">Points per project</div>
-
-      <!-- DX -->
-      <div class="form-row" style="align-items:center">
-        <div class="form-field">
-          <label class="form-label">
-            <span class="proj-dot" style="background:#06b6d4"></span> DX — Planned
-          </label>
-          <input class="form-input" type="number" id="plan-DX" min="0" step="1" placeholder="0">
-        </div>
-        <div class="form-field">
-          <label class="form-label">
-            <span class="proj-dot" style="background:#06b6d4"></span> DX — Completed
-          </label>
-          <input class="form-input" type="number" id="comp-DX" min="0" step="1" placeholder="0">
-        </div>
-      </div>
-
-      <!-- LX -->
       <div class="form-row">
         <div class="form-field">
-          <label class="form-label">
-            <span class="proj-dot" style="background:#7c3aed"></span> LX — Planned
-          </label>
-          <input class="form-input" type="number" id="plan-LX" min="0" step="1" placeholder="0">
+          <label class="form-label" for="pm-project">Primary project</label>
+          <select class="form-input" id="pm-project">
+            <option value="">— None —</option>
+            <option value="DX">DX</option>
+            <option value="LX">LX</option>
+            <option value="RC">RC</option>
+          </select>
         </div>
         <div class="form-field">
-          <label class="form-label">
-            <span class="proj-dot" style="background:#7c3aed"></span> LX — Completed
+          <label class="form-label" for="pm-goal">
+            Goal points
+            <span style="font-weight:400;font-size:0.7rem;color:var(--dim)">(used until 2+ sprint history)</span>
           </label>
-          <input class="form-input" type="number" id="comp-LX" min="0" step="1" placeholder="0">
-        </div>
-      </div>
-
-      <!-- RC -->
-      <div class="form-row">
-        <div class="form-field">
-          <label class="form-label">
-            <span class="proj-dot" style="background:#f97316"></span> RC — Planned
-          </label>
-          <input class="form-input" type="number" id="plan-RC" min="0" step="1" placeholder="0">
-        </div>
-        <div class="form-field">
-          <label class="form-label">
-            <span class="proj-dot" style="background:#f97316"></span> RC — Completed
-          </label>
-          <input class="form-input" type="number" id="comp-RC" min="0" step="1" placeholder="0">
-        </div>
-      </div>
-
-      <!-- AFX -->
-      <div class="form-row">
-        <div class="form-field">
-          <label class="form-label">
-            <span class="proj-dot" style="background:#ec4899"></span> AFX — Planned
-          </label>
-          <input class="form-input" type="number" id="plan-AFX" min="0" step="1" placeholder="0">
-        </div>
-        <div class="form-field">
-          <label class="form-label">
-            <span class="proj-dot" style="background:#ec4899"></span> AFX — Completed
-          </label>
-          <input class="form-input" type="number" id="comp-AFX" min="0" step="1" placeholder="0">
+          <input class="form-input" type="number" id="pm-goal" min="0" step="1" placeholder="e.g. 20">
         </div>
       </div>
 
       <div class="modal-footer">
-        <button type="button" class="btn" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn btn-prime">Save Sprint</button>
+        <button type="button" class="btn" onclick="closePersonModal()">Cancel</button>
+        <button type="submit" class="btn btn-prime">Save</button>
       </div>
-
     </form>
   </div>
 </div>
 
+<!-- ═══ Scripts (load order matters: deps before app) ════════════════════════ -->
+<script src="holidays.js"></script>
+<script src="ical.js"></script>
+<script src="data.js"></script>
 <script src="app.js"></script>
+
+<!-- Wire up backlog file input (not in app.js DOMContentLoaded to keep nav clean) -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('backlog-input').addEventListener('change', e => {
+    const f = e.target.files[0];
+    if (f) readFile(f, handleBacklogCSV);
+    e.target.value = '';
+  });
+  document.getElementById('cfg-half-day').checked = S.leaveHalfDay || false;
+});
+</script>
+
 </body>
 </html>
