@@ -1,19 +1,8 @@
 # upgraded-pancake — Claude Code project notes
 
-## Git workflow: always merge to main
-
-This repo uses a **trunk-based workflow**. Do not maintain long-lived feature
-branches — every change should end up on `main`.
-
-- If session instructions direct you to develop on a `claude/…` branch, still
-  commit and push there, but then also push the same HEAD to `main` so `main`
-  stays in sync.
-- The `.claude/settings.json` **PostToolUse** hook handles this automatically:
-  after any `git push origin <branch>`, it runs
-  `git push origin HEAD:main` to fast-forward `main`. No manual merge step,
-  no pull request needed.
-- If the fast-forward fails (e.g. `main` diverged), investigate rather than
-  force-pushing. Ask the user before any destructive recovery.
+This branch (`report-suite`) holds the **ReportSuite** project only. The
+sprint-planner / velocity-tracker app lives on its own `sprint-planner`
+branch. `main` mirrors this `report-suite` branch.
 
 ## Primary file
 
