@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Velocity Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ═══ Header ════════════════════════════════════════════════════════════════ -->
+<header class="header">
+  <div class="header-brand">
+    <div class="brand-mark">V</div>
+    <span class="brand-name"><em>Velocity</em> Tracker</span>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-prime" onclick="document.getElementById('csv-input').click()">
+      ⬆ Upload CSV
+    </button>
+    <button class="btn" onclick="exportJSON()">↓ Export</button>
+    <button class="btn" onclick="document.getElementById('import-input').click()">↑ Import</button>
+    <button class="btn btn-danger" onclick="resetAll()">Reset</button>
+  </div>
+</header>
+
+<!-- hidden file inputs -->
+<input type="file" id="csv-input"    accept=".csv,.tsv,.txt">
+<input type="file" id="import-input" accept=".json">
+
+<!-- ═══ Toolbar ═══════════════════════════════════════════════════════════════ -->
+<div class="toolbar">
+  <!-- Project pills -->
+  <div class="proj-pills">
+    <button class="proj-pill active" data-project="All"
+            style="--pill-color:#a78bfa" onclick="setProject('All')">
+      <span class="dot"></span> All Projects
+    </button>
+    <button class="proj-pill" data-project="DX"
+            style="--pill-color:#06b6d4" onclick="setProject('DX')">
+      <span class="dot"></span> DX
+    </button>
+    <button class="proj-pill" data-project="LX"
+            style="--pill-color:#7c3aed" onclick="setProject('LX')">
+      <span class="dot"></span> LX
+    </button>
+    <button class="proj-pill" data-project="RC"
+            style="--pill-color:#f97316" onclick="setProject('RC')">
+      <span class="dot"></span> RC
+    </button>
+    <button class="proj-pill" data-project="AFX"
+            style="--pill-color:#ec4899" onclick="setProject('AFX')">
+      <span class="dot"></span> AFX
+    </button>
+  </div>
+
+  <!-- Metric toggle -->
+  <div class="metric-switch">
+    <button class="metric-opt active" data-metric="points" onclick="setMetric('points')">Story Points</button>
+    <button class="metric-opt"        data-metric="count"  onclick="setMetric('count')">Story Count</button>
+  </div>
+</div>
+
+<!-- ═══ Main ══════════════════════════════════════════════════════════════════ -->
+<main class="main">
+
+  <!-- Upload zone (shown when no data) -->
+  <div id="upload-zone" class="upload-zone">
+    <div class="upload-icon">📊</div>
+    <div class="upload-title">Drop your Jira CSV here</div>
+    <div class="upload-sub">
+      Supports standard Jira CSV exports. Needs Issue Key, Sprint, Status, and Story Points columns.
+    </div>
+    <button class="btn btn-prime" style="pointer-events:none">Browse file</button>
+    <div class="upload-hint">or add sprints manually using the button below</div>
+  </div>
+
+  <!-- Dashboard (shown when data present) -->
+  <div id="dashboard" class="hidden">
+
+    <!-- Stats bar -->
+    <div id="stats-bar" class="stats-bar"></div>
+
+    <!-- KPI row -->
+    <div id="kpi-row" class="kpi-row"></div>
+
+    <!-- Per-project sparklines -->
+    <div class="section-hd">Per-Project Velocity</div>
+    <div id="sparkgrid" class="sparkgrid"></div>
+
+    <!-- Detail chart -->
+    <div class="chart-block">
+      <div class="chart-hd">
+        <div class="chart-title">
+          <div class="chart-dot" id="chart-dot"></div>
+          <span id="chart-proj-name"></span>
+        </div>
+        <div class="chart-legend">
+          <span class="leg"><span class="leg-sw leg-sw-plan"></span>Planned</span>
+          <span class="leg"><span class="leg-sw" id="leg-comp-swatch"></span>Completed</span>
+          <span class="leg"><span class="leg-sw leg-sw-line"></span>3-sprint avg</span>
+        </div>
+      </div>
+      <div id="chart-area"></div>
+    </div>
+
+    <!-- Sprint history -->
+    <div class="table-hd">
+      <div class="section-hd" style="margin:0">Sprint History</div>
+      <button class="btn btn-prime" onclick="openModal()">+ Add Sprint</button>
+    </div>
+    <div class="table-wrap">
+      <table class="history">
+        <thead>
+          <tr>
+            <th>Sprint</th>
+            <th class="r">Dates</th>
+            <th class="r">Planned</th>
+            <th class="r">Completed</th>
+            <th class="r">%</th>
+            <th class="r">Trend</th>
+            <th class="r"></th>
+          </tr>
+        </thead>
+        <tbody id="sprint-tbody"></tbody>
+      </table>
+    </div>
+
+  </div><!-- /dashboard -->
+
+</main>
+
+<!-- ═══ Add/Edit Sprint Modal ════════════════════════════════════════════════ -->
+<div id="sprint-modal" class="modal-bg hidden" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()" title="Close">&times;</button>
+    <h3 id="modal-title">Add Sprint</h3>
+    <p>Enter planned and completed values per project. Leave blank for projects not in this sprint.</p>
+
+    <form id="sprint-form" autocomplete="off">
+
+      <div class="form-row">
+        <div class="form-field" style="grid-column:1/-1">
+          <label class="form-label" for="sprint-name-input">Sprint name *</label>
+          <input class="form-input" type="text" id="sprint-name-input"
+                 placeholder="e.g. 26.3.1" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label" for="sprint-start">Start date</label>
+          <input class="form-input" type="date" id="sprint-start">
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="sprint-end">End date</label>
+          <input class="form-input" type="date" id="sprint-end">
+        </div>
+      </div>
+
+      <div class="form-section">Points per project</div>
+
+      <!-- DX -->
+      <div class="form-row" style="align-items:center">
+        <div class="form-field">
+          <label class="form-label">
+            <span class="proj-dot" style="background:#06b6d4"></span> DX — Planned
+          </label>
+          <input class="form-input" type="number" id="plan-DX" min="0" step="1" placeholder="0">
+        </div>
+        <div class="form-field">
+          <label class="form-label">
+            <span class="proj-dot" style="background:#06b6d4"></span> DX — Completed
+          </label>
+          <input class="form-input" type="number" id="comp-DX" min="0" step="1" placeholder="0">
+        </div>
+      </div>
+
+      <!-- LX -->
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label">
+            <span class="proj-dot" style="background:#7c3aed"></span> LX — Planned
+          </label>
+          <input class="form-input" type="number" id="plan-LX" min="0" step="1" placeholder="0">
+        </div>
+        <div class="form-field">
+          <label class="form-label">
+            <span class="proj-dot" style="background:#7c3aed"></span> LX — Completed
+          </label>
+          <input class="form-input" type="number" id="comp-LX" min="0" step="1" placeholder="0">
+        </div>
+      </div>
+
+      <!-- RC -->
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label">
+            <span class="proj-dot" style="background:#f97316"></span> RC — Planned
+          </label>
+          <input class="form-input" type="number" id="plan-RC" min="0" step="1" placeholder="0">
+        </div>
+        <div class="form-field">
+          <label class="form-label">
+            <span class="proj-dot" style="background:#f97316"></span> RC — Completed
+          </label>
+          <input class="form-input" type="number" id="comp-RC" min="0" step="1" placeholder="0">
+        </div>
+      </div>
+
+      <!-- AFX -->
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label">
+            <span class="proj-dot" style="background:#ec4899"></span> AFX — Planned
+          </label>
+          <input class="form-input" type="number" id="plan-AFX" min="0" step="1" placeholder="0">
+        </div>
+        <div class="form-field">
+          <label class="form-label">
+            <span class="proj-dot" style="background:#ec4899"></span> AFX — Completed
+          </label>
+          <input class="form-input" type="number" id="comp-AFX" min="0" step="1" placeholder="0">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-prime">Save Sprint</button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
