@@ -48,13 +48,13 @@
     <div class="nav-section-label">Data</div>
 
     <div class="nav-upload-btns">
-      <label class="nav-upload-btn" title="Upload historical Jira CSV to calculate velocity">
-        <span>📂</span> Historical CSV
-        <input type="file" id="hist-input" accept=".csv,.tsv,.txt" style="display:none">
+      <label class="nav-upload-btn" title="Import a historical Jira HTML export to calculate velocity">
+        <span>📂</span> Historical HTML
+        <input type="file" id="hist-input" accept=".html,.htm" style="display:none">
       </label>
-      <label class="nav-upload-btn" title="Upload current sprint backlog CSV">
-        <span>📂</span> Backlog CSV
-        <input type="file" id="backlog-input" accept=".csv,.tsv,.txt" style="display:none">
+      <label class="nav-upload-btn" title="Import the current sprint backlog as a Jira HTML export">
+        <span>📂</span> Backlog HTML
+        <input type="file" id="backlog-input" accept=".html,.htm" style="display:none">
       </label>
       <label class="nav-upload-btn" title="Import iCalendar (.ics) leave file">
         <span>📅</span> iCal Leave
@@ -66,6 +66,9 @@
 
   <!-- ═══ Main ═════════════════════════════════════════════════════════════ -->
   <main class="app-main">
+
+    <!-- ─── Project tabs (top-level DX / LX / RC filter) ────────────────── -->
+    <div class="project-tabs" id="project-tabs"></div>
 
     <!-- ─── Planner ─────────────────────────────────────────────────────── -->
     <div class="section-panel" data-section="planner">
@@ -121,6 +124,11 @@
             <div class="cfg-row">
               <label class="cfg-label">Add a locked sprint</label>
               <div class="add-sprint-row">
+                <div class="add-sprint-field">
+                  <label class="cfg-hint">Name <span style="font-weight:400">(optional)</span></label>
+                  <input class="cfg-input" type="text" id="asd-name" placeholder="e.g. 26.3.1"
+                         style="width:130px">
+                </div>
                 <div class="add-sprint-field">
                   <label class="cfg-hint">Start date</label>
                   <input class="cfg-input" type="date" id="asd-start">
@@ -271,7 +279,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('backlog-input').addEventListener('change', e => {
     const f = e.target.files[0];
-    if (f) readFile(f, handleBacklogCSV);
+    if (f) readFile(f, handleBacklogHTML);
     e.target.value = '';
   });
   document.getElementById('cfg-half-day').checked = S.leaveHalfDay || false;

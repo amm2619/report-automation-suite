@@ -165,6 +165,49 @@ input, button, select, textarea { font-family: inherit; }
 }
 .section-panel { min-height: 100%; }
 
+/* ── Project tabs (top-level DX / LX / RC filter) ────────────────────────── */
+.project-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px 0;
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+.project-tabs.hidden { display: none; }
+.proj-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--surf1);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.84rem;
+  transition: background 0.13s, color 0.13s;
+}
+.proj-tab:hover { background: var(--surf2); color: var(--text); }
+.proj-tab.active {
+  background: var(--surf2);
+  color: var(--text);
+  border-top: 3px solid var(--pc);
+  padding-top: 6px;
+}
+.proj-tab-key { font-weight: 800; letter-spacing: 0.04em; color: var(--pc); }
+.proj-tab-name { font-weight: 500; }
+.proj-tab-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--surf3);
+  color: var(--muted);
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
 .btn {
   display: inline-flex;
@@ -262,7 +305,8 @@ input, button, select, textarea { font-family: inherit; }
 }
 .sp-hd-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sp-hd-right { display: flex; gap: 8px; }
-.sp-label { font-weight: 600; font-size: 0.88rem; }
+.sp-name  { font-weight: 700; font-size: 0.95rem; }
+.sp-label { font-weight: 600; font-size: 0.88rem; color: var(--muted); }
 .sp-wd-badge {
   padding: 2px 9px;
   border-radius: 12px;
@@ -274,6 +318,73 @@ input, button, select, textarea { font-family: inherit; }
 /* Planner body */
 .planner-body { display: flex; flex-direction: column; gap: 12px; }
 .lanes { display: flex; flex-direction: column; gap: 10px; }
+
+/* ── Team capacity cards (top of planner) ────────────────────────────────── */
+.team-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.team-card {
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  transition: border-color 0.2s;
+}
+.team-card.over-budget { border-color: var(--red)66; }
+.tc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.tc-name { font-weight: 700; font-size: 0.9rem; flex: 1; min-width: 0; }
+.tc-pts { font-size: 0.84rem; margin-bottom: 5px; }
+.tc-pts strong { font-size: 1.05rem; }
+.tc-pts.over { color: var(--red); }
+.tc-pts .cap-remain { margin-left: 6px; }
+.tc-leave { margin-top: 7px; }
+.card-leave {
+  font-size: 0.7rem;
+  color: var(--amber);
+  background: var(--amber)18;
+  border: 1px solid var(--amber)44;
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+/* ── Sprint ticket list ──────────────────────────────────────────────────── */
+.ticket-list {
+  background: var(--surf1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.list-hd {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--border);
+}
+.list-hd-sub { font-size: 0.73rem; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.ticket-list .ticket-row {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+.ticket-list .ticket-row:last-child { border-bottom: none; }
+.ticket-list .empty-hint { padding: 18px 14px; }
+.t-summary.t-link { cursor: pointer; }
+.t-summary.t-link:hover { color: var(--text); text-decoration: underline; }
 
 /* ── Person lane ─────────────────────────────────────────────────────────── */
 .person-lane {
@@ -763,7 +874,17 @@ input, button, select, textarea { font-family: inherit; }
   flex-wrap: wrap;
 }
 .sli-lock  { font-size: 0.75rem; flex-shrink: 0; }
-.sli-num   { font-weight: 700; min-width: 56px; }
+.sli-name  {
+  font-weight: 700;
+  width: 110px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border2);
+  background: var(--surf1);
+  color: var(--text);
+  font-size: 0.8rem;
+}
+.sli-name:focus { outline: none; border-color: var(--lx); }
 .sli-dates { color: var(--text); flex: 1; }
 .sli-meta  { font-size: 0.72rem; color: var(--dim); }
 
@@ -812,21 +933,21 @@ input, button, select, textarea { font-family: inherit; }
 .desc-panel {
   position: fixed;
   top: 0;
-  right: 0;
+  left: 0;
   height: 100vh;
   width: 420px;
   max-width: 90vw;
   background: var(--surf1);
-  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
   z-index: 200;
   display: flex;
   flex-direction: column;
-  box-shadow: -8px 0 32px #00000066;
+  box-shadow: 8px 0 32px #00000066;
   transform: translateX(0);
   transition: transform 0.22s ease;
 }
 .desc-panel.hidden {
-  transform: translateX(100%);
+  transform: translateX(-100%);
   display: flex !important;
 }
 .desc-panel-head {
