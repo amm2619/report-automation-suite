@@ -4,6 +4,8 @@
 
 const STORAGE_KEY = 'vp2.v1';
 const PROJECTS    = ['DX', 'LX', 'RC'];
+// Key prefix → full Jira project name (shown on the project tabs).
+const PROJECT_NAMES = { DX: 'DataXplorer', LX: 'LinkXplorer', RC: 'ROLLERCOASTER' };
 // These are used as foreground text on dark surfaces — all pass WCAG AA 4.5:1
 const PROJ_COLOR  = { DX: '#22d3ee', LX: '#a78bfa', RC: '#fb923c' };
 
@@ -20,13 +22,14 @@ const DEFAULT_STATE = {
     futureCount:     4,    // how many auto sprints to show after last locked one
   },
   people:            [],   // { id, name, sid, type, project, goalPoints }
-  historical:        [],   // raw ticket objects from historical CSV
+  historical:        [],   // raw ticket objects from historical Jira HTML
   leave:             [],   // { sid, date, halfDay, summary }
   leaveHalfDay:      false,
-  backlog:           [],   // ticket objects from sprint CSV
+  backlog:           [],   // ticket objects from sprint Jira HTML
   assignments:       {},   // key → { personId, wfh, sprintIdx }
   view: {
     section:   'planner',  // 'planner' | 'team' | 'history' | 'settings'
+    project:   'DX',       // active project tab: 'DX' | 'LX' | 'RC'
     sprintIdx: 0,
     mode:      'single',   // 'single' | 'multi'
   },
@@ -75,6 +78,7 @@ function getSprints() {
       idx:      i,
       start:    sp.start,
       end:      sp.end,
+      name:     sp.name || '',
       workDays: HOLIDAYS.workDays(sp.start, sp.end),
       holidays: HOLIDAYS.inRange(sp.start, sp.end),
       locked:   true,
@@ -99,6 +103,7 @@ function getSprints() {
       idx:      all.length,
       start:    s,
       end:      e,
+      name:     '',
       workDays: HOLIDAYS.workDays(s, e),
       holidays: HOLIDAYS.inRange(s, e),
       locked:   false,
@@ -116,6 +121,17 @@ function currentSprint() {
 
 function personById(id) { return S.people.find(p => p.id === id); }
 
+// Display name for a sprint — the user's label, falling back to "Sprint N".
+function sprintLabel(sp) {
+  return sp && sp.name && sp.name.trim() ? sp.name.trim() : `Sprint ${(sp ? sp.idx : 0) + 1}`;
+}
+
+// ─── Project filter (top-level DX / LX / RC tabs) ──────────────────────────────
+
+function activeProject()        { return S.view.project || 'DX'; }
+function peopleInProject(proj)  { return S.people.filter(p => p.project === (proj || activeProject())); }
+function backlogInProject(proj) { return S.backlog.filter(t => t.project === (proj || activeProject())); }
+
 function assignedTickets(personId, sprintIdx) {
   return S.backlog.filter(t => {
     const a = S.assignments[t.key];
@@ -123,8 +139,11 @@ function assignedTickets(personId, sprintIdx) {
   });
 }
 
+// Unassigned tickets in the active project (candidates for the current sprint).
 function unassignedTickets(sprintIdx) {
+  const proj = activeProject();
   return S.backlog.filter(t => {
+    if (t.project !== proj) return false;
     const a = S.assignments[t.key];
     return !a || a.sprintIdx !== (sprintIdx === undefined ? S.view.sprintIdx : sprintIdx);
   });
@@ -176,7 +195,7 @@ function toast(msg, type='info') {
 // ─── Description panel ────────────────────────────────────────────────────────
 
 function openDesc(key) {
-  const t = S.backlog.find(x => x.key === key);
+  const t = S.backlog.find(x => x.key === key) || S.historical.find(x => x.key === key);
   if (!t) return;
   const panel = document.getElementById('desc-panel');
   document.getElementById('desc-key').innerHTML = jiraLink(key);
@@ -201,41 +220,99 @@ function readFile(file, cb) {
   r.readAsText(file);
 }
 
-function handleHistoricalCSV(text, filename) {
-  const rows    = DATA.parseCSV(text);
-  const tickets = rows.map(DATA.buildTicket).filter(t => t.key && t.sprints.length);
-  if (!tickets.length) { toast('No tickets found in historical CSV.','error'); return; }
+// Guess each assignee's project from the tickets they own (most-frequent wins).
+function inferProjects(tickets) {
+  const tally = {};
+  for (const t of tickets) {
+    if (!t.assignee || !t.project) continue;
+    (tally[t.assignee] = tally[t.assignee] || {});
+    tally[t.assignee][t.project] = (tally[t.assignee][t.project] || 0) + 1;
+  }
+  const out = {};
+  for (const [name, projs] of Object.entries(tally)) {
+    out[name] = Object.entries(projs).sort((a, b) => b[1] - a[1])[0][0];
+  }
+  return out;
+}
 
-  // Auto-detect people
-  const names = [...new Set(tickets.map(t=>t.assignee).filter(Boolean))];
-  names.forEach(name => {
-    if (!S.people.find(p=>p.name===name)) {
-      S.people.push({ id:uid(), name, sid:'', type:'gov', project:'', goalPoints:null });
+// Collapse any same-name people into one, re-pointing their assignments to the
+// survivor, so a person is only ever seen once. Names are matched trimmed +
+// case-insensitive. Returns the surviving person for a given name.
+function dedupePeople() {
+  const byKey = new Map();          // normalized name → surviving person
+  const remap = {};                 // dropped id → survivor id
+  const kept  = [];
+  for (const p of S.people) {
+    const key = (p.name || '').trim().toLowerCase();
+    const survivor = byKey.get(key);
+    if (survivor) {
+      remap[p.id] = survivor.id;
+      // Keep any details the survivor is missing.
+      survivor.sid        = survivor.sid        || p.sid;
+      survivor.project    = survivor.project    || p.project;
+      survivor.goalPoints = survivor.goalPoints ?? p.goalPoints;
+    } else {
+      byKey.set(key, p);
+      kept.push(p);
+    }
+  }
+  if (kept.length !== S.people.length) {
+    for (const a of Object.values(S.assignments)) {
+      if (a.personId && remap[a.personId]) a.personId = remap[a.personId];
+    }
+    S.people = kept;
+  }
+  return byKey;
+}
+
+// Create any people seen as assignees; fill in an inferred project where the
+// person doesn't already have one (so manual edits in the Team tab stick).
+// Everyone defaults to contractor — flip the few GOV folks in the Team tab.
+function ensurePeople(tickets) {
+  const guess = inferProjects(tickets);
+  const byName = dedupePeople();
+  [...new Set(tickets.map(t => t.assignee).filter(Boolean))].forEach(name => {
+    const existing = byName.get(name.trim().toLowerCase());
+    if (!existing) {
+      const p = { id: uid(), name, sid: '', type: 'contractor', project: guess[name] || '', goalPoints: null };
+      S.people.push(p);
+      byName.set(name.trim().toLowerCase(), p);
+    } else if (!existing.project && guess[name]) {
+      existing.project = guess[name];
     }
   });
+}
 
+function handleHistoricalHTML(text, filename) {
+  const tickets = DATA.parseHTML(text).map(DATA.buildTicket).filter(t => t.key && t.sprints.length);
+  if (!tickets.length) { toast('No tickets with sprints found in the Jira HTML.','error'); return; }
+
+  ensurePeople(tickets);
   S.historical = tickets;
   save();
   toast(`Loaded ${tickets.length} historical tickets from ${filename}`,'success');
   renderApp();
 }
 
-function handleBacklogCSV(text, filename) {
-  const rows    = DATA.parseCSV(text);
-  const tickets = rows.map(DATA.buildTicket).filter(t => t.key);
-  if (!tickets.length) { toast('No tickets found in sprint CSV.','error'); return; }
+function handleBacklogHTML(text, filename) {
+  const tickets = DATA.parseHTML(text).map(DATA.buildTicket).filter(t => t.key);
+  if (!tickets.length) { toast('No tickets found in the Jira HTML.','error'); return; }
 
-  // Auto-detect people from assignees
-  const names = [...new Set(tickets.map(t=>t.assignee).filter(Boolean))];
-  names.forEach(name => {
-    if (!S.people.find(p=>p.name===name)) {
-      S.people.push({ id:uid(), name, sid:'', type:'gov', project:'', goalPoints:null });
-    }
+  ensurePeople(tickets);
+  S.backlog = tickets;
+
+  // A ticket that already carries an assignee is pre-assigned to that person in
+  // the current sprint, so their points count immediately.
+  let auto = 0;
+  const sprintIdx = S.view.sprintIdx || 0;
+  tickets.forEach(t => {
+    if (!t.assignee || S.assignments[t.key]) return;
+    const p = S.people.find(x => x.name === t.assignee);
+    if (p) { S.assignments[t.key] = { personId: p.id, sprintIdx, wfh: false }; auto++; }
   });
 
-  S.backlog = tickets;
   save();
-  toast(`Loaded ${tickets.length} backlog tickets from ${filename}`,'success');
+  toast(`Loaded ${tickets.length} backlog tickets${auto ? ` (${auto} pre-assigned)` : ''} from ${filename}`,'success');
   renderApp();
 }
 
@@ -261,7 +338,7 @@ function openPersonModal(id) {
   document.getElementById('pm-id').value         = id || '';
   document.getElementById('pm-name').value       = p?.name        || '';
   document.getElementById('pm-sid').value        = p?.sid         || '';
-  document.getElementById('pm-type').value       = p?.type        || 'gov';
+  document.getElementById('pm-type').value       = p?.type        || 'contractor';
   document.getElementById('pm-project').value    = p?.project     || '';
   document.getElementById('pm-goal').value       = p?.goalPoints  ?? '';
   document.getElementById('pm-title').textContent = id ? 'Edit Person' : 'Add Person';
@@ -286,6 +363,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const p = S.people.find(x=>x.id===id);
       if (p) Object.assign(p, { name, sid, type, project, goalPoints:goal });
     } else {
+      // Don't create a second card for someone who already exists.
+      const dup = S.people.find(p => p.name.trim().toLowerCase() === name.toLowerCase());
+      if (dup) { toast(`${name} is already on the team.`,'error'); return; }
       S.people.push({ id:uid(), name, sid, type, project, goalPoints:goal });
     }
     save();
@@ -332,8 +412,10 @@ function moveToSprint(key, sprintIdx) {
 function addSprint() {
   const startEl = document.getElementById('asd-start');
   const durEl   = document.getElementById('asd-dur');
+  const nameEl  = document.getElementById('asd-name');
   const start   = startEl.value;
   const dur     = parseInt(durEl.value, 10) || 14;
+  const name    = (nameEl?.value || '').trim();
   if (!start) { toast('Enter a start date for the sprint.', 'error'); return; }
 
   const endD = new Date(start + 'T00:00:00');
@@ -346,8 +428,9 @@ function addSprint() {
   if (overlaps) { toast('This sprint overlaps an existing locked sprint.', 'error'); return; }
 
   if (!S.config.sprints) S.config.sprints = [];
-  S.config.sprints.push({ id: uid(), start, end });
+  S.config.sprints.push({ id: uid(), start, end, name });
   S.config.sprints.sort((a, b) => a.start.localeCompare(b.start));
+  if (nameEl) nameEl.value = '';
   save();
 
   // Pre-fill next suggested start
@@ -361,6 +444,14 @@ function removeSprint(id) {
   S.config.sprints = (S.config.sprints || []).filter(sp => sp.id !== id);
   save();
   renderSettings();
+}
+
+function renameSprint(id, name) {
+  const sp = (S.config.sprints || []).find(s => s.id === id);
+  if (!sp) return;
+  sp.name = (name || '').trim();
+  save();
+  renderApp();   // refresh tabs/headers that show the label
 }
 
 // Lock an auto-generated sprint by converting it to an explicit locked sprint
@@ -419,12 +510,37 @@ function renderApp() {
   document.querySelectorAll('.section-panel').forEach(el =>
     el.classList.toggle('hidden', el.dataset.section !== S.view.section)
   );
+  renderProjectTabs();
   switch (S.view.section) {
     case 'planner':  renderPlanner();  break;
     case 'team':     renderTeam();     break;
     case 'history':  renderHistory();  break;
     case 'settings': renderSettings(); break;
   }
+}
+
+// ─── RENDER: project tabs (top-level DX / LX / RC filter) ──────────────────────
+
+function renderProjectTabs() {
+  const el = document.getElementById('project-tabs');
+  if (!el) return;
+  // Settings is project-agnostic; hide the tabs there.
+  el.classList.toggle('hidden', S.view.section === 'settings');
+  el.innerHTML = PROJECTS.map(p => {
+    const count = backlogInProject(p).length;
+    return `<button class="proj-tab${p === activeProject() ? ' active' : ''}"
+                    style="--pc:${PROJ_COLOR[p]}" onclick="setProject('${p}')">
+      <span class="proj-tab-key">${p}</span>
+      <span class="proj-tab-name">${esc(PROJECT_NAMES[p])}</span>
+      ${count ? `<span class="proj-tab-count">${count}</span>` : ''}
+    </button>`;
+  }).join('');
+}
+
+function setProject(p) {
+  S.view.project = p;
+  save();
+  renderApp();
 }
 
 // ─── RENDER: Settings ─────────────────────────────────────────────────────────
@@ -446,7 +562,9 @@ function renderSettings() {
         .map(h => `<span class="holiday-chip">${esc(h.name)}</span>`).join('');
       return `<div class="sprint-list-item">
         <span class="sli-lock">🔒</span>
-        <span class="sli-num">Sprint ${i + 1}</span>
+        <input class="sli-name" type="text" value="${esc(sp.name || '')}"
+               placeholder="Sprint ${i + 1}" title="Sprint name"
+               onchange="renameSprint('${sp.id}', this.value)">
         <span class="sli-dates">${fmtDate(sp.start)} – ${fmtDate(sp.end)}</span>
         <span class="sli-meta">${dur} cal days · ${wd} work days</span>
         ${holidays}
@@ -488,12 +606,13 @@ function renderTeam() {
   const sp      = sprints[S.view.sprintIdx] || null;
 
   const container = document.getElementById('team-list');
-  if (!S.people.length) {
-    container.innerHTML = '<p class="empty-hint">No team members yet. Upload a historical CSV or add people manually.</p>';
+  const roster    = peopleInProject();
+  if (!roster.length) {
+    container.innerHTML = `<p class="empty-hint">No ${PROJECT_NAMES[activeProject()]} team members yet. Import a Jira HTML export or add people manually (set their project to ${activeProject()}).</p>`;
     return;
   }
 
-  container.innerHTML = S.people.map(p => {
+  container.innerHTML = roster.map(p => {
     const v    = vel[p.name];
     const hist = v && v.sprintCount >= 2;
     const avg  = hist ? fmt(v.avg) : (p.goalPoints ? fmt(p.goalPoints)+' (goal)' : '—');
@@ -541,13 +660,21 @@ function renderHistory() {
   const container = document.getElementById('history-content');
 
   if (!S.historical.length) {
-    container.innerHTML = '<p class="empty-hint">Upload a historical Jira CSV to see velocity per person.</p>';
+    container.innerHTML = '<p class="empty-hint">Import a historical Jira HTML export to see velocity per person.</p>';
     return;
   }
 
-  const rows = Object.entries(vel).sort((a,b)=>b[1].avg-a[1].avg).map(([name,v]) => {
+  // Only show people on the active project tab.
+  const proj  = activeProject();
+  const names = new Set(peopleInProject(proj).map(p => p.name));
+  const entries = Object.entries(vel).filter(([name]) => names.has(name)).sort((a,b)=>b[1].avg-a[1].avg);
+  if (!entries.length) {
+    container.innerHTML = `<p class="empty-hint">No velocity history for ${PROJECT_NAMES[proj]} yet.</p>`;
+    return;
+  }
+
+  const rows = entries.map(([name,v]) => {
     const person = S.people.find(p=>p.name===name);
-    const proj   = person?.project;
     const color  = proj ? PROJ_COLOR[proj] : '#94a3b8';
     const sprintCols = Object.entries(v.sprintPoints)
       .sort(([a],[b])=>a.localeCompare(b))
@@ -563,8 +690,8 @@ function renderHistory() {
     </tr>`;
   }).join('');
 
-  // Collect all sprint keys for header
-  const allSprints = [...new Set(Object.values(vel).flatMap(v=>Object.keys(v.sprintPoints)))].sort();
+  // Collect all sprint keys for header (only the people shown)
+  const allSprints = [...new Set(entries.flatMap(([,v])=>Object.keys(v.sprintPoints)))].sort();
 
   container.innerHTML = `
     <div class="table-wrap">
@@ -595,7 +722,7 @@ function renderPlanner() {
   tabsEl.innerHTML = sprints.map((sp, i) =>
     `<button class="sp-tab${i === S.view.sprintIdx ? ' active' : ''}${sp.locked ? ' locked' : ''}"
              onclick="selectSprint(${i})">
-      ${sp.locked ? '<span class="tab-lock">🔒</span>' : ''}Sprint ${i + 1}
+      ${sp.locked ? '<span class="tab-lock">🔒</span>' : ''}${esc(sprintLabel(sp))}
       <span class="sp-tab-dates">${sp.start.slice(5)}</span>
     </button>`
   ).join('');
@@ -623,7 +750,9 @@ function setMode(mode) {
 }
 
 function renderSingleSprint(sp) {
-  const vel = getVelocity();
+  const vel       = getVelocity();
+  const proj      = activeProject();
+  const people    = peopleInProject(proj);
   const container = document.getElementById('planner-content');
 
   // Sprint header bar
@@ -634,149 +763,135 @@ function renderSingleSprint(sp) {
   const spHeader = `<div class="sp-header">
     <div class="sp-hd-left">
       ${lockBadge}
+      <span class="sp-name">${esc(sprintLabel(sp))}</span>
       <span class="sp-label">${fmtDate(sp.start)} – ${fmtDate(sp.end)}</span>
       <span class="sp-wd-badge">${sp.workDays} work days</span>
       ${holidays}
     </div>
     <div class="sp-hd-right">
       <label class="btn btn-sm">
-        ⬆ Load Backlog CSV
-        <input type="file" accept=".csv,.tsv" onchange="handleBacklogUpload(event)" style="display:none">
+        ⬆ Load Backlog HTML
+        <input type="file" accept=".html,.htm" onchange="handleBacklogUpload(event)" style="display:none">
       </label>
     </div>
   </div>`;
 
-  // People with assignments
-  const activePeople = S.people.filter(p=>p.project||true); // show all
-  const assigned   = activePeople.map(p => renderPersonLane(p, sp, vel)).join('');
-  const unassigned = renderUnassigned(sp.idx);
+  // Team-member capacity cards across the top.
+  const cards = people.length
+    ? people.map(p => renderTeamCard(p, sp, vel)).join('')
+    : `<p class="empty-hint">No ${PROJECT_NAMES[proj]} team members yet — import a Jira HTML export, or add people in the Team tab.</p>`;
+
+  // Sprint ticket list for this project (unassigned + tickets in this sprint).
+  const list = backlogInProject(proj)
+    .filter(t => { const a = S.assignments[t.key]; return !a || a.sprintIdx === sp.idx; })
+    .sort((a, b) => {
+      const pa = S.assignments[a.key]?.personId ? 0 : 1;
+      const pb = S.assignments[b.key]?.personId ? 0 : 1;
+      return pa - pb || a.key.localeCompare(b.key);
+    });
+  const assignedCount = list.filter(t => S.assignments[t.key]?.personId).length;
+  const rows = list.length
+    ? list.map(t => renderTicketListRow(t, people)).join('')
+    : '<p class="empty-hint">No tickets for this project in this sprint. Import a backlog HTML export.</p>';
 
   container.innerHTML = spHeader
-    + `<div class="planner-body">
-        <div class="lanes">${assigned || '<p class="empty-hint">No team members — add people in the Team tab.</p>'}</div>
-        ${unassigned}
+    + `<div class="team-cards">${cards}</div>`
+    + `<div class="ticket-list">
+         <div class="list-hd">Sprint tickets · ${esc(PROJECT_NAMES[proj])}
+           <span class="list-hd-sub">${assignedCount} assigned / ${list.length} shown</span>
+         </div>
+         ${rows}
        </div>`;
 }
 
-function renderPersonLane(person, sp, vel) {
-  const cap       = DATA.computeCapacity(person, sp.start, sp.end, S.leave, vel);
-  const asgPts    = assignedPts(person.id);
-  const wfhPt     = wfhPts(person.id);
-  const remaining = cap.adjustedCapacity - asgPts;
+function renderTeamCard(person, sp, vel) {
+  const cap        = DATA.computeCapacity(person, sp.start, sp.end, S.leave, vel);
+  const asgPts     = assignedPts(person.id);
+  const wfhPt      = wfhPts(person.id);
+  const remaining  = cap.adjustedCapacity - asgPts;
   const overBudget = remaining < 0;
-  const wfhOver   = person.type === 'contractor' && wfhPt > cap.wfhBudgetPts;
-  const pct       = cap.adjustedCapacity > 0 ? Math.min(100, Math.round(asgPts/cap.adjustedCapacity*100)) : 0;
-  const color     = PROJ_COLOR[person.project] || '#94a3b8';
+  const wfhOver    = person.type === 'contractor' && wfhPt > cap.wfhBudgetPts;
+  const pct        = cap.adjustedCapacity > 0 ? Math.min(100, Math.round(asgPts / cap.adjustedCapacity * 100)) : 0;
+  const color      = PROJ_COLOR[person.project] || '#94a3b8';
+  const capHist    = cap.hasHistory ? '' : '<span class="goal-note" title="No 2+ sprint history yet — using goal points">goal</span>';
+  const leaveNote  = cap.leaveDates.length ? `<span class="card-leave" title="${cap.leaveDates.join(', ')}">${cap.leaveDates.length}d leave</span>` : '';
 
-  const tickets  = assignedTickets(person.id, S.view.sprintIdx);
-  const tHtml    = tickets.length ? tickets.map(t=>renderTicketRow(t, person.id)).join('') : '';
-
-  const capHist  = cap.hasHistory ? '' : '<span class="goal-note">goal</span>';
-  const wfhBar   = person.type === 'contractor'
+  const wfhBar = person.type === 'contractor'
     ? `<div class="wfh-bar-wrap" title="WFH: ${fmt(wfhPt)} / ${fmt(cap.wfhBudgetPts)} pts budget">
-        <span class="wfh-bar-label${wfhOver?' over':''}">WFH ${fmt(wfhPt)}/${fmt(cap.wfhBudgetPts)} pts</span>
-        <div class="wfh-bar"><div class="wfh-fill${wfhOver?' over':''}" style="width:${Math.min(100,cap.wfhBudgetPts?Math.round(wfhPt/cap.wfhBudgetPts*100):0)}%"></div></div>
+        <span class="wfh-bar-label${wfhOver ? ' over' : ''}">WFH ${fmt(wfhPt)}/${fmt(cap.wfhBudgetPts)} pts</span>
+        <div class="wfh-bar"><div class="wfh-fill${wfhOver ? ' over' : ''}" style="width:${Math.min(100, cap.wfhBudgetPts ? Math.round(wfhPt / cap.wfhBudgetPts * 100) : 0)}%"></div></div>
        </div>`
     : '';
 
-  return `<div class="person-lane${overBudget?' over-budget':''}">
-    <div class="lane-head">
-      <div class="lane-name-row">
-        <span class="lane-name" style="border-left:3px solid ${color}">${esc(person.name)}</span>
-        <span class="type-badge ${person.type==='contractor'?'ctr':'gov'}">${person.type==='contractor'?'CTR':'GOV'}</span>
-        ${capHist}
-      </div>
-      <div class="lane-cap">
-        <span class="cap-nums${overBudget?' over':''}">
-          ${asgPts} / ${cap.adjustedCapacity} pts
-          <span class="cap-remain">${remaining >= 0 ? `(${remaining} left)` : `(${-remaining} over)`}</span>
-        </span>
-        <div class="cap-bar">
-          <div class="cap-fill${overBudget?' over':''}" style="width:${pct}%"></div>
-        </div>
-        ${wfhBar}
-      </div>
+  return `<div class="team-card${overBudget ? ' over-budget' : ''}" style="border-top:3px solid ${color}">
+    <div class="tc-head">
+      <span class="tc-name">${esc(person.name)}</span>
+      <span class="type-badge ${person.type === 'contractor' ? 'ctr' : 'gov'}">${person.type === 'contractor' ? 'CTR' : 'GOV'}</span>
+      ${capHist}
     </div>
-    <div class="lane-tickets">${tHtml}</div>
-    <div class="lane-footer">
-      <select class="assign-sel" onchange="assignFromUnassigned('${person.id}',this)">
-        <option value="">+ Assign a ticket…</option>
-        ${unassignedTickets(S.view.sprintIdx).map(t=>
-          `<option value="${esc(t.key)}">${esc(t.key)} — ${esc(t.summary.slice(0,50))} (${t.points}pts)</option>`
-        ).join('')}
-      </select>
+    <div class="tc-pts${overBudget ? ' over' : ''}">
+      <strong>${asgPts}</strong> / ${cap.adjustedCapacity} pts
+      <span class="cap-remain">${remaining >= 0 ? `${remaining} left` : `${-remaining} over`}</span>
     </div>
+    <div class="cap-bar"><div class="cap-fill${overBudget ? ' over' : ''}" style="width:${pct}%"></div></div>
+    ${wfhBar}
+    ${leaveNote ? `<div class="tc-leave">${leaveNote}</div>` : ''}
   </div>`;
 }
 
-function renderTicketRow(t, personId) {
-  const a     = S.assignments[t.key] || {};
-  const wfh   = !!a.wfh;
-  const color = PROJ_COLOR[t.project] || '#94a3b8';
-  const epic  = t.epicName ? `<span class="epic-label">${esc(t.epicName)}</span>` : '';
-  const desc  = t.description
-    ? `<button class="desc-btn" onclick="openDesc('${esc(t.key)}')" title="View description">⋯</button>`
+function renderTicketListRow(t, people) {
+  const a        = S.assignments[t.key] || {};
+  const assigned = !!a.personId;
+  const wfh      = !!a.wfh;
+  const color    = PROJ_COLOR[t.project] || '#94a3b8';
+  const epic     = t.epicName ? `<span class="epic-label">${esc(t.epicName)}</span>` : '';
+  const clickable = t.description || t.summary;
+  const summary  = clickable
+    ? `<span class="t-summary t-link" onclick="openDesc('${esc(t.key)}')" title="View details">${esc(t.summary)}</span>`
+    : `<span class="t-summary">${esc(t.summary)}</span>`;
+
+  const assigneeSel = `<select class="assign-sel sm" onchange="assignFromSelect('${esc(t.key)}',this)">
+      <option value="">— Unassigned —</option>
+      ${people.map(p => `<option value="${p.id}"${a.personId === p.id ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}
+    </select>`;
+
+  const wfhPill = assigned
+    ? `<button class="wfh-pill${wfh ? ' active' : ''}" onclick="toggleWFH('${esc(t.key)}')" title="Toggle WFH">WFH</button>`
     : '';
 
-  return `<div class="ticket-row" data-key="${esc(t.key)}">
+  const spSel = (assigned && getSprints().length > 1)
+    ? `<select class="assign-sel sm" onchange="moveToSprint('${esc(t.key)}',+this.value)" title="Move to sprint">
+        ${getSprints().map((sp, i) => `<option value="${i}"${i === S.view.sprintIdx ? ' selected' : ''}>${esc(sprintLabel(sp))}</option>`).join('')}
+      </select>`
+    : '';
+
+  return `<div class="ticket-row${assigned ? '' : ' unassigned'}" data-key="${esc(t.key)}">
     <div class="ticket-main">
       <span class="t-key" style="color:${color}">${jiraLink(t.key)}</span>
       ${epic}
-      <span class="t-summary">${esc(t.summary)}</span>
+      ${summary}
     </div>
     <div class="ticket-meta">
       <span class="t-pts">${t.points || '?'} pts</span>
-      <button class="wfh-pill${wfh?' active':''}" onclick="toggleWFH('${esc(t.key)}')" title="Toggle WFH">WFH</button>
-      ${desc}
-      <button class="act-btn danger sm" onclick="assignTicket('${esc(t.key)}','')" title="Unassign">✕</button>
+      ${assigneeSel}
+      ${wfhPill}
+      ${spSel}
     </div>
-  </div>`;
-}
-
-function renderUnassigned(sprintIdx) {
-  const tickets = unassignedTickets(sprintIdx);
-  if (!tickets.length) return '';
-  const rows = tickets.map(t => {
-    const color = PROJ_COLOR[t.project] || '#94a3b8';
-    const epic  = t.epicName ? `<span class="epic-label">${esc(t.epicName)}</span>` : '';
-    const desc  = t.description
-      ? `<button class="desc-btn" onclick="openDesc('${esc(t.key)}')" title="View description">⋯</button>`
-      : '';
-    const sel = `<select class="assign-sel sm" onchange="assignFromSelect('${esc(t.key)}',this)">
-      <option value="">Assign to…</option>
-      ${S.people.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}
-    </select>`;
-    const spSel = getSprints().length > 1
-      ? `<select class="assign-sel sm" onchange="moveToSprint('${esc(t.key)}',+this.value)">
-          ${getSprints().map((sp,i)=>`<option value="${i}"${i===S.view.sprintIdx?' selected':''}>Sprint ${i+1}</option>`).join('')}
-        </select>`
-      : '';
-    return `<div class="ticket-row unassigned">
-      <div class="ticket-main">
-        <span class="t-key" style="color:${color}">${jiraLink(t.key)}</span>
-        ${epic}
-        <span class="t-summary">${esc(t.summary)}</span>
-        <span class="t-pts">${t.points||'?'} pts</span>
-      </div>
-      <div class="ticket-meta">${desc}${sel}${spSel}</div>
-    </div>`;
-  }).join('');
-  return `<div class="unassigned-pool">
-    <div class="pool-hd">Unassigned (${tickets.length})</div>
-    ${rows}
   </div>`;
 }
 
 function renderMultiSprint(sprints) {
   const vel       = getVelocity();
+  const proj      = activeProject();
+  const people    = peopleInProject(proj);
   const container = document.getElementById('planner-content');
 
   const cols = sprints.map((sp,i) => {
-    const totalCapacity = S.people.reduce((s,p) => {
+    const totalCapacity = people.reduce((s,p) => {
       const cap = DATA.computeCapacity(p, sp.start, sp.end, S.leave, vel);
       return s + cap.adjustedCapacity;
     }, 0);
-    const totalAssigned = S.people.reduce((s,p) => {
+    const totalAssigned = people.reduce((s,p) => {
       return s + assignedTickets(p.id, i).reduce((x,t) => x+(t.points||0), 0);
     }, 0);
     const pct = totalCapacity > 0 ? Math.min(100,Math.round(totalAssigned/totalCapacity*100)) : 0;
@@ -784,7 +899,7 @@ function renderMultiSprint(sprints) {
 
     return `<div class="multi-col">
       <div class="multi-col-hd">
-        <div class="mc-title">Sprint ${i+1}</div>
+        <div class="mc-title">${esc(sprintLabel(sp))}</div>
         <div class="mc-dates">${sp.start.slice(5)} – ${sp.end.slice(5)}</div>
         <div class="mc-wd">${sp.workDays} days ${hl}</div>
         <div class="cap-bar" style="margin-top:6px">
@@ -793,7 +908,7 @@ function renderMultiSprint(sprints) {
         <div class="mc-cap">${totalAssigned} / ${totalCapacity} pts</div>
       </div>
       <div class="mc-tickets">
-        ${S.backlog.filter(t=>(S.assignments[t.key]?.sprintIdx??0)===i&&S.assignments[t.key]?.personId)
+        ${backlogInProject(proj).filter(t=>(S.assignments[t.key]?.sprintIdx??0)===i&&S.assignments[t.key]?.personId)
           .map(t=>{
             const a = S.assignments[t.key];
             const person = personById(a.personId);
@@ -815,22 +930,13 @@ function renderMultiSprint(sprints) {
 // ─── ASSIGN HELPERS ───────────────────────────────────────────────────────────
 
 function assignFromSelect(key, sel) {
-  const personId = sel.value;
-  assignTicket(key, personId);
-  sel.value = '';
-}
-
-function assignFromUnassigned(personId, sel) {
-  const key = sel.value;
-  if (!key) return;
-  assignTicket(key, personId);
-  sel.value = '';
+  assignTicket(key, sel.value);   // '' unassigns; re-render rebuilds the select
 }
 
 function handleBacklogUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
-  readFile(file, handleBacklogCSV);
+  readFile(file, handleBacklogHTML);
   e.target.value = '';
 }
 
@@ -839,7 +945,7 @@ function handleBacklogUpload(e) {
 document.addEventListener('DOMContentLoaded', () => {
   // File inputs
   document.getElementById('hist-input').addEventListener('change', e => {
-    const f = e.target.files[0]; if(f) readFile(f,handleHistoricalCSV); e.target.value='';
+    const f = e.target.files[0]; if(f) readFile(f,handleHistoricalHTML); e.target.value='';
   });
   document.getElementById('ical-input').addEventListener('change', e => {
     const f = e.target.files[0]; if(f) readFile(f,handleICAL); e.target.value='';

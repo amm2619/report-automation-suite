@@ -3,44 +3,80 @@
 /* Data layer: CSV parsing, ticket normalization, velocity and capacity math. */
 const DATA = (() => {
 
-  // ─── CSV ──────────────────────────────────────────────────────────────────
+  // ─── Jira HTML export ───────────────────────────────────────────────────────
+  /*
+   * Parses the table produced by Jira's issue-navigator "Export → HTML"
+   * (Server / Data Center). That export is a single <table id="issuetable">
+   * whose <th> cells are the field names (e.g. "Summary", "Assignee",
+   * "Custom field (Story Points)") and whose <tr class="issuerow"> body rows
+   * are the tickets — Key + Summary + fields all on one row.
+   *
+   * We turn each row into a { header: value } object, so buildTicket /
+   * resolveField / velocity all work off the column headers unchanged.
+   * Reading cell text from real DOM nodes means multi-line descriptions
+   * survive intact instead of being split across file lines.
+   */
 
-  function parseCSV(text) {
-    const lines = text.split(/\r?\n/);
-    if (!lines.length) return [];
-    const first  = lines[0];
-    const tabs   = (first.match(/\t/g)  || []).length;
-    const commas = (first.match(/,/g)   || []).length;
-    const delim  = tabs > commas ? '\t' : ',';
-    const reStr  = delim === '\t'
-      ? '("(?:[^"]|"")*"|[^\\t]*)\\t?'
-      : '("(?:[^"]|"")*"|[^,]*),?';
+  // Cell → plain text, preserving line breaks for multi-line fields.
+  function cellText(el) {
+    const html = el.innerHTML
+      .replace(/<\s*br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|li|tr|h[1-6]|blockquote)>/gi, '\n');
+    const tmp = el.ownerDocument.createElement('div');
+    tmp.innerHTML = html;
+    let txt = tmp.textContent || '';
+    // Icon-only cells (e.g. the issue-type column) carry their value in alt/title.
+    if (!txt.trim() && el.querySelector) {
+      const img = el.querySelector('img');
+      if (img) txt = img.getAttribute('alt') || img.getAttribute('title') || '';
+    }
+    return txt
+      .replace(/ /g, ' ')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/ *\n */g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
 
-    function parseLine(line) {
-      const out = [], rx = new RegExp(reStr, 'g');
-      let m;
-      while ((m = rx.exec(line)) !== null) {
-        if (m.index === rx.lastIndex) { rx.lastIndex++; break; }
-        let v = m[1];
-        if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1).replace(/""/g, '"');
-        out.push(v);
-      }
-      return out;
+  function parseHTML(text) {
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    const tables = [...doc.querySelectorAll('table')];
+    const table =
+      doc.querySelector('table#issuetable') ||
+      tables.find(t => t.querySelector('td.issuekey, tr[data-issuekey], th')) ||
+      tables[0];
+    if (!table) return [];
+
+    // Header cells: prefer an explicit <thead>; otherwise the first row.
+    let headerCells = [...table.querySelectorAll('thead th, thead td')];
+    let bodyRows;
+    if (headerCells.length) {
+      bodyRows = [...table.querySelectorAll('tbody tr')];
+      if (!bodyRows.length) bodyRows = [...table.querySelectorAll('tr')].filter(tr => !tr.querySelector('th'));
+    } else {
+      const all = [...table.querySelectorAll('tr')];
+      headerCells = [...(all[0] ? all[0].children : [])];
+      bodyRows = all.slice(1);
     }
 
+    // Build header names, de-duping repeats exactly like the old CSV path.
     const seen = {};
-    const headers = parseLine(lines[0]).map(h => {
-      const k = h.trim();
+    const headers = headerCells.map(th => {
+      const k = cellText(th).trim();
       if (seen[k] === undefined) { seen[k] = 0; return k; }
       return `${k}.${++seen[k]}`;
     });
 
     const rows = [];
-    for (let i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      const vals = parseLine(lines[i]);
-      const row  = {};
-      headers.forEach((h, j) => { row[h] = (vals[j] || '').trim(); });
+    for (const tr of bodyRows) {
+      const cells = [...tr.children];
+      if (!cells.length) continue;
+      const row = {};
+      headers.forEach((h, j) => { if (h) row[h] = cells[j] ? cellText(cells[j]) : ''; });
+      // Fall back to the row's data-issuekey when there's no Key column.
+      if (!row['Issue key'] && !row['Key'] && tr.getAttribute('data-issuekey')) {
+        row['Issue key'] = tr.getAttribute('data-issuekey');
+      }
       rows.push(row);
     }
     return rows;
@@ -100,6 +136,13 @@ const DATA = (() => {
     return parseFloat(raw) || 0;
   }
 
+  // Jira renders an empty assignee/resolution as the literal "Unassigned" /
+  // "Unresolved" — treat those as blank.
+  function normField(val, blankWord) {
+    const s = (val || '').trim();
+    return s.toLowerCase() === blankWord ? '' : s;
+  }
+
   function buildTicket(row) {
     const key = (resolveField(row, 'Issue key') || resolveField(row, 'Key') || '').trim();
     return {
@@ -107,9 +150,9 @@ const DATA = (() => {
       project:     bucketProject(key),
       sprints:     collectSprints(row),
       points:      parsePoints(row),
-      resolution:  resolveField(row, 'Resolution').trim(),
+      resolution:  normField(resolveField(row, 'Resolution'), 'unresolved'),
       status:      resolveField(row, 'Status').trim(),
-      assignee:    resolveField(row, 'Assignee').trim(),
+      assignee:    normField(resolveField(row, 'Assignee'), 'unassigned'),
       summary:     resolveField(row, 'Summary').trim(),
       description: resolveField(row, 'Description').trim(),
       epicName:    (resolveField(row, 'Epic Name') || resolveField(row, 'Epic Link')).trim(),
@@ -279,7 +322,7 @@ const DATA = (() => {
   }
 
   return {
-    parseCSV, resolveField, buildTicket,
+    parseHTML, resolveField, buildTicket,
     isDone, parseSprint, normSprintName,
     computeVelocity, computeCapacity,
     generateSprints,

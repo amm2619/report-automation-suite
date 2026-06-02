@@ -5,5 +5,8 @@
   "description": "Client-side sprint planner and velocity tracker.",
   "scripts": {
     "test": "node test/smoke.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
   }
 }
