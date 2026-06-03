@@ -1,32 +1,43 @@
-/* App root — state, tabs, nav, toasts. */
+/* App root — state, tabs, nav, toasts. All data auto-saves to this browser's
+   local storage and is restored on refresh, until cleared from Settings. */
 
 let _tid = 0;
 
+const PERSIST_KEY = "vp.state.v1";
+function loadSaved() { try { return JSON.parse(localStorage.getItem(PERSIST_KEY)) || {}; } catch (_) { return {}; } }
+const SAVED = loadSaved();
+// Capacity math reads leave off VP.LEAVE, so re-seed it from the saved snapshot
+// before the first render.
+if (Array.isArray(SAVED.leave)) { VP.LEAVE.length = 0; VP.LEAVE.push(...SAVED.leave); }
+
 function App() {
-  // ---- app state ----
-  const [project, setProject] = useState(() => localStorage.getItem("vp.project") || "DX");
+  // ---- app state (hydrated from the saved snapshot when present) ----
+  const [project, setProject] = useState(() => SAVED.project || "DX");
   const [view, setView] = useState("planner");
-  const [sprintIdx, setSprintIdx] = useState(VP.CURRENT_SPRINT_IDX);
+  const [currentSprintIdx, setCurrentSprintIdx] = useState(() => Number.isInteger(SAVED.currentSprintIdx) ? SAVED.currentSprintIdx : VP.CURRENT_SPRINT_IDX);
+  const [sprintIdx, setSprintIdx] = useState(() => Number.isInteger(SAVED.currentSprintIdx) ? SAVED.currentSprintIdx : VP.CURRENT_SPRINT_IDX);
   const [mode, setMode] = useState("single");
-  const [hidePast, setHidePast] = useState(() => localStorage.getItem("vp.hidePast") === "1");
-  const [tickets, setTickets] = useState(() => VP.TICKETS.map((x) => ({ ...x, sprints: [...x.sprints] })));
-  const [people, setPeople] = useState(() => VP.PEOPLE.map((x) => ({ ...x })));
-  const [sprintsList, setSprintsList] = useState(() => VP.SPRINTS.map((s) => ({ ...s })));
-  const [currentSprintIdx, setCurrentSprintIdx] = useState(VP.CURRENT_SPRINT_IDX);
+  const [hidePast, setHidePast] = useState(() => !!SAVED.hidePast);
+  const [tickets, setTickets] = useState(() => (SAVED.tickets || VP.TICKETS).map((x) => ({ ...x, sprints: [...(x.sprints || [])] })));
+  const [people, setPeople] = useState(() => (SAVED.people || VP.PEOPLE).map((x) => ({ ...x })));
+  const [sprintsList, setSprintsList] = useState(() => (SAVED.sprintsList || VP.SPRINTS).map((s) => ({ ...s })));
   const [descTicket, setDescTicket] = useState(null);
   const [toasts, setToasts] = useState([]);
 
   // settings
-  const [jiraBase, setJiraBase] = useState("https://jira.example.com");
-  const [doneRes, setDoneRes] = useState([...VP.DONE_RESOLUTIONS]);
-  const [customRes, setCustomRes] = useState([]); // user-added resolution strings
+  const [jiraBase, setJiraBase] = useState(() => (SAVED.jiraBase != null ? SAVED.jiraBase : "https://jira.example.com"));
+  const [doneRes, setDoneRes] = useState(() => SAVED.doneRes || [...VP.DONE_RESOLUTIONS]);
+  const [customRes, setCustomRes] = useState(() => SAVED.customRes || []); // user-added resolution strings
   const [showImportHtml, setShowImportHtml] = useState(false);
   const [showImportTickets, setShowImportTickets] = useState(false);
   const [showImportIcal, setShowImportIcal] = useState(false);
-  const [leaveOverlay, setLeaveOverlay] = useState([]); // imported iCal leave (adds to VP.LEAVE)
+  const [leaveOverlay, setLeaveOverlay] = useState(() => SAVED.leave || []); // imported iCal leave (mirrors VP.LEAVE)
 
-  useEffect(() => { localStorage.setItem("vp.project", project); }, [project]);
-  useEffect(() => { localStorage.setItem("vp.hidePast", hidePast ? "1" : "0"); }, [hidePast]);
+  // ---- persistence: write the full data snapshot whenever it changes ----
+  useEffect(() => {
+    const snap = { v: 1, people, tickets, sprintsList, currentSprintIdx, leave: leaveOverlay, jiraBase, doneRes, customRes, project, hidePast };
+    try { localStorage.setItem(PERSIST_KEY, JSON.stringify(snap)); } catch (_) {}
+  }, [people, tickets, sprintsList, currentSprintIdx, leaveOverlay, jiraBase, doneRes, customRes, project, hidePast]);
 
   // ---- toasts ----
   const toast = useCallback((text, kind = "ok") => {
@@ -77,27 +88,51 @@ function App() {
   const onSetCurrent = (idx) => { setCurrentSprintIdx(idx); toast(`Current sprint set to ${sprintsList[idx]?.name}`); };
 
   // ---- settings actions ----
-  const onExportSettings = () => {
-    const payload = { version: 1, exportedAt: new Date().toISOString(), jiraBase, doneRes, customRes, project, sprintsList, currentSprintIdx, leaveOverlay };
+  // Save the entire workspace (people, tickets, sprints, leave, settings) to a
+  // JSON file you can keep in a folder and re-import later.
+  const onExportData = () => {
+    const payload = { version: 1, exportedAt: new Date().toISOString(), people, tickets, sprintsList, currentSprintIdx, leave: leaveOverlay, jiraBase, doneRes, customRes, project, hidePast };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `velocity-settings-${new Date().toISOString().slice(0, 10)}.json`;
+    a.href = url; a.download = `velocity-data-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast("Settings exported");
+    toast("Data exported");
   };
-  const onImportSettings = (txt) => {
+  const onImportData = (txt) => {
     try {
       const d = JSON.parse(txt);
+      if (Array.isArray(d.people)) setPeople(d.people.map((p) => ({ ...p })));
+      if (Array.isArray(d.tickets)) setTickets(d.tickets.map((t) => ({ ...t, sprints: [...(t.sprints || [])] })));
+      if (Array.isArray(d.sprintsList)) setSprintsList(d.sprintsList.map((s) => ({ ...s })));
+      if (Number.isInteger(d.currentSprintIdx)) { setCurrentSprintIdx(d.currentSprintIdx); setSprintIdx(d.currentSprintIdx); }
+      const leave = Array.isArray(d.leave) ? d.leave : (Array.isArray(d.leaveOverlay) ? d.leaveOverlay : null);
+      if (leave) { VP.LEAVE.length = 0; VP.LEAVE.push(...leave); setLeaveOverlay(leave); }
       if (typeof d.jiraBase === "string") setJiraBase(d.jiraBase);
       if (Array.isArray(d.doneRes)) setDoneRes(d.doneRes);
       if (Array.isArray(d.customRes)) setCustomRes(d.customRes);
-      if (Array.isArray(d.sprintsList)) setSprintsList(d.sprintsList);
-      if (Number.isInteger(d.currentSprintIdx)) setCurrentSprintIdx(d.currentSprintIdx);
-      if (Array.isArray(d.leaveOverlay)) setLeaveOverlay(d.leaveOverlay);
-      toast("Settings imported");
-    } catch { toast("Invalid settings file", "err"); }
+      if (typeof d.project === "string") setProject(d.project);
+      if (typeof d.hidePast === "boolean") setHidePast(d.hidePast);
+      toast("Data imported");
+    } catch { toast("Invalid data file", "err"); }
+  };
+  // Wipe everything back to a fresh, empty workspace.
+  const onClearData = () => {
+    VP.LEAVE.length = 0;
+    setPeople([]);
+    setTickets([]);
+    setSprintsList(VP.SPRINTS.map((s) => ({ ...s })));
+    setCurrentSprintIdx(VP.CURRENT_SPRINT_IDX);
+    setSprintIdx(VP.CURRENT_SPRINT_IDX);
+    setLeaveOverlay([]);
+    setJiraBase("https://jira.example.com");
+    setDoneRes([...VP.DONE_RESOLUTIONS]);
+    setCustomRes([]);
+    setProject("DX");
+    setHidePast(false);
+    try { localStorage.removeItem(PERSIST_KEY); } catch (_) {}
+    toast("All data cleared", "info");
   };
   const onImportHistoricalHtml = (html) => {
     const result = parseHistoricalHtml(html, people, doneRes);
@@ -280,7 +315,7 @@ function App() {
             leaveOverlay={leaveOverlay} onClearImportedLeave={onClearImportedLeave}
             onAddSprint={onAddSprint} onEditSprint={onEditSprint} onRemoveSprint={onRemoveSprint} onSetCurrent={onSetCurrent}
             toast={toast}
-            onExportSettings={onExportSettings} onImportSettings={onImportSettings}
+            onExportData={onExportData} onImportData={onImportData} onClearData={onClearData}
             onOpenImportHistory={() => setShowImportHtml(true)}
             onOpenImportTickets={() => setShowImportTickets(true)}
             onOpenImportIcal={() => setShowImportIcal(true)} />

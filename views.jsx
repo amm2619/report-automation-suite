@@ -10,9 +10,10 @@ function Settings({
   hidePast, setHidePast,
   leaveOverlay, onClearImportedLeave,
   onAddSprint, onEditSprint, onRemoveSprint, onSetCurrent,
-  toast, onExportSettings, onImportSettings,
+  toast, onExportData, onImportData, onClearData,
   onOpenImportHistory, onOpenImportTickets, onOpenImportIcal,
 }) {
+  const [confirmClear, setConfirmClear] = useState(false);
   const presetRes = ["Done", "Fixed", "Resolved", "Completed", "Complete", "Closed", "Shipped"];
   const allRes = useMemo(() => [...new Set([...presetRes, ...customRes])], [customRes]);
   const [newRes, setNewRes] = useState("");
@@ -37,7 +38,7 @@ function Settings({
     const f = e.target.files?.[0];
     if (!f) return;
     const reader = new FileReader();
-    reader.onload = () => onImportSettings(String(reader.result || ""));
+    reader.onload = () => onImportData(String(reader.result || ""));
     reader.readAsText(f);
     e.target.value = "";
   }
@@ -49,8 +50,8 @@ function Settings({
       <div className="team-head">
         <div><h2>Settings</h2><div className="sub">Project-agnostic · applies across {VP.PROJECTS.map((p) => p.id).join(" / ")}</div></div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={pickFile}><Icon name="download" size={14} style={{ transform: "rotate(180deg)" }} /> Import settings</button>
-          <button className="btn primary" onClick={onExportSettings}><Icon name="download" size={14} /> Export settings</button>
+          <button className="btn" onClick={pickFile}><Icon name="download" size={14} style={{ transform: "rotate(180deg)" }} /> Import data</button>
+          <button className="btn primary" onClick={onExportData}><Icon name="download" size={14} /> Export data</button>
           <input ref={fileRef} type="file" accept="application/json,.json" onChange={onFileChosen} style={{ display: "none" }} />
         </div>
       </div>
@@ -138,6 +139,42 @@ function Settings({
         onSetCurrent={onSetCurrent}
         toast={toast}
       />
+
+      {/* Data — auto-save note + clear */}
+      <div className="person-card settings-card" style={{ marginTop: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div className="section-label" style={{ margin: 0 }}>Data</div>
+            <div className="muted" style={{ fontSize: 12.5 }}>
+              Everything you import or edit is saved automatically in this browser and restored on refresh.
+              Use <b>Export data</b> (top right) to keep a copy in a folder. Clearing wipes the workspace back to empty.
+            </div>
+          </div>
+          <button className="btn" onClick={() => setConfirmClear(true)}
+            style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
+            <Icon name="trash" size={14} /> Clear all data
+          </button>
+        </div>
+      </div>
+
+      {confirmClear && (
+        <div className="modal-scrim" onClick={() => setConfirmClear(false)}>
+          <div className="modal" style={{ width: "min(400px, 100%)" }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head"><h3>Clear all data?</h3></div>
+            <div className="modal-body">
+              <div className="muted" style={{ fontSize: 13 }}>
+                This removes all people, tickets, leave, and resets the sprint calendar and settings.
+                Export first if you want to keep a copy. This can't be undone.
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button className="btn" onClick={() => setConfirmClear(false)}>Cancel</button>
+              <button className="btn" style={{ background: "color-mix(in oklch, var(--danger) 18%, var(--surface-2))", borderColor: "var(--danger)", color: "var(--text)" }}
+                onClick={() => { onClearData(); setConfirmClear(false); }}>Clear everything</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -2226,12 +2226,14 @@ function Settings({
   onRemoveSprint,
   onSetCurrent,
   toast,
-  onExportSettings,
-  onImportSettings,
+  onExportData,
+  onImportData,
+  onClearData,
   onOpenImportHistory,
   onOpenImportTickets,
   onOpenImportIcal
 }) {
+  const [confirmClear, setConfirmClear] = useState(false);
   const presetRes = ["Done", "Fixed", "Resolved", "Completed", "Complete", "Closed", "Shipped"];
   const allRes = useMemo(() => [...new Set([...presetRes, ...customRes])], [customRes]);
   const [newRes, setNewRes] = useState("");
@@ -2260,7 +2262,7 @@ function Settings({
     const f = e.target.files?.[0];
     if (!f) return;
     const reader = new FileReader();
-    reader.onload = () => onImportSettings(String(reader.result || ""));
+    reader.onload = () => onImportData(String(reader.result || ""));
     reader.readAsText(f);
     e.target.value = "";
   }
@@ -2288,13 +2290,13 @@ function Settings({
     style: {
       transform: "rotate(180deg)"
     }
-  }), " Import settings"), React.createElement("button", {
+  }), " Import data"), React.createElement("button", {
     className: "btn primary",
-    onClick: onExportSettings
+    onClick: onExportData
   }, React.createElement(Icon, {
     name: "download",
     size: 14
-  }), " Export settings"), React.createElement("input", {
+  }), " Export data"), React.createElement("input", {
     ref: fileRef,
     type: "file",
     accept: "application/json,.json",
@@ -2484,7 +2486,76 @@ function Settings({
     onRemoveSprint: onRemoveSprint,
     onSetCurrent: onSetCurrent,
     toast: toast
-  }));
+  }), React.createElement("div", {
+    className: "person-card settings-card",
+    style: {
+      marginTop: 16
+    }
+  }, React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 12
+    }
+  }, React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, React.createElement("div", {
+    className: "section-label",
+    style: {
+      margin: 0
+    }
+  }, "Data"), React.createElement("div", {
+    className: "muted",
+    style: {
+      fontSize: 12.5
+    }
+  }, "Everything you import or edit is saved automatically in this browser and restored on refresh. Use ", React.createElement("b", null, "Export data"), " (top right) to keep a copy in a folder. Clearing wipes the workspace back to empty.")), React.createElement("button", {
+    className: "btn",
+    onClick: () => setConfirmClear(true),
+    style: {
+      borderColor: "var(--danger)",
+      color: "var(--danger)"
+    }
+  }, React.createElement(Icon, {
+    name: "trash",
+    size: 14
+  }), " Clear all data"))), confirmClear && React.createElement("div", {
+    className: "modal-scrim",
+    onClick: () => setConfirmClear(false)
+  }, React.createElement("div", {
+    className: "modal",
+    style: {
+      width: "min(400px, 100%)"
+    },
+    onClick: e => e.stopPropagation()
+  }, React.createElement("div", {
+    className: "modal-head"
+  }, React.createElement("h3", null, "Clear all data?")), React.createElement("div", {
+    className: "modal-body"
+  }, React.createElement("div", {
+    className: "muted",
+    style: {
+      fontSize: 13
+    }
+  }, "This removes all people, tickets, leave, and resets the sprint calendar and settings. Export first if you want to keep a copy. This can't be undone.")), React.createElement("div", {
+    className: "modal-foot"
+  }, React.createElement("button", {
+    className: "btn",
+    onClick: () => setConfirmClear(false)
+  }, "Cancel"), React.createElement("button", {
+    className: "btn",
+    style: {
+      background: "color-mix(in oklch, var(--danger) 18%, var(--surface-2))",
+      borderColor: "var(--danger)",
+      color: "var(--text)"
+    },
+    onClick: () => {
+      onClearData();
+      setConfirmClear(false);
+    }
+  }, "Clear everything")))));
 }
 function SprintCalendarCard({
   sprints,
@@ -3327,38 +3398,63 @@ Object.assign(window, {
 /* ===== app.jsx ===== */
 
 let _tid = 0;
+const PERSIST_KEY = "vp.state.v1";
+function loadSaved() {
+  try {
+    return JSON.parse(localStorage.getItem(PERSIST_KEY)) || {};
+  } catch (_) {
+    return {};
+  }
+}
+const SAVED = loadSaved();
+if (Array.isArray(SAVED.leave)) {
+  VP.LEAVE.length = 0;
+  VP.LEAVE.push(...SAVED.leave);
+}
 function App() {
-  const [project, setProject] = useState(() => localStorage.getItem("vp.project") || "DX");
+  const [project, setProject] = useState(() => SAVED.project || "DX");
   const [view, setView] = useState("planner");
-  const [sprintIdx, setSprintIdx] = useState(VP.CURRENT_SPRINT_IDX);
+  const [currentSprintIdx, setCurrentSprintIdx] = useState(() => Number.isInteger(SAVED.currentSprintIdx) ? SAVED.currentSprintIdx : VP.CURRENT_SPRINT_IDX);
+  const [sprintIdx, setSprintIdx] = useState(() => Number.isInteger(SAVED.currentSprintIdx) ? SAVED.currentSprintIdx : VP.CURRENT_SPRINT_IDX);
   const [mode, setMode] = useState("single");
-  const [hidePast, setHidePast] = useState(() => localStorage.getItem("vp.hidePast") === "1");
-  const [tickets, setTickets] = useState(() => VP.TICKETS.map(x => ({
+  const [hidePast, setHidePast] = useState(() => !!SAVED.hidePast);
+  const [tickets, setTickets] = useState(() => (SAVED.tickets || VP.TICKETS).map(x => ({
     ...x,
-    sprints: [...x.sprints]
+    sprints: [...(x.sprints || [])]
   })));
-  const [people, setPeople] = useState(() => VP.PEOPLE.map(x => ({
+  const [people, setPeople] = useState(() => (SAVED.people || VP.PEOPLE).map(x => ({
     ...x
   })));
-  const [sprintsList, setSprintsList] = useState(() => VP.SPRINTS.map(s => ({
+  const [sprintsList, setSprintsList] = useState(() => (SAVED.sprintsList || VP.SPRINTS).map(s => ({
     ...s
   })));
-  const [currentSprintIdx, setCurrentSprintIdx] = useState(VP.CURRENT_SPRINT_IDX);
   const [descTicket, setDescTicket] = useState(null);
   const [toasts, setToasts] = useState([]);
-  const [jiraBase, setJiraBase] = useState("https://jira.example.com");
-  const [doneRes, setDoneRes] = useState([...VP.DONE_RESOLUTIONS]);
-  const [customRes, setCustomRes] = useState([]);
+  const [jiraBase, setJiraBase] = useState(() => SAVED.jiraBase != null ? SAVED.jiraBase : "https://jira.example.com");
+  const [doneRes, setDoneRes] = useState(() => SAVED.doneRes || [...VP.DONE_RESOLUTIONS]);
+  const [customRes, setCustomRes] = useState(() => SAVED.customRes || []);
   const [showImportHtml, setShowImportHtml] = useState(false);
   const [showImportTickets, setShowImportTickets] = useState(false);
   const [showImportIcal, setShowImportIcal] = useState(false);
-  const [leaveOverlay, setLeaveOverlay] = useState([]);
+  const [leaveOverlay, setLeaveOverlay] = useState(() => SAVED.leave || []);
   useEffect(() => {
-    localStorage.setItem("vp.project", project);
-  }, [project]);
-  useEffect(() => {
-    localStorage.setItem("vp.hidePast", hidePast ? "1" : "0");
-  }, [hidePast]);
+    const snap = {
+      v: 1,
+      people,
+      tickets,
+      sprintsList,
+      currentSprintIdx,
+      leave: leaveOverlay,
+      jiraBase,
+      doneRes,
+      customRes,
+      project,
+      hidePast
+    };
+    try {
+      localStorage.setItem(PERSIST_KEY, JSON.stringify(snap));
+    } catch (_) {}
+  }, [people, tickets, sprintsList, currentSprintIdx, leaveOverlay, jiraBase, doneRes, customRes, project, hidePast]);
   const toast = useCallback((text, kind = "ok") => {
     const id = ++_tid;
     setToasts(ts => [...ts, {
@@ -3434,17 +3530,20 @@ function App() {
     setCurrentSprintIdx(idx);
     toast(`Current sprint set to ${sprintsList[idx]?.name}`);
   };
-  const onExportSettings = () => {
+  const onExportData = () => {
     const payload = {
       version: 1,
       exportedAt: new Date().toISOString(),
+      people,
+      tickets,
+      sprintsList,
+      currentSprintIdx,
+      leave: leaveOverlay,
       jiraBase,
       doneRes,
       customRes,
       project,
-      sprintsList,
-      currentSprintIdx,
-      leaveOverlay
+      hidePast
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json"
@@ -3452,26 +3551,65 @@ function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `velocity-settings-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `velocity-data-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast("Settings exported");
+    toast("Data exported");
   };
-  const onImportSettings = txt => {
+  const onImportData = txt => {
     try {
       const d = JSON.parse(txt);
+      if (Array.isArray(d.people)) setPeople(d.people.map(p => ({
+        ...p
+      })));
+      if (Array.isArray(d.tickets)) setTickets(d.tickets.map(t => ({
+        ...t,
+        sprints: [...(t.sprints || [])]
+      })));
+      if (Array.isArray(d.sprintsList)) setSprintsList(d.sprintsList.map(s => ({
+        ...s
+      })));
+      if (Number.isInteger(d.currentSprintIdx)) {
+        setCurrentSprintIdx(d.currentSprintIdx);
+        setSprintIdx(d.currentSprintIdx);
+      }
+      const leave = Array.isArray(d.leave) ? d.leave : Array.isArray(d.leaveOverlay) ? d.leaveOverlay : null;
+      if (leave) {
+        VP.LEAVE.length = 0;
+        VP.LEAVE.push(...leave);
+        setLeaveOverlay(leave);
+      }
       if (typeof d.jiraBase === "string") setJiraBase(d.jiraBase);
       if (Array.isArray(d.doneRes)) setDoneRes(d.doneRes);
       if (Array.isArray(d.customRes)) setCustomRes(d.customRes);
-      if (Array.isArray(d.sprintsList)) setSprintsList(d.sprintsList);
-      if (Number.isInteger(d.currentSprintIdx)) setCurrentSprintIdx(d.currentSprintIdx);
-      if (Array.isArray(d.leaveOverlay)) setLeaveOverlay(d.leaveOverlay);
-      toast("Settings imported");
+      if (typeof d.project === "string") setProject(d.project);
+      if (typeof d.hidePast === "boolean") setHidePast(d.hidePast);
+      toast("Data imported");
     } catch {
-      toast("Invalid settings file", "err");
+      toast("Invalid data file", "err");
     }
+  };
+  const onClearData = () => {
+    VP.LEAVE.length = 0;
+    setPeople([]);
+    setTickets([]);
+    setSprintsList(VP.SPRINTS.map(s => ({
+      ...s
+    })));
+    setCurrentSprintIdx(VP.CURRENT_SPRINT_IDX);
+    setSprintIdx(VP.CURRENT_SPRINT_IDX);
+    setLeaveOverlay([]);
+    setJiraBase("https://jira.example.com");
+    setDoneRes([...VP.DONE_RESOLUTIONS]);
+    setCustomRes([]);
+    setProject("DX");
+    setHidePast(false);
+    try {
+      localStorage.removeItem(PERSIST_KEY);
+    } catch (_) {}
+    toast("All data cleared", "info");
   };
   const onImportHistoricalHtml = html => {
     const result = parseHistoricalHtml(html, people, doneRes);
@@ -3754,8 +3892,9 @@ function App() {
     onRemoveSprint: onRemoveSprint,
     onSetCurrent: onSetCurrent,
     toast: toast,
-    onExportSettings: onExportSettings,
-    onImportSettings: onImportSettings,
+    onExportData: onExportData,
+    onImportData: onImportData,
+    onClearData: onClearData,
     onOpenImportHistory: () => setShowImportHtml(true),
     onOpenImportTickets: () => setShowImportTickets(true),
     onOpenImportIcal: () => setShowImportIcal(true)
