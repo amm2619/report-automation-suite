@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="midnight" data-density="balanced">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Release Notes · Jira Build Notes</title>
+  <style>
+  /* ==========================================================================
+     Release Notes — styles
+     Shares the Velocity · Sprint Planner design system (theme tokens, shell,
+     cards, modals, drop-zone, toasts) so the two apps feel like one suite.
+     ========================================================================== */
+
+  :root {
+    --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    /* accent trio used for the brand glyph + type badges */
+    --c1: oklch(0.84 0.13 165);   /* mint */
+    --c2: oklch(0.78 0.13 268);   /* periwinkle */
+    --c3: oklch(0.80 0.14 38);    /* coral */
+
+    --radius: 12px;
+    --radius-sm: 8px;
+    --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* ---- Midnight (default dark) ---- */
+  :root, :root[data-theme="midnight"] {
+    --bg:        oklch(0.165 0.012 265);
+    --bg-grad:   oklch(0.185 0.014 270);
+    --surface:   oklch(0.205 0.013 265);
+    --surface-2: oklch(0.245 0.014 265);
+    --surface-3: oklch(0.285 0.015 265);
+    --border:    oklch(0.32 0.014 265);
+    --border-strong: oklch(0.40 0.016 265);
+    --text:      oklch(0.96 0.004 265);
+    --text-dim:  oklch(0.74 0.008 265);
+    --text-faint:oklch(0.56 0.010 265);
+    --accent:    oklch(0.74 0.11 232);
+    --accent-ink:oklch(0.20 0.04 250);
+    --danger:    oklch(0.70 0.17 22);
+    --good:      oklch(0.80 0.13 155);
+    --warn:      oklch(0.82 0.13 75);
+    --shadow:    0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.55);
+  }
+
+  /* ---- Slate (cooler, flatter dark) ---- */
+  :root[data-theme="slate"] {
+    --bg:        oklch(0.205 0.018 245);
+    --bg-grad:   oklch(0.225 0.02 248);
+    --surface:   oklch(0.255 0.02 245);
+    --surface-2: oklch(0.30 0.022 245);
+    --surface-3: oklch(0.345 0.024 245);
+    --border:    oklch(0.38 0.022 245);
+    --border-strong: oklch(0.46 0.024 245);
+    --text:      oklch(0.97 0.005 245);
+    --text-dim:  oklch(0.78 0.012 245);
+    --text-faint:oklch(0.60 0.014 245);
+    --accent:    oklch(0.76 0.12 222);
+    --accent-ink:oklch(0.22 0.04 245);
+    --danger:    oklch(0.70 0.17 22);
+    --good:      oklch(0.80 0.13 155);
+    --warn:      oklch(0.82 0.13 75);
+    --shadow:    0 1px 2px rgba(0,0,0,.35), 0 10px 28px -14px rgba(0,0,0,.5);
+  }
+
+  /* ---- Daylight (light) ---- */
+  :root[data-theme="daylight"] {
+    --bg:        oklch(0.96 0.006 250);
+    --bg-grad:   oklch(0.99 0.004 250);
+    --surface:   oklch(1 0 0);
+    --surface-2: oklch(0.975 0.005 250);
+    --surface-3: oklch(0.95 0.007 250);
+    --border:    oklch(0.90 0.008 250);
+    --border-strong: oklch(0.83 0.01 250);
+    --text:      oklch(0.26 0.02 265);
+    --text-dim:  oklch(0.46 0.02 265);
+    --text-faint:oklch(0.62 0.018 265);
+    --accent:    oklch(0.55 0.15 250);
+    --accent-ink:oklch(0.99 0 0);
+    --danger:    oklch(0.58 0.20 25);
+    --good:      oklch(0.58 0.14 158);
+    --warn:      oklch(0.62 0.14 70);
+    --c1: oklch(0.62 0.15 168);
+    --c2: oklch(0.55 0.18 270);
+    --c3: oklch(0.60 0.18 38);
+    --shadow:  0 1px 2px rgba(20,25,40,.06), 0 12px 28px -16px rgba(20,25,40,.22);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: var(--font-sans);
+    background:
+      radial-gradient(1200px 700px at 80% -10%, var(--bg-grad), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.005em;
+  }
+  button { font-family: inherit; cursor: pointer; color: inherit; }
+  a { color: var(--accent); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); background-clip: padding-box; }
+
+  /* density */
+  :root[data-density="compact"] { --row-py: 7px; --card-pad: 12px; --gap: 8px; }
+  :root, :root[data-density="balanced"] { --row-py: 11px; --card-pad: 16px; --gap: 12px; }
+  :root[data-density="comfy"] { --row-py: 15px; --card-pad: 20px; --gap: 16px; }
+
+  /* ===================== App shell ===================== */
+  .app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  .topbar {
+    display: flex; align-items: center; gap: 18px;
+    padding: 0 18px; height: 56px; flex: none;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in oklch, var(--surface) 70%, transparent);
+    backdrop-filter: blur(10px);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -0.02em; font-size: 15px; }
+  .brand .glyph {
+    width: 26px; height: 26px; border-radius: 8px; flex: none;
+    background: conic-gradient(from 210deg, var(--c1), var(--c2), var(--c3), var(--c1));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+    position: relative;
+  }
+  .brand .glyph::after { content:""; position:absolute; inset:6px; border-radius:4px; background: var(--surface); }
+  .brand small { color: var(--text-faint); font-weight: 600; letter-spacing: 0; }
+
+  .topbar .spacer { flex: 1; }
+  .iconbtn {
+    width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--surface-2); display: grid; place-items: center; color: var(--text-dim);
+    transition: all .15s var(--ease);
+  }
+  .iconbtn:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface-3); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border);
+    background: var(--surface-2); padding: 8px 13px; border-radius: 9px; font-weight: 700; font-size: 13px;
+    color: var(--text); transition: all .15s var(--ease); white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--border-strong); background: var(--surface-3); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn.sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+  .btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+  /* theme switch (segmented) */
+  .theme-seg { display: flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 3px; }
+  .theme-seg button { border: none; background: transparent; padding: 5px 10px; border-radius: 6px; font-weight: 700; font-size: 12px; color: var(--text-faint); }
+  .theme-seg button[data-active="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+
+  /* nav row */
+  .navrow {
+    display: flex; align-items: center; gap: 16px; flex: none;
+    padding: 0 18px; height: 48px; border-bottom: 1px solid var(--border);
+    background: color-mix(in oklch, var(--surface) 35%, transparent);
+  }
+  .viewtabs { display: flex; gap: 2px; }
+  .viewtab {
+    border: none; background: transparent; padding: 8px 12px; border-radius: 8px; font-weight: 700; font-size: 13px;
+    color: var(--text-faint); position: relative; transition: color .15s var(--ease);
+  }
+  .viewtab:hover { color: var(--text-dim); }
+  .viewtab[data-active="true"] { color: var(--text); }
+  .viewtab[data-active="true"]::after {
+    content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px;
+    background: var(--accent); border-radius: 2px;
+  }
+
+  /* content scroll area */
+  .content { flex: 1; overflow: auto; padding: 18px; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+
+  /* ===================== Cards & fields ===================== */
+  .card {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: var(--card-pad); margin-bottom: 16px;
+  }
+  .card.pri { border-color: color-mix(in oklch, var(--accent) 35%, var(--border)); background: linear-gradient(180deg, color-mix(in oklch, var(--accent) 5%, var(--surface)), var(--surface)); }
+  .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); font-weight: 800; margin: 0 0 12px 2px; }
+  h2.head { margin: 0 0 4px; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+  .sub { color: var(--text-dim); font-size: 13px; }
+
+  .meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+  .field label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); font-weight: 800; }
+  .field input, .field select, .field textarea {
+    font-family: inherit; font-size: 14px; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--surface-2); color: var(--text); transition: border-color .15s; width: 100%;
+  }
+  .field textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
+
+  /* ===================== Stats strip ===================== */
+  .stats { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; padding: 13px 16px; }
+  .metric { display: flex; flex-direction: column; gap: 1px; }
+  .metric .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); font-weight: 700; }
+  .metric .v { font-size: 20px; font-weight: 800; font-family: var(--font-mono); letter-spacing: -0.02em; }
+  .metric .v.bug { color: var(--danger); }
+  .metric .v.feature { color: var(--good); }
+
+  /* ===================== Drop zone / import ===================== */
+  .drop-zone {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px; border-radius: 11px;
+    border: 1.5px dashed var(--border-strong); background: var(--surface-2);
+    cursor: pointer; transition: border-color .15s var(--ease), background .15s var(--ease);
+    color: var(--text-dim);
+  }
+  .drop-zone:hover, .drop-zone[data-drag="true"] { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 8%, var(--surface-2)); color: var(--text); }
+  .drop-zone .ico { color: var(--accent); flex: none; display: grid; place-items: center; }
+  .preview-strip {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    padding: 11px 14px; border-radius: 10px; margin-top: 14px;
+    background: color-mix(in oklch, var(--good) 8%, var(--surface-2));
+    border: 1px solid color-mix(in oklch, var(--good) 32%, var(--border));
+  }
+  .preview-strip[data-empty="true"] { background: var(--surface-2); border-color: var(--border); }
+  .preview-strip .metric .v { font-size: 16px; }
+  textarea.paste {
+    font-family: var(--font-mono); font-size: 12px; padding: 11px; border-radius: 9px; min-height: 120px;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text); resize: vertical; width: 100%;
+    margin-top: 12px;
+  }
+  textarea.paste:focus { outline: none; border-color: var(--accent); }
+
+  /* ===================== Grouped ticket editor ===================== */
+  .grp { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin-bottom: 14px; overflow: hidden; }
+  .grp-head {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    background: linear-gradient(180deg, var(--surface-2), color-mix(in oklch, var(--surface-2) 70%, var(--surface)));
+    border-bottom: 1px solid var(--border); cursor: pointer; user-select: none;
+  }
+  .grp-head .ver { font-family: var(--font-mono); font-weight: 800; font-size: 15px; letter-spacing: -0.01em; }
+  .grp-head .cnt { font-family: var(--font-mono); font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--surface-3); color: var(--text-dim); font-weight: 700; }
+  .grp-head .caret { margin-left: auto; color: var(--text-faint); transition: transform .18s var(--ease); }
+  .grp[data-collapsed="true"] .caret { transform: rotate(-90deg); }
+  .grp[data-collapsed="true"] .grp-body { display: none; }
+
+  .epic-head {
+    display: flex; align-items: center; gap: 8px; padding: 9px 16px;
+    font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint);
+    background: color-mix(in oklch, var(--surface-2) 45%, transparent);
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  }
+
+  .trow {
+    display: grid; grid-template-columns: auto 132px auto 1fr; align-items: center; gap: 12px;
+    padding: var(--row-py) 16px; border-top: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
+    transition: background .12s var(--ease);
+  }
+  .trow:first-child { border-top: none; }
+  .trow:hover { background: color-mix(in oklch, var(--surface-2) 50%, transparent); }
+  .trow[data-excluded="true"] { opacity: 0.42; }
+  .tkey { font-family: var(--font-mono); font-size: 12.5px; font-weight: 700; text-decoration: none; color: var(--text); white-space: nowrap; }
+  .tkey:hover { color: var(--accent); }
+  .tsum { min-width: 0; font-size: 13.5px; font-weight: 600; cursor: text; border-bottom: 1px solid transparent; }
+  .tsum:hover { border-bottom-color: var(--text-faint); }
+  .tsum-input {
+    font: inherit; font-size: 13.5px; font-weight: 600; width: 100%;
+    padding: 4px 7px; border-radius: 7px; border: 1px solid var(--accent);
+    background: var(--surface); color: var(--text); outline: none;
+  }
+
+  /* type badge */
+  .type-badge {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 800;
+    letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+    background: var(--surface-3); color: var(--text-dim);
+  }
+  .type-badge.bug { background: color-mix(in oklch, var(--danger) 18%, transparent); color: var(--danger); }
+  .type-badge.feature { background: color-mix(in oklch, var(--good) 18%, transparent); color: var(--good); }
+  .type-badge.improvement { background: color-mix(in oklch, var(--accent) 18%, transparent); color: var(--accent); }
+  .type-badge.task { background: color-mix(in oklch, var(--warn) 20%, transparent); color: var(--warn); }
+
+  /* include toggle */
+  .switch {
+    width: 38px; height: 22px; border-radius: 20px; background: var(--surface-3);
+    position: relative; transition: background .18s var(--ease); flex: none;
+    cursor: pointer; border: 1px solid var(--border);
+  }
+  .switch .knob {
+    position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--text-faint); transition: left .18s var(--ease), background .18s var(--ease);
+  }
+  .switch[data-on="true"] { background: color-mix(in oklch, var(--accent) 38%, var(--surface-3)); border-color: var(--accent); }
+  .switch[data-on="true"] .knob { left: 18px; background: var(--accent); }
+
+  /* ===================== Modal ===================== */
+  .modal-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(3px); z-index: 100; display: grid; place-items: center; padding: 20px; opacity: 0; animation: fade .18s forwards; }
+  @keyframes fade { to { opacity: 1; } }
+  .modal {
+    width: min(640px, 100%); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 16px;
+    box-shadow: var(--shadow); overflow: hidden; transform: scale(.96); animation: pip .22s var(--ease) forwards;
+    max-height: 90vh; display: flex; flex-direction: column;
+  }
+  @keyframes pip { to { transform: scale(1); } }
+  .modal-head { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-head h3 { margin: 0; font-size: 16px; font-weight: 800; }
+  .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; overflow: auto; }
+  .modal-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ===================== Export bar + preview document ===================== */
+  .export-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .export-bar .spacer { flex: 1; }
+
+  .rn-doc {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 32px 38px; line-height: 1.6;
+  }
+  .rn-doc .doc-title { font-size: 26px; font-weight: 800; letter-spacing: -0.025em; margin: 0 0 6px; }
+  .rn-doc .doc-meta { display: flex; gap: 18px; flex-wrap: wrap; color: var(--text-dim); font-size: 13px; margin-bottom: 16px; }
+  .rn-doc .doc-meta b { color: var(--text); font-weight: 700; }
+  .rn-doc .doc-intro { color: var(--text-dim); font-size: 14px; margin: 0 0 20px; padding: 12px 16px; border-left: 3px solid var(--accent); background: color-mix(in oklch, var(--accent) 6%, transparent); border-radius: 0 8px 8px 0; }
+  .rn-doc .doc-summary { font-size: 14px; margin-bottom: 24px; }
+  .rn-doc h3.ver { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; margin: 28px 0 4px; padding-bottom: 8px; border-bottom: 2px solid var(--border-strong); }
+  .rn-doc h4.epic { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); margin: 20px 0 8px; }
+  .rn-doc ul.items { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+  .rn-doc li.item { display: grid; grid-template-columns: 118px auto 1fr; gap: 12px; align-items: baseline; padding: 7px 10px; border-radius: 8px; }
+  .rn-doc li.item:hover { background: var(--surface-2); }
+  .rn-doc li.item .ikey { font-family: var(--font-mono); font-size: 12.5px; font-weight: 700; }
+  .rn-doc li.item .isum { font-size: 14px; }
+  .rn-doc .empty-state { padding: 50px; text-align: center; color: var(--text-faint); }
+
+  .muted { color: var(--text-faint); }
+  .empty-state { padding: 48px; text-align: center; color: var(--text-faint); }
+  .hint { font-size: 12.5px; color: var(--text-dim); }
+  .hint b { color: var(--text); }
+
+  /* ===================== Toasts ===================== */
+  .toasts { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+  .toast {
+    display: flex; align-items: center; gap: 10px; background: var(--surface-2); border: 1px solid var(--border-strong);
+    border-radius: 11px; padding: 11px 15px; box-shadow: var(--shadow); font-weight: 600; font-size: 13px; max-width: 360px;
+    animation: toastin .3s var(--ease);
+  }
+  @keyframes toastin { from { opacity: 0; transform: translateY(8px) scale(.97); } }
+  .toast .dotc { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .toast.ok .dotc { background: var(--good); }
+  .toast.err .dotc { background: var(--danger); }
+  .toast.info .dotc { background: var(--accent); }
+
+  svg.ic { width: 16px; height: 16px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- top bar -->
+    <header class="topbar">
+      <div class="brand"><span class="glyph"></span><span>Release Notes<small> · jira build notes</small></span></div>
+      <div class="spacer"></div>
+      <button class="btn primary" id="btn-import">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        Import Jira HTML
+      </button>
+      <div class="theme-seg" id="theme-seg">
+        <button data-theme="midnight" title="Midnight (dark)">Dark</button>
+        <button data-theme="slate" title="Slate (dark)">Slate</button>
+        <button data-theme="daylight" title="Daylight (light)">Light</button>
+      </div>
+    </header>
+
+    <!-- nav row -->
+    <nav class="navrow">
+      <div class="viewtabs" id="viewtabs">
+        <button class="viewtab" data-view="editor">Compose</button>
+        <button class="viewtab" data-view="preview">Preview &amp; Export</button>
+      </div>
+      <div style="flex:1"></div>
+      <div class="muted" style="font-size:12px" id="nav-status"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="content"><div class="wrap" id="view-root"></div></main>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+
+  <script>
+  "use strict";
+  /* ==========================================================================
+     Release Notes — drop a Jira issue-navigator HTML export, generate
+     Confluence-ready release notes for a build. Fully offline, single file.
+     Grouping: Fix Version -> Epic -> issues, bug fixes listed first.
+     ========================================================================== */
+
+  // ---------- type classification ----------
+  const TYPES = {
+    bug:         { rank: 0, label: "Bug fix",     emoji: "🐞", cls: "bug" },          // 🐞
+    feature:     { rank: 1, label: "New feature", emoji: "✨",       cls: "feature" },      // ✨
+    improvement: { rank: 2, label: "Improvement", emoji: "⬆️", cls: "improvement" },  // ⬆️
+    task:        { rank: 3, label: "Task",        emoji: "✅",       cls: "task" },          // ✅
+    other:       { rank: 4, label: "Change",      emoji: "📌", cls: "other" },         // 📌
+  };
+  function classifyType(t) {
+    const s = (t || "").toLowerCase();
+    if (/bug|defect|incident|problem/.test(s)) return "bug";
+    if (/story|new feature|feature|epic/.test(s)) return "feature";
+    if (/improv|enhanc/.test(s)) return "improvement";
+    if (/task|sub-?task|chore/.test(s)) return "task";
+    return "other";
+  }
+  const NO_VERSION = "Unversioned";
+  const NO_EPIC = "Other changes";
+
+  // ---------- small utils ----------
+  const $ = (sel, el) => (el || document).querySelector(sel);
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  // natural compare so "1.2" < "1.10" and versions sort sensibly
+  function naturalCmp(a, b) {
+    return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+  }
+  function el(tag, attrs, children) {
+    const n = document.createElement(tag);
+    if (attrs) for (const k in attrs) {
+      if (k === "class") n.className = attrs[k];
+      else if (k === "html") n.innerHTML = attrs[k];
+      else if (k === "text") n.textContent = attrs[k];
+      else if (k.startsWith("on") && typeof attrs[k] === "function") n.addEventListener(k.slice(2), attrs[k]);
+      else if (attrs[k] != null) n.setAttribute(k, attrs[k]);
+    }
+    (children || []).forEach((c) => { if (c != null) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return n;
+  }
+
+  // ---------- state ----------
+  const PERSIST_KEY = "rn.state.v1";
+  const DEFAULT_META = { product: "", version: "", releaseDate: "", environment: "", intro: "" };
+  let state = {
+    meta: { ...DEFAULT_META },
+    rows: [],            // [{ key, type, summary, epic, fixVersions:[], status, resolution, assignee, desc }]
+    excluded: {},        // { key: true }
+    edits: {},           // { key: editedSummary }
+    collapsed: {},       // { version: true }
+    theme: "midnight",
+    jiraBase: "",
+    view: "editor",
+  };
+  function loadSaved() {
+    try {
+      const s = JSON.parse(localStorage.getItem(PERSIST_KEY));
+      if (s && typeof s === "object") {
+        state = { ...state, ...s, meta: { ...DEFAULT_META, ...(s.meta || {}) },
+          excluded: s.excluded || {}, edits: s.edits || {}, collapsed: s.collapsed || {} };
+      }
+    } catch (_) {}
+  }
+  function save() { try { localStorage.setItem(PERSIST_KEY, JSON.stringify(state)); } catch (_) {} }
+
+  // ---------- toasts ----------
+  let _tid = 0;
+  function toast(text, kind) {
+    kind = kind || "ok";
+    const id = ++_tid;
+    const node = el("div", { class: "toast " + kind }, [el("span", { class: "dotc" }), text]);
+    $("#toasts").appendChild(node);
+    setTimeout(() => node.remove(), 3400);
+  }
+
+  // ==========================================================================
+  //  Jira board HTML parser — reads an issue-navigator "Export -> HTML" table.
+  //  Pulls each field off its column header: Key, Issue Type, Summary, Epic,
+  //  Fix Version/s, Status, Resolution, Assignee, Description. Cell text is read
+  //  from real DOM nodes so multi-line descriptions and icon alt-text survive.
+  // ==========================================================================
+  const KEY_RE = /^[A-Z][A-Z0-9_]+-\d+$/;
+  function parseJiraHtml(html) {
+    const empty = { rows: [], count: 0, versions: [], types: {} };
+    if (!html || !html.trim()) return empty;
+    let doc;
+    try { doc = new DOMParser().parseFromString(html, "text/html"); } catch (_) { return empty; }
+
+    const tables = [...doc.querySelectorAll("table")];
+    const table = doc.querySelector("table#issuetable")
+      || tables.find((t) => t.querySelector("td.issuekey, tr[data-issuekey], th"))
+      || tables[0];
+    if (!table) return empty;
+
+    function cellText(node) {
+      const h = node.innerHTML
+        .replace(/<\s*br\s*\/?>/gi, "\n")
+        .replace(/<\/(p|div|li|tr|h[1-6]|blockquote)>/gi, "\n");
+      const tmp = node.ownerDocument.createElement("div");
+      tmp.innerHTML = h;
+      let txt = tmp.textContent || "";
+      if (!txt.trim() && node.querySelector) {
+        const img = node.querySelector("img");
+        if (img) txt = img.getAttribute("alt") || img.getAttribute("title") || "";
+      }
+      return txt.replace(/ /g, " ").replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    }
+    function multi(node) {
+      // split a cell that may hold several values (commas / line breaks / list items)
+      return cellText(node).split(/\s*[\n,]\s*/).map((s) => s.trim()).filter(Boolean);
+    }
+
+    // header row
+    let headerCells = [...table.querySelectorAll("thead th, thead td")];
+    let bodyRows;
+    if (headerCells.length) {
+      bodyRows = [...table.querySelectorAll("tbody tr")];
+      if (!bodyRows.length) bodyRows = [...table.querySelectorAll("tr")].filter((tr) => !tr.querySelector("th"));
+    } else {
+      const all = [...table.querySelectorAll("tr")];
+      headerCells = [...(all[0] ? all[0].children : [])];
+      bodyRows = all.slice(1);
+    }
+    const headers = headerCells.map((th) => cellText(th).toLowerCase());
+    const col = (pred) => headers.findIndex(pred);
+    const idxKey  = col((h) => h === "key" || h === "issuekey" || h.includes("issue key"));
+    const idxType = col((h) => h.includes("issue type") || h === "type" || h === "t");
+    const idxSum  = col((h) => h.includes("summary"));
+    const idxEpic = col((h) => h.includes("epic"));
+    const idxVer  = col((h) => h.includes("fix version") || h.includes("fixversion"));
+    const idxStat = col((h) => h === "status" || h.includes("status"));
+    const idxRes  = col((h) => h.includes("resolution"));
+    const idxAss  = col((h) => h.includes("assignee"));
+    const idxDesc = col((h) => h.includes("description"));
+
+    const rows = [];
+    const versions = new Set();
+    const types = {};
+    for (const tr of bodyRows) {
+      const cells = [...tr.children];
+      if (!cells.length) continue;
+      const get = (i) => (i >= 0 && cells[i] ? cellText(cells[i]) : "");
+      let key = get(idxKey) || tr.getAttribute("data-issuekey") || "";
+      key = key.trim().toUpperCase();
+      if (!KEY_RE.test(key)) continue; // skip header/footer/non-issue rows
+
+      const typeRaw = get(idxType);
+      const type = classifyType(typeRaw);
+      const fixVersions = idxVer >= 0 && cells[idxVer] ? multi(cells[idxVer]) : [];
+      rows.push({
+        key,
+        type,
+        typeRaw: typeRaw || TYPES[type].label,
+        summary: get(idxSum) || key,
+        epic: get(idxEpic) || "",
+        fixVersions,
+        status: get(idxStat) || "",
+        resolution: get(idxRes) || "",
+        assignee: get(idxAss) || "",
+        desc: get(idxDesc) || "",
+      });
+      types[type] = (types[type] || 0) + 1;
+      fixVersions.forEach((v) => versions.add(v));
+    }
+    return { rows, count: rows.length, versions: [...versions].sort(naturalCmp), types };
+  }
+
+  // ==========================================================================
+  //  Grouping: Fix Version -> Epic -> issues (bug fixes first within each epic)
+  // ==========================================================================
+  function included() { return state.rows.filter((r) => !state.excluded[r.key]); }
+  function summaryFor(r) { return state.edits[r.key] != null ? state.edits[r.key] : r.summary; }
+
+  function grouped() {
+    // version -> Map(epic -> items[])
+    const byVersion = new Map();
+    function bucket(version, epic) {
+      if (!byVersion.has(version)) byVersion.set(version, new Map());
+      const epics = byVersion.get(version);
+      if (!epics.has(epic)) epics.set(epic, []);
+      return epics.get(epic);
+    }
+    for (const r of included()) {
+      const versions = r.fixVersions.length ? r.fixVersions : [NO_VERSION];
+      const epic = r.epic || NO_EPIC;
+      for (const v of versions) bucket(v, epic).push(r);
+    }
+    // order: versions descending (newest first), NO_VERSION last
+    const versionNames = [...byVersion.keys()].sort((a, b) => {
+      if (a === NO_VERSION) return 1;
+      if (b === NO_VERSION) return -1;
+      return naturalCmp(b, a);
+    });
+    return versionNames.map((v) => {
+      const epicsMap = byVersion.get(v);
+      const epicNames = [...epicsMap.keys()].sort((a, b) => {
+        if (a === NO_EPIC) return 1;
+        if (b === NO_EPIC) return -1;
+        return naturalCmp(a, b);
+      });
+      const epics = epicNames.map((e) => {
+        const items = epicsMap.get(e).slice().sort((x, y) =>
+          (TYPES[x.type].rank - TYPES[y.type].rank) || naturalCmp(x.key, y.key));
+        return { name: e, items };
+      });
+      const count = epics.reduce((n, e) => n + e.items.length, 0);
+      const bugs = epics.reduce((n, e) => n + e.items.filter((i) => i.type === "bug").length, 0);
+      return { version: v, epics, count, bugs };
+    });
+  }
+
+  function stats() {
+    const inc = included();
+    const byType = {};
+    inc.forEach((r) => { byType[r.type] = (byType[r.type] || 0) + 1; });
+    const versions = new Set();
+    inc.forEach((r) => (r.fixVersions.length ? r.fixVersions : [NO_VERSION]).forEach((v) => versions.add(v)));
+    return { total: inc.length, all: state.rows.length, byType, versions: versions.size };
+  }
+
+  // ==========================================================================
+  //  Document title + intro helpers
+  // ==========================================================================
+  function docTitle() {
+    const m = state.meta;
+    const parts = [m.product || "Release notes", m.version].filter(Boolean);
+    return parts.join(" ") || "Release notes";
+  }
+  function summarySentence() {
+    const s = stats();
+    if (!s.total) return "";
+    const order = ["bug", "feature", "improvement", "task", "other"];
+    const bits = order.filter((t) => s.byType[t]).map((t) => {
+      const n = s.byType[t];
+      const lbl = t === "bug" ? (n === 1 ? "bug fix" : "bug fixes")
+        : t === "feature" ? (n === 1 ? "new feature" : "new features")
+        : t === "improvement" ? (n === 1 ? "improvement" : "improvements")
+        : t === "task" ? (n === 1 ? "task" : "tasks")
+        : (n === 1 ? "change" : "changes");
+      return n + " " + lbl;
+    });
+    const list = bits.length > 1 ? bits.slice(0, -1).join(", ") + " and " + bits.slice(-1) : bits[0];
+    return "This release includes " + list + ".";
+  }
+
+  // ==========================================================================
+  //  RENDER — Compose view (metadata + import + grouped editor)
+  // ==========================================================================
+  function renderEditor() {
+    const root = $("#view-root");
+    root.innerHTML = "";
+    const m = state.meta;
+
+    // --- build metadata ---
+    const metaCard = el("div", { class: "card pri" });
+    metaCard.appendChild(el("div", { class: "section-label", text: "Build details" }));
+    const grid = el("div", { class: "meta-grid" });
+    function fieldInput(key, label, ph, type) {
+      const f = el("div", { class: "field" });
+      f.appendChild(el("label", { text: label }));
+      const input = el("input", { type: type || "text", placeholder: ph || "", value: m[key] || "" });
+      input.addEventListener("input", () => { state.meta[key] = input.value; save(); updateStatus(); });
+      f.appendChild(input);
+      return f;
+    }
+    grid.appendChild(fieldInput("product", "Product / system", "e.g. DataXplorer"));
+    grid.appendChild(fieldInput("version", "Build / release", "e.g. v2.4.0"));
+    grid.appendChild(fieldInput("releaseDate", "Release date", "", "date"));
+    grid.appendChild(fieldInput("environment", "Environment", "e.g. Production"));
+    const introF = el("div", { class: "field full" });
+    introF.appendChild(el("label", { text: "Intro / highlights (optional)" }));
+    const introT = el("textarea", { placeholder: "A short summary of what's in this build…" });
+    introT.value = m.intro || "";
+    introT.addEventListener("input", () => { state.meta.intro = introT.value; save(); });
+    introF.appendChild(introT);
+    grid.appendChild(introF);
+    const baseF = el("div", { class: "field full" });
+    baseF.appendChild(el("label", { text: "Jira base URL (optional — turns issue keys into links)" }));
+    const baseI = el("input", { type: "text", placeholder: "https://jira.example.com", value: state.jiraBase || "" });
+    baseI.addEventListener("input", () => { state.jiraBase = baseI.value.replace(/\/+$/, ""); save(); });
+    baseF.appendChild(baseI);
+    grid.appendChild(baseF);
+    metaCard.appendChild(grid);
+    root.appendChild(metaCard);
+
+    // --- source / stats ---
+    const s = stats();
+    if (!state.rows.length) {
+      const empty = el("div", { class: "card" });
+      const dz = buildDropZone();
+      empty.appendChild(el("div", { class: "section-label", text: "Source" }));
+      empty.appendChild(dz);
+      empty.appendChild(el("div", { class: "hint", html:
+        "In Jira, run an issue-navigator search for the issues in this build, then choose <b>Export &middot; HTML</b>. " +
+        "Drop that file here (or use <b>Import Jira HTML</b> above). We read Key, Issue Type, Summary, Epic, " +
+        "<b>Fix Version/s</b>, Status, Resolution and Description.", style: "margin-top:12px" }));
+      root.appendChild(empty);
+      return;
+    }
+
+    const statCard = el("div", { class: "card" });
+    const statStrip = el("div", { class: "stats" });
+    function metric(k, v, cls) {
+      return el("div", { class: "metric" }, [el("span", { class: "k", text: k }), el("span", { class: "v " + (cls || ""), text: String(v) })]);
+    }
+    statStrip.appendChild(metric("Included", s.total));
+    statStrip.appendChild(metric("Fix versions", s.versions));
+    statStrip.appendChild(metric("Bug fixes", s.byType.bug || 0, "bug"));
+    statStrip.appendChild(metric("Features", s.byType.feature || 0, "feature"));
+    statStrip.appendChild(metric("Improvements", s.byType.improvement || 0));
+    statStrip.appendChild(metric("Tasks / other", (s.byType.task || 0) + (s.byType.other || 0)));
+    statStrip.appendChild(el("div", { style: "flex:1" }));
+    statStrip.appendChild(el("button", { class: "btn sm", onclick: () => openImport() }, ["Re-import"]));
+    statStrip.appendChild(el("button", { class: "btn sm", onclick: () => clearAll() }, ["Clear"]));
+    statCard.appendChild(statStrip);
+    root.appendChild(statCard);
+
+    // --- grouped editor ---
+    const groups = grouped();
+    if (!groups.length) {
+      root.appendChild(el("div", { class: "card" }, [el("div", { class: "empty-state", text: "All issues are excluded. Toggle some back on to build the notes." })]));
+      return;
+    }
+    for (const g of groups) {
+      const collapsed = !!state.collapsed[g.version];
+      const grp = el("div", { class: "grp", "data-collapsed": collapsed });
+      const head = el("div", { class: "grp-head" }, [
+        el("span", { class: "ver", text: g.version }),
+        el("span", { class: "cnt", text: g.count + (g.count === 1 ? " issue" : " issues") }),
+        g.bugs ? el("span", { class: "cnt", text: g.bugs + (g.bugs === 1 ? " bug" : " bugs") }) : null,
+        el("span", { class: "caret", html: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>' }),
+      ]);
+      head.addEventListener("click", () => {
+        state.collapsed[g.version] = !state.collapsed[g.version]; save();
+        grp.setAttribute("data-collapsed", String(!!state.collapsed[g.version]));
+      });
+      grp.appendChild(head);
+      const body = el("div", { class: "grp-body" });
+      for (const epic of g.epics) {
+        body.appendChild(el("div", { class: "epic-head" }, [epic.name]));
+        for (const it of epic.items) body.appendChild(ticketRow(it));
+      }
+      grp.appendChild(body);
+      root.appendChild(grp);
+    }
+  }
+
+  function ticketRow(r) {
+    const excluded = !!state.excluded[r.key];
+    const row = el("div", { class: "trow", "data-excluded": excluded });
+
+    // include switch
+    const sw = el("div", { class: "switch", "data-on": String(!excluded), title: excluded ? "Excluded — click to include" : "Included — click to exclude" }, [el("span", { class: "knob" })]);
+    sw.addEventListener("click", () => {
+      if (state.excluded[r.key]) delete state.excluded[r.key]; else state.excluded[r.key] = true;
+      save();
+      const nowExcluded = !!state.excluded[r.key];
+      row.setAttribute("data-excluded", String(nowExcluded));
+      sw.setAttribute("data-on", String(!nowExcluded));
+      updateStatus();
+    });
+
+    // key (optionally linked)
+    const keyEl = state.jiraBase
+      ? el("a", { class: "tkey", href: state.jiraBase + "/browse/" + r.key, target: "_blank", rel: "noopener" }, [r.key])
+      : el("span", { class: "tkey", text: r.key });
+
+    // type badge
+    const t = TYPES[r.type];
+    const badge = el("span", { class: "type-badge " + t.cls, title: r.typeRaw }, [t.emoji + " " + t.label]);
+
+    // editable summary
+    const sumWrap = el("div", { style: "min-width:0" });
+    const sumSpan = el("div", { class: "tsum", title: "Click to edit", text: summaryFor(r) });
+    sumSpan.addEventListener("click", () => {
+      const input = el("input", { class: "tsum-input", value: summaryFor(r) });
+      sumWrap.replaceChild(input, sumSpan);
+      input.focus(); input.select();
+      const commit = () => {
+        const v = input.value.trim();
+        if (v && v !== r.summary) state.edits[r.key] = v; else delete state.edits[r.key];
+        save();
+        sumSpan.textContent = summaryFor(r);
+        if (input.parentNode === sumWrap) sumWrap.replaceChild(sumSpan, input);
+      };
+      input.addEventListener("blur", commit);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+        else if (e.key === "Escape") { e.preventDefault(); input.value = summaryFor(r); input.blur(); }
+      });
+    });
+    sumWrap.appendChild(sumSpan);
+
+    row.appendChild(sw);
+    row.appendChild(keyEl);
+    row.appendChild(badge);
+    row.appendChild(sumWrap);
+    return row;
+  }
+
+  // ==========================================================================
+  //  RENDER — Preview view (in-app rendered doc + export bar)
+  // ==========================================================================
+  function renderPreview() {
+    const root = $("#view-root");
+    root.innerHTML = "";
+
+    const bar = el("div", { class: "export-bar" });
+    bar.appendChild(el("button", { class: "btn primary", onclick: () => copyConfluence() }, [
+      iconSvg("M9 2h6a2 2 0 012 2v2h2a2 2 0 012 2v12a2 2 0 01-2 2H8a2 2 0 01-2-2v-2H4a2 2 0 01-2-2V6a2 2 0 012-2h2V4a2 2 0 012-2z"),
+      " Copy for Confluence",
+    ]));
+    bar.appendChild(el("button", { class: "btn", onclick: () => copyMarkdown() }, ["Copy Markdown"]));
+    bar.appendChild(el("button", { class: "btn", onclick: () => downloadHtml() }, ["Download HTML"]));
+    bar.appendChild(el("button", { class: "btn", onclick: () => downloadMarkdown() }, ["Download .md"]));
+    root.appendChild(bar);
+
+    if (!included().length) {
+      root.appendChild(el("div", { class: "rn-doc" }, [el("div", { class: "empty-state", text: state.rows.length ? "No issues selected — include some in Compose." : "Import a Jira HTML export to get started." })]));
+      return;
+    }
+    const doc = el("div", { class: "rn-doc", id: "rn-doc" });
+    doc.innerHTML = buildPreviewHtml();
+    root.appendChild(doc);
+  }
+
+  // in-app preview HTML (themed, with colored badges)
+  function buildPreviewHtml() {
+    const m = state.meta;
+    const groups = grouped();
+    let h = "";
+    h += '<div class="doc-title">' + esc(docTitle()) + "</div>";
+    const meta = [];
+    if (m.releaseDate) meta.push("<b>Released</b> " + esc(fmtDate(m.releaseDate)));
+    if (m.environment) meta.push("<b>Environment</b> " + esc(m.environment));
+    if (meta.length) h += '<div class="doc-meta">' + meta.map((x) => "<span>" + x + "</span>").join("") + "</div>";
+    if (m.intro) h += '<div class="doc-intro">' + esc(m.intro).replace(/\n/g, "<br>") + "</div>";
+    const sentence = summarySentence();
+    if (sentence) h += '<div class="doc-summary">' + esc(sentence) + "</div>";
+
+    for (const g of groups) {
+      h += '<h3 class="ver">' + esc(g.version) + "</h3>";
+      for (const epic of g.epics) {
+        if (epic.name !== NO_EPIC || g.epics.length > 1) h += '<h4 class="epic">' + esc(epic.name) + "</h4>";
+        h += '<ul class="items">';
+        for (const it of epic.items) {
+          const t = TYPES[it.type];
+          const keyHtml = state.jiraBase
+            ? '<a class="ikey" href="' + esc(state.jiraBase + "/browse/" + it.key) + '" target="_blank" rel="noopener">' + esc(it.key) + "</a>"
+            : '<span class="ikey">' + esc(it.key) + "</span>";
+          h += '<li class="item"><span class="type-badge ' + t.cls + '">' + t.emoji + " " + t.label + "</span>" +
+            keyHtml + '<span class="isum">' + esc(summaryFor(it)) + "</span></li>";
+        }
+        h += "</ul>";
+      }
+    }
+    return h;
+  }
+
+  // ==========================================================================
+  //  EXPORT — Confluence HTML (semantic, NO hard-coded colors so it inherits
+  //  the reader's Confluence light/dark theme), Markdown, standalone HTML.
+  // ==========================================================================
+  function buildConfluenceHtml() {
+    const m = state.meta;
+    const groups = grouped();
+    let h = "";
+    h += "<h1>" + esc(docTitle()) + "</h1>\n";
+
+    const metaRows = [];
+    if (m.version) metaRows.push(["Build / release", esc(m.version)]);
+    if (m.releaseDate) metaRows.push(["Release date", esc(fmtDate(m.releaseDate))]);
+    if (m.environment) metaRows.push(["Environment", esc(m.environment)]);
+    if (metaRows.length) {
+      h += "<table><tbody>\n";
+      metaRows.forEach(([k, v]) => { h += "<tr><th>" + k + "</th><td>" + v + "</td></tr>\n"; });
+      h += "</tbody></table>\n";
+    }
+    if (m.intro) h += "<blockquote><p>" + esc(m.intro).replace(/\n/g, "<br/>") + "</p></blockquote>\n";
+    const sentence = summarySentence();
+    if (sentence) h += "<p><strong>" + esc(sentence) + "</strong></p>\n";
+
+    for (const g of groups) {
+      h += "<h2>" + esc(g.version) + "</h2>\n";
+      for (const epic of g.epics) {
+        if (epic.name !== NO_EPIC || g.epics.length > 1) h += "<h3>" + esc(epic.name) + "</h3>\n";
+        h += "<table><tbody>\n<tr><th>Type</th><th>Issue</th><th>Summary</th></tr>\n";
+        for (const it of epic.items) {
+          const t = TYPES[it.type];
+          const keyCell = state.jiraBase
+            ? '<a href="' + esc(state.jiraBase + "/browse/" + it.key) + '">' + esc(it.key) + "</a>"
+            : esc(it.key);
+          h += "<tr><td>" + t.emoji + " " + t.label + "</td><td>" + keyCell + "</td><td>" + esc(summaryFor(it)) + "</td></tr>\n";
+        }
+        h += "</tbody></table>\n";
+      }
+    }
+    return h;
+  }
+
+  function buildMarkdown() {
+    const m = state.meta;
+    const groups = grouped();
+    let md = "# " + docTitle() + "\n\n";
+    const metaBits = [];
+    if (m.releaseDate) metaBits.push("**Released:** " + fmtDate(m.releaseDate));
+    if (m.environment) metaBits.push("**Environment:** " + m.environment);
+    if (metaBits.length) md += metaBits.join("  ·  ") + "\n\n";
+    if (m.intro) md += "> " + m.intro.replace(/\n/g, "\n> ") + "\n\n";
+    const sentence = summarySentence();
+    if (sentence) md += sentence + "\n\n";
+
+    for (const g of groups) {
+      md += "## " + g.version + "\n\n";
+      for (const epic of g.epics) {
+        if (epic.name !== NO_EPIC || g.epics.length > 1) md += "### " + epic.name + "\n\n";
+        for (const it of epic.items) {
+          const t = TYPES[it.type];
+          const key = state.jiraBase ? "[" + it.key + "](" + state.jiraBase + "/browse/" + it.key + ")" : it.key;
+          md += "- " + t.emoji + " **" + t.label + "** — " + key + " " + summaryFor(it) + "\n";
+        }
+        md += "\n";
+      }
+    }
+    return md.trimEnd() + "\n";
+  }
+
+  // Standalone shareable HTML: pretty + adapts to the reader's OS light/dark.
+  function buildStandaloneHtml() {
+    const body = buildConfluenceHtml();
+    return [
+      "<!DOCTYPE html>",
+      '<html lang="en">',
+      "<head>",
+      '<meta charset="UTF-8"/>',
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>',
+      "<title>" + esc(docTitle()) + "</title>",
+      "<style>",
+      ":root{--bg:#ffffff;--fg:#1d2230;--muted:#5a6172;--line:#e6e8ef;--soft:#f5f6fa;--accent:#2f6df0;}",
+      "@media (prefers-color-scheme: dark){:root{--bg:#1a1d27;--fg:#e9ebf2;--muted:#9aa1b3;--line:#2e3340;--soft:#23273300;--accent:#7aa2ff;}}",
+      "*{box-sizing:border-box;}",
+      "body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.65 'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;}",
+      ".sheet{max-width:820px;margin:0 auto;padding:48px 28px 80px;}",
+      "h1{font-size:30px;font-weight:800;letter-spacing:-.025em;margin:0 0 14px;}",
+      "h2{font-size:21px;font-weight:800;letter-spacing:-.02em;margin:36px 0 6px;padding-bottom:8px;border-bottom:2px solid var(--line);}",
+      "h3{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:22px 0 8px;}",
+      "blockquote{margin:0 0 18px;padding:12px 16px;border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent);border-radius:0 8px 8px 0;color:var(--muted);}",
+      "blockquote p{margin:0;}",
+      "table{border-collapse:collapse;width:100%;margin:6px 0 18px;font-size:14px;}",
+      "th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}",
+      "th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;}",
+      "table tbody tr:first-child th{border-bottom:2px solid var(--line);}",
+      "td a{color:var(--accent);text-decoration:none;font-weight:600;font-family:ui-monospace,Menlo,monospace;}",
+      "td:nth-child(1){white-space:nowrap;color:var(--muted);font-weight:700;}",
+      "td:nth-child(2){white-space:nowrap;font-family:ui-monospace,Menlo,monospace;font-weight:700;}",
+      "</style>",
+      "</head>",
+      "<body><div class=\"sheet\">",
+      body,
+      "</div></body>",
+      "</html>",
+    ].join("\n");
+  }
+
+  // ---------- copy / download ----------
+  async function copyHtmlClipboard(html, plain) {
+    try {
+      if (navigator.clipboard && window.ClipboardItem) {
+        const item = new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([plain || html], { type: "text/plain" }),
+        });
+        await navigator.clipboard.write([item]);
+        return true;
+      }
+    } catch (_) {}
+    try { await navigator.clipboard.writeText(plain || html); return true; } catch (_) {}
+    // last-ditch: hidden contenteditable + execCommand
+    try {
+      const tmp = el("div", { html: html, style: "position:fixed;left:-9999px;top:0;white-space:pre-wrap" });
+      document.body.appendChild(tmp);
+      const range = document.createRange(); range.selectNodeContents(tmp);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      const ok = document.execCommand("copy");
+      sel.removeAllRanges(); tmp.remove();
+      return ok;
+    } catch (_) { return false; }
+  }
+  async function copyConfluence() {
+    if (!included().length) { toast("Nothing to copy — include some issues first", "err"); return; }
+    const ok = await copyHtmlClipboard(buildConfluenceHtml(), buildMarkdown());
+    toast(ok ? "Copied — paste into a Confluence page" : "Copy failed — use Download HTML instead", ok ? "ok" : "err");
+  }
+  async function copyMarkdown() {
+    if (!included().length) { toast("Nothing to copy — include some issues first", "err"); return; }
+    try { await navigator.clipboard.writeText(buildMarkdown()); toast("Markdown copied"); }
+    catch (_) { toast("Copy failed", "err"); }
+  }
+  function download(name, content, mime) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = el("a", { href: url, download: name });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function fileSlug() {
+    return (docTitle() || "release-notes").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "release-notes";
+  }
+  function downloadHtml() {
+    if (!included().length) { toast("Nothing to export", "err"); return; }
+    download(fileSlug() + ".html", buildStandaloneHtml(), "text/html");
+    toast("HTML downloaded");
+  }
+  function downloadMarkdown() {
+    if (!included().length) { toast("Nothing to export", "err"); return; }
+    download(fileSlug() + ".md", buildMarkdown(), "text/markdown");
+    toast("Markdown downloaded");
+  }
+
+  // ==========================================================================
+  //  Import modal + drop zone
+  // ==========================================================================
+  let modalEl = null;
+  function openImport() {
+    closeImport();
+    const scrim = el("div", { class: "modal-scrim" });
+    scrim.addEventListener("click", (e) => { if (e.target === scrim) closeImport(); });
+    const modal = el("div", { class: "modal" });
+    const head = el("div", { class: "modal-head" }, [
+      el("h3", { text: "Import Jira HTML export" }),
+      el("button", { class: "iconbtn", onclick: closeImport, html: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>' }),
+    ]);
+    const body = el("div", { class: "modal-body" });
+    body.appendChild(el("div", { class: "hint", html:
+      "Run your issue-navigator search in Jira, then <b>Export &middot; HTML</b>. Drop the file here or paste its contents. " +
+      "Issues are grouped by <b>Fix Version</b> &rarr; <b>Epic</b>, with bug fixes listed first." }));
+
+    const dz = buildDropZone(() => { /* on parse the strip below updates */ });
+    body.appendChild(dz);
+
+    const ta = el("textarea", { class: "paste", placeholder: "<html>…paste the Jira HTML export here…</html>", spellcheck: "false" });
+    body.appendChild(ta);
+
+    const strip = el("div", { class: "preview-strip", "data-empty": "true" });
+    strip.appendChild(el("span", { class: "muted", text: "Paste or drop an export to preview." }));
+    body.appendChild(strip);
+
+    let parsed = null;
+    function preview(html) {
+      parsed = parseJiraHtml(html);
+      strip.innerHTML = "";
+      if (!parsed.count) {
+        strip.setAttribute("data-empty", "true");
+        strip.appendChild(el("span", { class: "muted", text: html && html.trim() ? "No issues found — the export needs a table with a Key column (e.g. ABC-123)." : "Paste or drop an export to preview." }));
+        commitBtn.disabled = true;
+        return;
+      }
+      strip.setAttribute("data-empty", "false");
+      const mk = (k, v) => el("div", { class: "metric" }, [el("span", { class: "k", text: k }), el("span", { class: "v", text: String(v) })]);
+      strip.appendChild(mk("Issues", parsed.count));
+      strip.appendChild(mk("Fix versions", parsed.versions.length || 0));
+      strip.appendChild(mk("Bugs", parsed.types.bug || 0));
+      strip.appendChild(mk("Features", parsed.types.feature || 0));
+      commitBtn.disabled = false;
+    }
+    ta.addEventListener("input", () => preview(ta.value));
+    // expose for drop zone -> textarea sync
+    dz._onText = (txt) => { ta.value = txt; preview(txt); };
+
+    const foot = el("div", { class: "modal-foot" });
+    foot.appendChild(el("button", { class: "btn", onclick: closeImport }, ["Cancel"]));
+    const commitBtn = el("button", { class: "btn primary", disabled: "" }, ["Import"]);
+    commitBtn.addEventListener("click", () => {
+      if (!parsed || !parsed.count) return;
+      applyImport(parsed);
+      closeImport();
+    });
+    foot.appendChild(commitBtn);
+
+    modal.appendChild(head); modal.appendChild(body); modal.appendChild(foot);
+    scrim.appendChild(modal);
+    document.body.appendChild(scrim);
+    modalEl = scrim;
+  }
+  function closeImport() { if (modalEl) { modalEl.remove(); modalEl = null; } }
+
+  function buildDropZone(onParsed) {
+    const dz = el("div", { class: "drop-zone", role: "button", tabindex: "0" }, [
+      el("span", { class: "ico", html: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>' }),
+      el("div", {}, [
+        el("div", { style: "font-weight:700", id: "dz-name", text: "Choose an HTML export…" }),
+        el("div", { class: "muted", style: "font-size:12px", text: "or drag a .html file here" }),
+      ]),
+    ]);
+    const input = el("input", { type: "file", accept: ".html,.htm,text/html", style: "display:none" });
+    dz.appendChild(input);
+    function handleFile(f) {
+      if (!f) return;
+      $("#dz-name", dz).textContent = f.name;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const txt = String(reader.result || "");
+        if (dz._onText) dz._onText(txt);
+        else { // direct (no modal) — parse and apply immediately
+          const parsed = parseJiraHtml(txt);
+          if (parsed.count) { applyImport(parsed); if (onParsed) onParsed(parsed); }
+          else toast("No issues found in that file", "err");
+        }
+      };
+      reader.readAsText(f);
+    }
+    dz.addEventListener("click", () => input.click());
+    dz.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") input.click(); });
+    input.addEventListener("change", (e) => { handleFile(e.target.files && e.target.files[0]); e.target.value = ""; });
+    ["dragenter", "dragover"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.setAttribute("data-drag", "true"); }));
+    ["dragleave", "drop"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.removeAttribute("data-drag"); }));
+    dz.addEventListener("drop", (e) => {
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) handleFile(f);
+      else {
+        const txt = e.dataTransfer && e.dataTransfer.getData("text");
+        if (txt && dz._onText) dz._onText(txt);
+      }
+    });
+    return dz;
+  }
+
+  function applyImport(parsed) {
+    state.rows = parsed.rows;
+    // keep edits/exclusions only for keys still present
+    const keys = new Set(parsed.rows.map((r) => r.key));
+    state.excluded = Object.fromEntries(Object.entries(state.excluded).filter(([k]) => keys.has(k)));
+    state.edits = Object.fromEntries(Object.entries(state.edits).filter(([k]) => keys.has(k)));
+    // auto-fill version field if a single fix version dominates and field is empty
+    if (!state.meta.version && parsed.versions.length === 1) state.meta.version = parsed.versions[0];
+    save();
+    toast("Imported " + parsed.count + " issue" + (parsed.count === 1 ? "" : "s") +
+      (parsed.versions.length ? " across " + parsed.versions.length + " fix version" + (parsed.versions.length === 1 ? "" : "s") : ""));
+    renderView();
+    updateStatus();
+  }
+
+  function clearAll() {
+    state.rows = []; state.excluded = {}; state.edits = {}; state.collapsed = {};
+    save(); renderView(); updateStatus();
+    toast("Cleared", "info");
+  }
+
+  // ==========================================================================
+  //  Shell wiring
+  // ==========================================================================
+  function iconSvg(path) {
+    const span = el("span", { html: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + path + '"/></svg>', style: "display:inline-flex" });
+    return span;
+  }
+  function fmtDate(iso) {
+    if (!iso) return "";
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    if (!m) return iso;
+    const d = new Date(+m[1], +m[2] - 1, +m[3]);
+    return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  }
+  function setTheme(t) {
+    state.theme = t; document.documentElement.setAttribute("data-theme", t); save();
+    document.querySelectorAll("#theme-seg button").forEach((b) => b.setAttribute("data-active", String(b.getAttribute("data-theme") === t)));
+  }
+  function setView(v) {
+    state.view = v; save();
+    document.querySelectorAll("#viewtabs .viewtab").forEach((b) => b.setAttribute("data-active", String(b.getAttribute("data-view") === v)));
+    renderView();
+  }
+  function renderView() { (state.view === "preview" ? renderPreview : renderEditor)(); }
+  function updateStatus() {
+    const s = stats();
+    const node = $("#nav-status");
+    if (!state.rows.length) { node.textContent = ""; return; }
+    node.textContent = s.total + " of " + s.all + " issues · " + s.versions + " fix version" + (s.versions === 1 ? "" : "s");
+  }
+
+  function init() {
+    loadSaved();
+    setTheme(state.theme || "midnight");
+    document.querySelectorAll("#theme-seg button").forEach((b) => b.addEventListener("click", () => setTheme(b.getAttribute("data-theme"))));
+    document.querySelectorAll("#viewtabs .viewtab").forEach((b) => b.addEventListener("click", () => setView(b.getAttribute("data-view"))));
+    $("#btn-import").addEventListener("click", openImport);
+    setView(state.view || "editor");
+    updateStatus();
+
+    // accept a file dropped anywhere on the window
+    ["dragover", "drop"].forEach((ev) => window.addEventListener(ev, (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) e.preventDefault(); }));
+    window.addEventListener("drop", (e) => {
+      if (modalEl) return; // modal has its own drop zone
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!f || !/\.html?$/i.test(f.name)) return;
+      e.preventDefault();
+      const reader = new FileReader();
+      reader.onload = () => {
+        const parsed = parseJiraHtml(String(reader.result || ""));
+        if (parsed.count) applyImport(parsed); else toast("No issues found in that file", "err");
+      };
+      reader.readAsText(f);
+    });
+  }
+  init();
+  </script>
+</body>
+</html>
