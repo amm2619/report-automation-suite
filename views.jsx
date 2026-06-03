@@ -11,6 +11,7 @@ function Settings({
   leaveOverlay, onClearImportedLeave,
   onAddSprint, onEditSprint, onRemoveSprint, onSetCurrent,
   toast, onExportData, onImportData, onClearData,
+  fsSupported, folder, folderReconnect, onConnectFolder, onReconnectFolder, onDisconnectFolder,
   onOpenImportHistory, onOpenImportTickets, onOpenImportIcal,
 }) {
   const [confirmClear, setConfirmClear] = useState(false);
@@ -140,20 +141,56 @@ function Settings({
         toast={toast}
       />
 
-      {/* Data — auto-save note + clear */}
+      {/* Data — auto-save, folder sync, clear */}
       <div className="person-card settings-card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div className="section-label" style={{ margin: 0 }}>Data</div>
             <div className="muted" style={{ fontSize: 12.5 }}>
               Everything you import or edit is saved automatically in this browser and restored on refresh.
-              Use <b>Export data</b> (top right) to keep a copy in a folder. Clearing wipes the workspace back to empty.
+              Use <b>Export data</b> (top right) to keep a one-off copy. Clearing wipes the workspace back to empty.
             </div>
           </div>
           <button className="btn" onClick={() => setConfirmClear(true)}
             style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
             <Icon name="trash" size={14} /> Clear all data
           </button>
+        </div>
+
+        {/* Folder auto-save */}
+        <div className="opt-row" style={{ cursor: "default", alignItems: "center" }}>
+          <span>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>Auto-save to a folder</div>
+            {!fsSupported ? (
+              <div className="muted" style={{ fontSize: 12 }}>
+                Needs Chrome/Edge served over <span style={{ fontFamily: "var(--font-mono)" }}>http://localhost</span> (run <span style={{ fontFamily: "var(--font-mono)" }}>npm start</span>). Export/Import still works everywhere.
+              </div>
+            ) : folder ? (
+              folderReconnect ? (
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Linked to <b>{folder.name}</b> — reconnect to resume writing <span style={{ fontFamily: "var(--font-mono)" }}>velocity-data.json</span>.
+                </div>
+              ) : (
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Auto-saving to <b>{folder.name}</b><span style={{ fontFamily: "var(--font-mono)" }}>/velocity-data.json</span>.
+                </div>
+              )
+            ) : (
+              <div className="muted" style={{ fontSize: 12 }}>
+                Pick a folder once; the app keeps <span style={{ fontFamily: "var(--font-mono)" }}>velocity-data.json</span> there in sync.
+              </div>
+            )}
+          </span>
+          {fsSupported && (
+            folder ? (
+              <span style={{ display: "flex", gap: 8 }}>
+                {folderReconnect && <button className="btn sm primary" onClick={onReconnectFolder}>Reconnect</button>}
+                <button className="btn sm" onClick={onDisconnectFolder}>Disconnect</button>
+              </span>
+            ) : (
+              <button className="btn sm primary" onClick={onConnectFolder}><Icon name="download" size={13} /> Connect folder</button>
+            )
+          )}
         </div>
       </div>
 

@@ -33,11 +33,46 @@ function App() {
   const [showImportIcal, setShowImportIcal] = useState(false);
   const [leaveOverlay, setLeaveOverlay] = useState(() => SAVED.leave || []); // imported iCal leave (mirrors VP.LEAVE)
 
+  // ---- optional folder auto-save (File System Access API) ----
+  const [folder, setFolder] = useState(null);          // { name } when connected
+  const [folderReconnect, setFolderReconnect] = useState(false);
+  const dirHandle = useRef(null);
+  const writeTimer = useRef(null);
+  const fsSupported = !!(window.FSStore && window.FSStore.supported());
+
+  const snapshot = () => ({ v: 1, people, tickets, sprintsList, currentSprintIdx, leave: leaveOverlay, jiraBase, doneRes, customRes, project, hidePast });
+
   // ---- persistence: write the full data snapshot whenever it changes ----
   useEffect(() => {
-    const snap = { v: 1, people, tickets, sprintsList, currentSprintIdx, leave: leaveOverlay, jiraBase, doneRes, customRes, project, hidePast };
-    try { localStorage.setItem(PERSIST_KEY, JSON.stringify(snap)); } catch (_) {}
-  }, [people, tickets, sprintsList, currentSprintIdx, leaveOverlay, jiraBase, doneRes, customRes, project, hidePast]);
+    try { localStorage.setItem(PERSIST_KEY, JSON.stringify(snapshot())); } catch (_) {}
+    // Mirror to the connected folder file (debounced).
+    if (folder && dirHandle.current && window.FSStore) {
+      clearTimeout(writeTimer.current);
+      const snap = snapshot();
+      writeTimer.current = setTimeout(() => { window.FSStore.write(dirHandle.current, snap).catch(() => {}); }, 500);
+    }
+  }, [people, tickets, sprintsList, currentSprintIdx, leaveOverlay, jiraBase, doneRes, customRes, project, hidePast, folder]);
+
+  // ---- on load: reconnect a previously chosen folder ----
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!fsSupported) return;
+      const h = await window.FSStore.stored();
+      if (!h || cancelled) return;
+      dirHandle.current = h;
+      if ((await window.FSStore.permission(h, false)) === "granted") {
+        const data = await window.FSStore.read(h);
+        if (cancelled) return;
+        if (data) applyData(data);
+        setFolder({ name: h.name });
+      } else if (!cancelled) {
+        setFolder({ name: h.name });
+        setFolderReconnect(true);   // needs a click to re-grant permission
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line
 
   // ---- toasts ----
   const toast = useCallback((text, kind = "ok") => {
@@ -100,22 +135,24 @@ function App() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast("Data exported");
   };
+  // Apply a saved snapshot (from a file, folder, or import) into state.
+  const applyData = (d) => {
+    if (!d || typeof d !== "object") return;
+    if (Array.isArray(d.people)) setPeople(d.people.map((p) => ({ ...p })));
+    if (Array.isArray(d.tickets)) setTickets(d.tickets.map((t) => ({ ...t, sprints: [...(t.sprints || [])] })));
+    if (Array.isArray(d.sprintsList)) setSprintsList(d.sprintsList.map((s) => ({ ...s })));
+    if (Number.isInteger(d.currentSprintIdx)) { setCurrentSprintIdx(d.currentSprintIdx); setSprintIdx(d.currentSprintIdx); }
+    const leave = Array.isArray(d.leave) ? d.leave : (Array.isArray(d.leaveOverlay) ? d.leaveOverlay : null);
+    if (leave) { VP.LEAVE.length = 0; VP.LEAVE.push(...leave); setLeaveOverlay(leave); }
+    if (typeof d.jiraBase === "string") setJiraBase(d.jiraBase);
+    if (Array.isArray(d.doneRes)) setDoneRes(d.doneRes);
+    if (Array.isArray(d.customRes)) setCustomRes(d.customRes);
+    if (typeof d.project === "string") setProject(d.project);
+    if (typeof d.hidePast === "boolean") setHidePast(d.hidePast);
+  };
   const onImportData = (txt) => {
-    try {
-      const d = JSON.parse(txt);
-      if (Array.isArray(d.people)) setPeople(d.people.map((p) => ({ ...p })));
-      if (Array.isArray(d.tickets)) setTickets(d.tickets.map((t) => ({ ...t, sprints: [...(t.sprints || [])] })));
-      if (Array.isArray(d.sprintsList)) setSprintsList(d.sprintsList.map((s) => ({ ...s })));
-      if (Number.isInteger(d.currentSprintIdx)) { setCurrentSprintIdx(d.currentSprintIdx); setSprintIdx(d.currentSprintIdx); }
-      const leave = Array.isArray(d.leave) ? d.leave : (Array.isArray(d.leaveOverlay) ? d.leaveOverlay : null);
-      if (leave) { VP.LEAVE.length = 0; VP.LEAVE.push(...leave); setLeaveOverlay(leave); }
-      if (typeof d.jiraBase === "string") setJiraBase(d.jiraBase);
-      if (Array.isArray(d.doneRes)) setDoneRes(d.doneRes);
-      if (Array.isArray(d.customRes)) setCustomRes(d.customRes);
-      if (typeof d.project === "string") setProject(d.project);
-      if (typeof d.hidePast === "boolean") setHidePast(d.hidePast);
-      toast("Data imported");
-    } catch { toast("Invalid data file", "err"); }
+    try { applyData(JSON.parse(txt)); toast("Data imported"); }
+    catch { toast("Invalid data file", "err"); }
   };
   // Wipe everything back to a fresh, empty workspace.
   const onClearData = () => {
@@ -134,6 +171,47 @@ function App() {
     try { localStorage.removeItem(PERSIST_KEY); } catch (_) {}
     toast("All data cleared", "info");
   };
+
+  // ---- folder auto-save actions ----
+  const onConnectFolder = async () => {
+    try {
+      const h = await window.FSStore.connect();
+      dirHandle.current = h;
+      const existing = await window.FSStore.read(h);
+      if (existing && (existing.people || existing.tickets || existing.sprintsList)) {
+        applyData(existing);
+        toast(`Connected “${h.name}” · loaded its data`);
+      } else {
+        await window.FSStore.write(h, snapshot());
+        toast(`Connected “${h.name}” · auto-saving here`);
+      }
+      setFolder({ name: h.name });
+      setFolderReconnect(false);
+    } catch (e) {
+      if (e && e.name !== "AbortError") toast("Couldn't connect that folder", "err");
+    }
+  };
+  const onReconnectFolder = async () => {
+    try {
+      const h = dirHandle.current || await window.FSStore.stored();
+      if (!h) return;
+      if ((await window.FSStore.permission(h, true)) !== "granted") { toast("Permission denied", "err"); return; }
+      dirHandle.current = h;
+      const data = await window.FSStore.read(h);
+      if (data) applyData(data);
+      setFolder({ name: h.name });
+      setFolderReconnect(false);
+      toast(`Reconnected “${h.name}”`);
+    } catch (_) { toast("Couldn't reconnect the folder", "err"); }
+  };
+  const onDisconnectFolder = async () => {
+    try { await window.FSStore.forget(); } catch (_) {}
+    dirHandle.current = null;
+    setFolder(null);
+    setFolderReconnect(false);
+    toast("Folder disconnected", "info");
+  };
+
   const onImportHistoricalHtml = (html) => {
     const result = parseHistoricalHtml(html, people, doneRes);
     if (!result.ticketCount) { toast("No matching velocity rows found in that file", "err"); return result; }
@@ -316,6 +394,8 @@ function App() {
             onAddSprint={onAddSprint} onEditSprint={onEditSprint} onRemoveSprint={onRemoveSprint} onSetCurrent={onSetCurrent}
             toast={toast}
             onExportData={onExportData} onImportData={onImportData} onClearData={onClearData}
+            fsSupported={fsSupported} folder={folder} folderReconnect={folderReconnect}
+            onConnectFolder={onConnectFolder} onReconnectFolder={onReconnectFolder} onDisconnectFolder={onDisconnectFolder}
             onOpenImportHistory={() => setShowImportHtml(true)}
             onOpenImportTickets={() => setShowImportTickets(true)}
             onOpenImportIcal={() => setShowImportIcal(true)} />

@@ -30,6 +30,26 @@ open index.html        # or double-click it; works straight from file://
 (You can also serve the folder with any static server, e.g.
 `python3 -m http.server`, but it is not required.)
 
+Either way your data is **saved automatically in the browser** and restored on
+refresh — it persists until you clear it from **Settings → Data → Clear all
+data**. **Export data** there writes a one-off JSON copy you can keep anywhere.
+
+## Auto-save to a folder (optional)
+
+If you'd like the app to keep a live `velocity-data.json` in a folder of your
+choice, run it over `http://localhost` (a "secure context", which the browser
+requires for folder access) using the bundled server:
+
+```sh
+npm start            # serves on http://localhost:8000
+```
+
+Then open <http://localhost:8000>, go to **Settings → Data → Auto-save to a
+folder → Connect folder**, and pick a folder once. From then on every change is
+written to `velocity-data.json` in that folder, and reconnecting it later (or on
+another machine) loads it back. Requires a Chromium browser (Chrome/Edge); on
+other browsers the in-browser auto-save + Export/Import still work.
+
 ## Importing your data
 
 - **Import tickets** (top bar, Planner header, or Settings) — paste/drop a Jira
@@ -54,8 +74,10 @@ open index.html        # or double-click it; works straight from file://
 | `team.jsx`       | `Team` — person cards, add/edit modal, velocity table          |
 | `views.jsx`      | `Settings`, sprint-calendar editor, import modals              |
 | `app.jsx`        | Root: state, top bar, nav, toasts                              |
+| `fsstore.js`     | Folder auto-save helper (File System Access API), `window.FSStore` |
 | `bundle.js`      | **Generated** — the precompiled app the browser actually runs   |
-| `build.js`       | Compiles the `.jsx` sources + `data.js` into `bundle.js`        |
+| `build.js`       | Compiles the sources (`data.js` + `fsstore.js` + `.jsx`) into `bundle.js` |
+| `server.js`      | Tiny zero-dep static server for `npm start` (localhost)         |
 | `vendor/`        | Vendored React + ReactDOM (UMD, production)                    |
 
 ## Editing the app
