@@ -189,7 +189,7 @@ function DatePicker({ value, onChange, placeholder = "Pick a date" }) {
 Object.assign(window, {
   React, useState, useEffect, useRef, useMemo, useCallback,
   PROJ_COLOR, PROJ_DIM, initials, Avatar, Icon, Gear, useClickOutside, fmtDate, fmtRange,
-  InlineNumber, parseHistoricalHtml, parseIcal,
+  InlineNumber, parseHistoricalHtml, parseBoardHtml, parseIcal,
   DatePicker, endDateFromWorkDays,
 });
 
@@ -229,6 +229,104 @@ function InlineNumber({ value, onChange, min = 0, max = 99, className = "", suff
       {value}{suffix && <span className="pu">{suffix}</span>}
     </button>
   );
+}
+
+/* ---------- Jira board HTML parser (backlog + in-sprint tickets) ---------- */
+/* Parses a Jira issue-navigator HTML export table into ticket records, reading
+   each field off its column header (Key, Summary, Assignee, Sprint, Epic,
+   "Custom field (Story Points)", Resolution, Description). Cell text is pulled
+   from real DOM nodes so multi-line descriptions survive intact. Returns raw
+   rows + aggregate counts; the app wires assignees to people (creating any that
+   are missing) and creates any sprints it hasn't seen. */
+function parseBoardHtml(html) {
+  const empty = { rowCount: 0, rows: [], sprintsSeen: [], inSprint: 0, backlog: 0, projects: { DX: 0, LX: 0, RC: 0 }, assignees: [] };
+  if (!html || !html.trim()) return empty;
+  let doc;
+  try { doc = new DOMParser().parseFromString(html, "text/html"); } catch { return empty; }
+
+  const tables = [...doc.querySelectorAll("table")];
+  const table = doc.querySelector("table#issuetable")
+    || tables.find((t) => t.querySelector("td.issuekey, tr[data-issuekey], th"))
+    || tables[0];
+  if (!table) return empty;
+
+  // Cell -> plain text, preserving line breaks for multi-line fields.
+  function cellText(el) {
+    const h = el.innerHTML
+      .replace(/<\s*br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|li|tr|h[1-6]|blockquote)>/gi, "\n");
+    const tmp = el.ownerDocument.createElement("div");
+    tmp.innerHTML = h;
+    let txt = tmp.textContent || "";
+    if (!txt.trim() && el.querySelector) {
+      const img = el.querySelector("img");
+      if (img) txt = img.getAttribute("alt") || img.getAttribute("title") || "";
+    }
+    return txt.replace(/ /g, " ").replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  // Header row: prefer <thead>; else the first row.
+  let headerCells = [...table.querySelectorAll("thead th, thead td")];
+  let bodyRows;
+  if (headerCells.length) {
+    bodyRows = [...table.querySelectorAll("tbody tr")];
+    if (!bodyRows.length) bodyRows = [...table.querySelectorAll("tr")].filter((tr) => !tr.querySelector("th"));
+  } else {
+    const all = [...table.querySelectorAll("tr")];
+    headerCells = [...(all[0] ? all[0].children : [])];
+    bodyRows = all.slice(1);
+  }
+  const headers = headerCells.map((th) => cellText(th).toLowerCase());
+  const col = (pred) => headers.findIndex(pred);
+  const idxKey = col((h) => h === "key" || h === "issuekey" || h.includes("issue key"));
+  const idxSum = col((h) => h.includes("summary"));
+  const idxAss = col((h) => h.includes("assignee"));
+  const idxEpic = col((h) => h.includes("epic"));
+  const idxPts = col((h) => h.includes("story point"));
+  const idxRes = col((h) => h.includes("resolution"));
+  const idxDesc = col((h) => h.includes("description"));
+  const sprintCols = headers.map((h, i) => (h === "sprint" || h.startsWith("sprint")) ? i : -1).filter((i) => i >= 0);
+
+  const sprintRe = /\b\d{2,4}\.\d+\.\d+\b/g;
+  // Jira renders an empty assignee/resolution as "Unassigned"/"Unresolved".
+  const norm = (s, blank) => { const v = (s || "").trim(); return v.toLowerCase() === blank ? "" : v; };
+
+  const rows = [];
+  const projects = { DX: 0, LX: 0, RC: 0 };
+  const sprintsSeen = new Set();
+  const assignees = new Set();
+  let inSprint = 0, backlog = 0;
+
+  for (const tr of bodyRows) {
+    const cells = [...tr.children];
+    if (!cells.length) continue;
+    const get = (i) => (i >= 0 && cells[i] ? cellText(cells[i]) : "");
+    let key = get(idxKey) || tr.getAttribute("data-issuekey") || "";
+    key = key.trim();
+    const project = VP.projectForKey(key);
+    if (!project) continue; // skip header/footer/non-issue rows
+
+    // Sprint: gather all "NN.N.N" matches across sprint columns; the last is current.
+    const matches = sprintCols.map((i) => get(i)).join(" ").match(sprintRe) || [];
+    const sprintName = matches.length ? matches[matches.length - 1] : "";
+    const assigneeName = norm(get(idxAss), "unassigned");
+
+    rows.push({
+      key, project,
+      summary: get(idxSum) || key,
+      epic: get(idxEpic),
+      points: Math.max(0, Math.round(parseFloat(get(idxPts)) || 0)),
+      resolution: norm(get(idxRes), "unresolved"),
+      desc: get(idxDesc),
+      assigneeName,
+      sprintName,
+    });
+    projects[project]++;
+    if (assigneeName) assignees.add(assigneeName);
+    if (sprintName) { sprintsSeen.add(sprintName); inSprint++; } else backlog++;
+  }
+
+  return { rowCount: rows.length, rows, sprintsSeen: [...sprintsSeen].sort(), inSprint, backlog, projects, assignees: [...assignees] };
 }
 
 /* ---------- Historical Jira HTML parser ---------- */

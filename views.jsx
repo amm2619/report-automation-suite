@@ -11,7 +11,7 @@ function Settings({
   leaveOverlay, onClearImportedLeave,
   onAddSprint, onEditSprint, onRemoveSprint, onSetCurrent,
   toast, onExportSettings, onImportSettings,
-  onOpenImportHistory, onOpenImportIcal,
+  onOpenImportHistory, onOpenImportTickets, onOpenImportIcal,
 }) {
   const presetRes = ["Done", "Fixed", "Resolved", "Completed", "Complete", "Closed", "Shipped"];
   const allRes = useMemo(() => [...new Set([...presetRes, ...customRes])], [customRes]);
@@ -52,6 +52,21 @@ function Settings({
           <button className="btn" onClick={pickFile}><Icon name="download" size={14} style={{ transform: "rotate(180deg)" }} /> Import settings</button>
           <button className="btn primary" onClick={onExportSettings}><Icon name="download" size={14} /> Export settings</button>
           <input ref={fileRef} type="file" accept="application/json,.json" onChange={onFileChosen} style={{ display: "none" }} />
+        </div>
+      </div>
+
+      <div className="person-card settings-card" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div className="section-label" style={{ margin: 0 }}>Tickets · Jira HTML import</div>
+            <div className="muted" style={{ fontSize: 12.5 }}>
+              Import the backlog and in-sprint tickets from a Jira issue-navigator <b>Export · HTML</b>.
+              People are created from the assignees, and any sprint the export references is added to the calendar.
+              Use <b>Velocity history</b> to seed each person's rolling average from completed tickets.
+            </div>
+          </div>
+          <button className="btn" onClick={onOpenImportHistory}><Icon name="download" size={14} /> Velocity history</button>
+          <button className="btn primary" onClick={onOpenImportTickets}><Icon name="download" size={14} /> Import tickets</button>
         </div>
       </div>
 
@@ -520,4 +535,118 @@ function ImportIcalModal({ people, onClose, onImport }) {
   );
 }
 
-Object.assign(window, { Settings, ImportHistoryModal, ImportIcalModal });
+/* ============================================================================
+   ImportTicketsModal — paste / upload a Jira HTML export of backlog +
+   in-sprint tickets. Populates the board, creates people from assignees,
+   and adds any referenced sprints.
+   ========================================================================== */
+function ImportTicketsModal({ people, sprints, onClose, onImport }) {
+  const [html, setHtml] = useState("");
+  const [preview, setPreview] = useState(null);
+  const [fileName, setFileName] = useState("");
+  const fileRef = useRef(null);
+
+  useEffect(() => {
+    function onKey(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!html.trim()) { setPreview(null); return; }
+    setPreview(parseBoardHtml(html));
+  }, [html]);
+
+  function chooseFile() { fileRef.current?.click(); }
+  function onFile(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFileName(f.name);
+    const reader = new FileReader();
+    reader.onload = () => setHtml(String(reader.result || ""));
+    reader.readAsText(f);
+    e.target.value = "";
+  }
+  function commit() {
+    const r = onImport(html);
+    if (r && r.rowCount) onClose();
+  }
+
+  // New people / sprints this import would add (diffed against current state).
+  const known = preview ? (() => {
+    const byName = new Set(people.map((p) => p.name.trim().toLowerCase()));
+    const bySid = new Set(people.filter((p) => p.sid).map((p) => p.sid.toLowerCase()));
+    const newPeople = preview.assignees.filter((n) => {
+      const k = n.trim().toLowerCase();
+      return !byName.has(k) && !bySid.has(k);
+    }).length;
+    const have = new Set(sprints.map((s) => s.name));
+    const newSprints = preview.sprintsSeen.filter((n) => !have.has(n)).length;
+    return { newPeople, newSprints };
+  })() : { newPeople: 0, newSprints: 0 };
+
+  return (
+    <div className="modal-scrim" onClick={onClose}>
+      <div className="modal" style={{ width: "min(640px, 100%)" }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <h3>Import backlog &amp; sprint tickets</h3>
+          <button className="iconbtn" onClick={onClose}><Icon name="x" size={16} /></button>
+        </div>
+        <div className="modal-body">
+          <div className="muted" style={{ fontSize: 12.5, marginTop: -4 }}>
+            In Jira, run an issue-navigator query for the tickets you want on the board, then choose <b>Export · HTML</b>.
+            Drop the file here (or paste it) — we read Key, Summary, Assignee, Sprint, Epic, Story Points, and Description.
+            Tickets with a sprint land in that sprint; the rest go to the backlog. <b>People are created from the assignees.</b>
+          </div>
+
+          <div className="drop-zone" onClick={chooseFile} role="button" tabIndex={0}>
+            <Icon name="download" size={18} />
+            <div>
+              <div style={{ fontWeight: 700 }}>{fileName ? fileName : "Choose an HTML export…"}</div>
+              <div className="muted" style={{ fontSize: 12 }}>or paste the HTML below</div>
+            </div>
+            <input ref={fileRef} type="file" accept=".html,.htm,text/html" onChange={onFile} style={{ display: "none" }} />
+          </div>
+
+          <textarea
+            value={html}
+            onChange={(e) => setHtml(e.target.value)}
+            placeholder="<html>…paste Jira export here…</html>"
+            spellCheck={false}
+            style={{
+              fontFamily: "var(--font-mono)", fontSize: 12, padding: 11, borderRadius: 9, minHeight: 140,
+              border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", resize: "vertical",
+            }} />
+
+          {preview && (
+            <div className="preview-strip" data-empty={!preview.rowCount}>
+              {preview.rowCount ? (
+                <React.Fragment>
+                  <div className="metric"><span className="k">Tickets</span><span className="v">{preview.rowCount}</span></div>
+                  <div className="metric"><span className="k">In sprint</span><span className="v">{preview.inSprint}</span></div>
+                  <div className="metric"><span className="k">Backlog</span><span className="v">{preview.backlog}</span></div>
+                  <div className="metric"><span className="k">New people</span><span className="v">{known.newPeople}</span></div>
+                  <div className="metric"><span className="k">New sprints</span><span className="v">{known.newSprints}</span></div>
+                  <div style={{ flex: 1 }} />
+                  <div className="muted" style={{ fontSize: 11.5, fontFamily: "var(--font-mono)" }}>
+                    {["DX", "LX", "RC"].filter((p) => preview.projects[p]).map((p) => `${p} ${preview.projects[p]}`).join(" · ")}
+                  </div>
+                </React.Fragment>
+              ) : (
+                <div className="muted" style={{ fontSize: 12.5 }}>No tickets found — the export needs a table with a Key column (DX-…, LX-…, RCR-…).</div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="modal-foot">
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" disabled={!preview || !preview.rowCount} onClick={commit}>
+            Import {preview?.rowCount ? `${preview.rowCount} ticket${preview.rowCount === 1 ? "" : "s"}` : ""}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { Settings, ImportHistoryModal, ImportTicketsModal, ImportIcalModal });

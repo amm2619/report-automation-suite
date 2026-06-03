@@ -21,6 +21,7 @@ function App() {
   const [doneRes, setDoneRes] = useState([...VP.DONE_RESOLUTIONS]);
   const [customRes, setCustomRes] = useState([]); // user-added resolution strings
   const [showImportHtml, setShowImportHtml] = useState(false);
+  const [showImportTickets, setShowImportTickets] = useState(false);
   const [showImportIcal, setShowImportIcal] = useState(false);
   const [leaveOverlay, setLeaveOverlay] = useState([]); // imported iCal leave (adds to VP.LEAVE)
 
@@ -106,6 +107,74 @@ function App() {
     toast(`Seeded velocity from ${result.ticketCount} tickets across ${peopleN} people`, "ok");
     return result;
   };
+  // Import the backlog + in-sprint board from a Jira HTML export. Populates
+  // people from the assignees (creating any that are new), creates any sprints
+  // the export references but the calendar doesn't have yet, then upserts the
+  // tickets by key.
+  const onImportTickets = (html) => {
+    const res = parseBoardHtml(html);
+    if (!res.rowCount) { toast("No tickets found in that export", "err"); return res; }
+
+    // 1) Sprints — add an undated sprint for any referenced sprint we don't have.
+    const knownSprintNames = new Set(sprintsList.map((s) => s.name));
+    const newSprintNames = res.sprintsSeen.filter((n) => !knownSprintNames.has(n));
+    let nextSprints = sprintsList;
+    if (newSprintNames.length) {
+      nextSprints = [...sprintsList, ...newSprintNames.map((n) => ({ id: "s" + (++_tid), name: n, start: null, end: null }))];
+      setSprintsList(nextSprints);
+    }
+
+    // 2) People — match assignees to the roster by name/sid; create the rest,
+    //    inferring each new person's project from the tickets they own.
+    const byName = new Map(people.map((p) => [p.name.trim().toLowerCase(), p]));
+    const bySid = new Map(people.filter((p) => p.sid).map((p) => [p.sid.toLowerCase(), p]));
+    const resolve = (name) => {
+      const k = (name || "").trim().toLowerCase();
+      return k ? (byName.get(k) || bySid.get(k) || null) : null;
+    };
+    const projTally = {};
+    res.rows.forEach((r) => {
+      if (!r.assigneeName || !r.project) return;
+      const k = r.assigneeName.trim().toLowerCase();
+      (projTally[k] = projTally[k] || {})[r.project] = (projTally[k][r.project] || 0) + 1;
+    });
+    const newPeople = [];
+    res.assignees.forEach((name) => {
+      const k = name.trim().toLowerCase();
+      if (resolve(name)) return;
+      const proj = Object.entries(projTally[k] || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || project;
+      const np = {
+        id: "np" + (++_tid), name: name.trim(),
+        sid: name.trim().toLowerCase().replace(/\s+/g, "").slice(0, 8),
+        type: "contractor", project: proj, goal: 0, history: [],
+      };
+      newPeople.push(np);
+      byName.set(k, np);
+    });
+    if (newPeople.length) setPeople([...people, ...newPeople]);
+
+    // 3) Tickets — upsert by key (Jira is the source of truth for these fields).
+    const imported = res.rows.map((r) => {
+      const person = resolve(r.assigneeName);
+      return {
+        id: "k:" + r.key, key: r.key, epic: r.epic || "", summary: r.summary || r.key,
+        points: r.points || 0, resolution: r.resolution || "", wfh: false,
+        assignee: person ? person.id : null,
+        sprints: r.sprintName ? [r.sprintName] : [],
+        desc: r.desc || "",
+      };
+    });
+    setTickets((prev) => {
+      const map = new Map(prev.map((t) => [t.key, t]));
+      imported.forEach((t) => map.set(t.key, { ...(map.get(t.key) || {}), ...t }));
+      return [...map.values()];
+    });
+
+    toast(`Imported ${imported.length} tickets · ${res.inSprint} in a sprint, ${res.backlog} backlog` +
+      (newPeople.length ? ` · +${newPeople.length} people` : "") +
+      (newSprintNames.length ? ` · +${newSprintNames.length} sprints` : ""), "ok");
+    return res;
+  };
   const onImportIcal = (text) => {
     const result = parseIcal(text, people);
     if (!result.eventCount) { toast("No leave events found in that file", "err"); return result; }
@@ -169,6 +238,7 @@ function App() {
         </div>
 
         <div className="spacer" />
+        <button className="btn primary" onClick={() => setShowImportTickets(true)}><Icon name="download" size={15} /> Import tickets</button>
         <button className="btn" onClick={() => setShowImportHtml(true)}><Icon name="download" size={15} /> Import history</button>
         <button className="iconbtn" onClick={() => setView("settings")} aria-label="Settings"><Gear /></button>
       </header>
@@ -196,7 +266,7 @@ function App() {
             jiraBase={jiraBase} currentIdx={currentSprintIdx}
             onAssign={onAssign} onWfh={onWfh} onMove={onMove} onBacklog={onBacklog}
             onPoints={onPoints} onOpenDesc={setDescTicket}
-            onOpenImportHistory={() => setShowImportHtml(true)} />
+            onOpenImportTickets={() => setShowImportTickets(true)} />
         )}
         {view === "team" && (
           <Team people={people} projects={VP.PROJECTS} currentProject={project} sprints={sprintsList}
@@ -212,6 +282,7 @@ function App() {
             toast={toast}
             onExportSettings={onExportSettings} onImportSettings={onImportSettings}
             onOpenImportHistory={() => setShowImportHtml(true)}
+            onOpenImportTickets={() => setShowImportTickets(true)}
             onOpenImportIcal={() => setShowImportIcal(true)} />
         )}
       </main>
@@ -230,6 +301,15 @@ function App() {
           onMove={onMove}
           onBacklog={onBacklog}
           onPoints={onPoints} />
+      )}
+
+      {/* backlog + in-sprint tickets import */}
+      {showImportTickets && (
+        <ImportTicketsModal
+          people={people}
+          sprints={sprintsList}
+          onClose={() => setShowImportTickets(false)}
+          onImport={onImportTickets} />
       )}
 
       {/* historical HTML import */}

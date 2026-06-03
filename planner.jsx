@@ -217,7 +217,7 @@ function byAssignee(list, people) {
   return out;
 }
 
-function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, mode, setMode, hidePast, jiraBase, onAssign, onWfh, onMove, onBacklog, onPoints, onOpenDesc, currentIdx, onOpenImportHistory }) {
+function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, mode, setMode, hidePast, jiraBase, onAssign, onWfh, onMove, onBacklog, onPoints, onOpenDesc, currentIdx, onOpenImportTickets }) {
   const [openPop, setOpenPop] = useState(null);
   const [userCollapse, setUserCollapse] = useState({}); // {pid: bool} — explicit user overrides
   // If hide-past flips on while viewing a past sprint, jump to current.
@@ -287,7 +287,7 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
             <div className="metric"><span className="k">Assigned</span><span className="v">{totalAssigned}</span></div>
             <div className="metric"><span className="k">{undated ? "Base cap" : "Capacity"}</span><span className="v">{totalCap}</span></div>
             <div style={{ flex: 1 }} />
-            <button className="btn" onClick={onOpenImportHistory}><Icon name="download" size={15} /> Import Jira HTML</button>
+            <button className="btn" onClick={onOpenImportTickets}><Icon name="download" size={15} /> Import tickets</button>
           </div>
 
           {/* capacity cards */}
