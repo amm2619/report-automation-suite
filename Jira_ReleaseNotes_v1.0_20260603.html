@@ -427,11 +427,11 @@
 
   // ---------- type classification ----------
   const TYPES = {
-    bug:         { rank: 0, label: "Bug fix",     emoji: "🐞", cls: "bug" },          // 🐞
-    feature:     { rank: 1, label: "New feature", emoji: "✨",       cls: "feature" },      // ✨
-    improvement: { rank: 2, label: "Improvement", emoji: "⬆️", cls: "improvement" },  // ⬆️
-    task:        { rank: 3, label: "Task",        emoji: "✅",       cls: "task" },          // ✅
-    other:       { rank: 4, label: "Change",      emoji: "📌", cls: "other" },         // 📌
+    bug:         { rank: 0, label: "Bug fix",     emoji: "🐞", cls: "bug",         colour: "Red" },     // 🐞
+    feature:     { rank: 1, label: "New feature", emoji: "✨",       cls: "feature",     colour: "Green" },   // ✨
+    improvement: { rank: 2, label: "Improvement", emoji: "⬆️", cls: "improvement", colour: "Blue" },    // ⬆️
+    task:        { rank: 3, label: "Task",        emoji: "✅",       cls: "task",        colour: "Yellow" },  // ✅
+    other:       { rank: 4, label: "Change",      emoji: "📌", cls: "other",       colour: "Grey" },    // 📌
   };
   function classifyType(t) {
     const s = (t || "").toLowerCase();
@@ -933,11 +933,16 @@
       iconSvg("M9 2h6a2 2 0 012 2v2h2a2 2 0 012 2v12a2 2 0 01-2 2H8a2 2 0 01-2-2v-2H4a2 2 0 01-2-2V6a2 2 0 012-2h2V4a2 2 0 012-2z"),
       " Copy for Confluence",
     ]));
+    bar.appendChild(el("button", { class: "btn", onclick: () => copyStorage(), title: "Confluence storage format with native status lozenges + expandable sections (for the REST API or a storage/source editor)" }, ["Copy storage (macros)"]));
     bar.appendChild(el("button", { class: "btn", onclick: () => copyMarkdown() }, ["Copy Markdown"]));
     bar.appendChild(el("button", { class: "btn", onclick: () => downloadHtml() }, ["Download HTML"]));
     bar.appendChild(el("button", { class: "btn", onclick: () => downloadMarkdown() }, ["Download .md"]));
+    bar.appendChild(el("button", { class: "btn", onclick: () => downloadStorage(), title: "Download the Confluence storage-format XML" }, ["Download storage"]));
     bar.appendChild(el("button", { class: "btn", onclick: () => printDoc() }, ["Print / PDF"]));
     root.appendChild(bar);
+    root.appendChild(el("div", { class: "hint", style: "margin:-6px 0 16px 2px", html:
+      "<b>Copy for Confluence</b> pastes straight into the page editor (theme-neutral). " +
+      "<b>Copy storage (macros)</b> emits Confluence storage XHTML — native <b>status</b> lozenges per type and an <b>expand</b> section per fix version — for the REST API (<code>body.storage</code>) or a source/storage editor." }));
 
     if (!included().length) {
       root.appendChild(el("div", { class: "rn-doc" }, [el("div", { class: "empty-state", text: state.rows.length ? "No issues selected — include some in Compose." : "Import a Jira HTML export to get started." })]));
@@ -1018,6 +1023,56 @@
         }
         h += "</tbody></table>\n";
       }
+    }
+    return h;
+  }
+
+  // Confluence storage format (XHTML + macros): native status lozenges per
+  // issue type and an expand section per Fix Version. Well-formed so it can be
+  // pushed via the Confluence REST API (body.storage) or a storage/source editor.
+  function buildConfluenceStorage() {
+    const m = state.meta;
+    const groups = grouped();
+    let h = "";
+    h += "<h1>" + esc(docTitle()) + "</h1>\n";
+
+    const metaRows = [];
+    if (m.version) metaRows.push(["Build / release", esc(m.version)]);
+    if (m.releaseDate) metaRows.push(["Release date", esc(fmtDate(m.releaseDate))]);
+    if (m.environment) metaRows.push(["Environment", esc(m.environment)]);
+    if (metaRows.length) {
+      h += "<table><tbody>\n";
+      metaRows.forEach(([k, v]) => { h += "<tr><th>" + k + "</th><td>" + v + "</td></tr>\n"; });
+      h += "</tbody></table>\n";
+    }
+    if (m.intro) {
+      h += '<ac:structured-macro ac:name="info"><ac:rich-text-body><p>' +
+        esc(m.intro).replace(/\n/g, "<br/>") + "</p></ac:rich-text-body></ac:structured-macro>\n";
+    }
+    const sentence = summarySentence();
+    if (sentence) h += "<p><strong>" + esc(sentence) + "</strong></p>\n";
+
+    for (const g of groups) {
+      const title = g.version + " — " + g.count + (g.count === 1 ? " issue" : " issues") +
+        (g.bugs ? " · " + g.bugs + (g.bugs === 1 ? " bug fix" : " bug fixes") : "");
+      h += '<ac:structured-macro ac:name="expand"><ac:parameter ac:name="title">' + esc(title) +
+        "</ac:parameter><ac:rich-text-body>\n";
+      for (const epic of g.epics) {
+        if (epic.name !== NO_EPIC || g.epics.length > 1) h += "<h3>" + esc(epic.name) + "</h3>\n";
+        h += "<table><tbody>\n<tr><th>Type</th><th>Issue</th><th>Summary</th></tr>\n";
+        for (const it of epic.items) {
+          const t = TYPES[typeFor(it)];
+          const status = '<ac:structured-macro ac:name="status"><ac:parameter ac:name="colour">' +
+            t.colour + '</ac:parameter><ac:parameter ac:name="title">' + esc(t.label) +
+            "</ac:parameter></ac:structured-macro>";
+          const keyCell = state.jiraBase
+            ? '<a href="' + esc(state.jiraBase + "/browse/" + it.key) + '">' + esc(it.key) + "</a>"
+            : esc(it.key);
+          h += "<tr><td>" + status + "</td><td>" + keyCell + "</td><td>" + esc(summaryFor(it)) + "</td></tr>\n";
+        }
+        h += "</tbody></table>\n";
+      }
+      h += "</ac:rich-text-body></ac:structured-macro>\n";
     }
     return h;
   }
@@ -1119,6 +1174,16 @@
     if (!included().length) { toast("Nothing to copy — include some issues first", "err"); return; }
     try { await navigator.clipboard.writeText(buildMarkdown()); toast("Markdown copied"); }
     catch (_) { toast("Copy failed", "err"); }
+  }
+  async function copyStorage() {
+    if (!included().length) { toast("Nothing to copy — include some issues first", "err"); return; }
+    try { await navigator.clipboard.writeText(buildConfluenceStorage()); toast("Storage format copied (paste via REST API or source editor)"); }
+    catch (_) { toast("Copy failed", "err"); }
+  }
+  function downloadStorage() {
+    if (!included().length) { toast("Nothing to export", "err"); return; }
+    download(fileSlug() + ".confluence-storage.xml", buildConfluenceStorage(), "application/xml");
+    toast("Storage format downloaded");
   }
   function download(name, content, mime) {
     const blob = new Blob([content], { type: mime });
