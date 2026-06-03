@@ -55,6 +55,13 @@ the browser (`localStorage`) and restored on refresh.
   into a Confluence page. The markup is **semantic and color-free** (headings,
   tables, blockquote, emoji type markers), so it **inherits the reader's
   Confluence light/dark theme** instead of fighting it.
+- **Copy storage (macros)** — emits Confluence **storage format** (XHTML +
+  macros): a native **status lozenge** per issue type (Red bug / Green feature /
+  Blue improvement / Yellow task / Grey change), the intro in an **info** panel,
+  and an **expand** section per fix version. This is for consumers of storage
+  format — the Confluence **REST API** (`body.storage`) or a source/storage
+  editor — not the rich-text editor. Also available as **Download storage**
+  (`.confluence-storage.xml`).
 - **Copy Markdown** / **Download .md** — for wikis and Git.
 - **Download HTML** — a polished standalone document that adapts to the reader's
   OS light/dark mode via `prefers-color-scheme`.

@@ -41,9 +41,12 @@ the apps feel like one suite. Keep visual changes consistent with that system.
   normalizes Jira's raw type; `typeFor(r)` applies a per-issue manual override
   (`state.typeOverride`). Route all label/rank/emoji reads through `typeFor`.
 - **Output builders** — `buildConfluenceHtml()` (semantic, **color-free** so it
-  inherits the reader's Confluence light/dark theme), `buildMarkdown()`, and
-  `buildStandaloneHtml()` (a styled doc that adapts via `prefers-color-scheme`).
-  When you change the grouping or add a field, update all three.
+  inherits the reader's Confluence light/dark theme), `buildMarkdown()`,
+  `buildStandaloneHtml()` (a styled doc that adapts via `prefers-color-scheme`),
+  and `buildConfluenceStorage()` (Confluence storage XHTML with `status` +
+  `expand` + `info` macros; must stay well-formed — each type carries a
+  `TYPES[].colour` for the lozenge). When you change the grouping or add a
+  field, update all four.
 - **State** persists to `localStorage` (`rn.state.v1`): meta, per-issue
   exclusions, summary edits, type overrides, collapse, theme, jira base URL.
   Search and type-filter chips are view-only and never affect the output.
