@@ -70,6 +70,18 @@ the browser (`localStorage`) and restored on refresh.
 
 Adding a **Jira base URL** in Compose turns every issue key into a link.
 
+## Enclave transfer (`enclave/`)
+
+For moving the app into an air-gapped / text-only enclave, the `enclave/`
+folder holds **base64-encoded** copies of the project files, each with an extra
+`.txt` extension (e.g. `Jira_ReleaseNotes_v1.0_20260603.html.txt`) so they pass
+through systems that only accept text. Decode on the far side:
+
+```sh
+base64 -d enclave/Jira_ReleaseNotes_v1.0_20260603.html.txt > Jira_ReleaseNotes_v1.0_20260603.html
+# then just open the .html file
+```
+
 ## Editing the app
 
 It's a single HTML file — edit the inline `<style>` and `<script>` directly.
