@@ -1,331 +1,235 @@
-'use strict';
+/* ============================================================================
+   Sprint Planner — sample data + calculation helpers (prototype)
+   All values are fabricated. Exposed on window.VP for the React app.
+   ========================================================================== */
+(function () {
+  "use strict";
 
-/* Data layer: CSV parsing, ticket normalization, velocity and capacity math. */
-const DATA = (() => {
+  // --- Projects -------------------------------------------------------------
+  const PROJECTS = [
+    { id: "DX", name: "DataXplorer", key: "DX" },
+    { id: "LX", name: "LinkXplorer", key: "LX" },
+    { id: "RC", name: "ROLLERCOASTER", key: "RCR" },
+  ];
 
-  // ─── Jira HTML export ───────────────────────────────────────────────────────
-  /*
-   * Parses the table produced by Jira's issue-navigator "Export → HTML"
-   * (Server / Data Center). That export is a single <table id="issuetable">
-   * whose <th> cells are the field names (e.g. "Summary", "Assignee",
-   * "Custom field (Story Points)") and whose <tr class="issuerow"> body rows
-   * are the tickets — Key + Summary + fields all on one row.
-   *
-   * We turn each row into a { header: value } object, so buildTicket /
-   * resolveField / velocity all work off the column headers unchanged.
-   * Reading cell text from real DOM nodes means multi-line descriptions
-   * survive intact instead of being split across file lines.
-   */
-
-  // Cell → plain text, preserving line breaks for multi-line fields.
-  function cellText(el) {
-    const html = el.innerHTML
-      .replace(/<\s*br\s*\/?>/gi, '\n')
-      .replace(/<\/(p|div|li|tr|h[1-6]|blockquote)>/gi, '\n');
-    const tmp = el.ownerDocument.createElement('div');
-    tmp.innerHTML = html;
-    let txt = tmp.textContent || '';
-    // Icon-only cells (e.g. the issue-type column) carry their value in alt/title.
-    if (!txt.trim() && el.querySelector) {
-      const img = el.querySelector('img');
-      if (img) txt = img.getAttribute('alt') || img.getAttribute('title') || '';
-    }
-    return txt
-      .replace(/ /g, ' ')
-      .replace(/[ \t]+/g, ' ')
-      .replace(/ *\n */g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+  // map a ticket key prefix -> project id
+  function projectForKey(key) {
+    if (!key) return null;
+    if (key.startsWith("RCR")) return "RC";
+    if (key.startsWith("DX")) return "DX";
+    if (key.startsWith("LX")) return "LX";
+    return null;
   }
 
-  function parseHTML(text) {
-    const doc = new DOMParser().parseFromString(text, 'text/html');
-    const tables = [...doc.querySelectorAll('table')];
-    const table =
-      doc.querySelector('table#issuetable') ||
-      tables.find(t => t.querySelector('td.issuekey, tr[data-issuekey], th')) ||
-      tables[0];
-    if (!table) return [];
+  // --- Sprints (locked) -----------------------------------------------------
+  // Dates are ISO (local). "current" = the sprint containing 2026-06-01.
+  const SPRINTS = [
+    { id: "s1", name: "26.2.3", start: "2026-04-06", end: "2026-04-17" },
+    { id: "s2", name: "26.2.4", start: "2026-04-20", end: "2026-05-01" },
+    { id: "s3", name: "26.2.5", start: "2026-05-04", end: "2026-05-15" },
+    { id: "s4", name: "26.2.6", start: "2026-05-18", end: "2026-05-29" },
+    { id: "s5", name: "26.2.7", start: "2026-06-01", end: "2026-06-12" }, // current
+    { id: "s6", name: "26.3.1", start: "2026-06-15", end: "2026-06-26" },
+    { id: "s7", name: "26.3.2", start: "2026-06-29", end: "2026-07-10" },
+  ];
+  const CURRENT_SPRINT_IDX = 4;
 
-    // Header cells: prefer an explicit <thead>; otherwise the first row.
-    let headerCells = [...table.querySelectorAll('thead th, thead td')];
-    let bodyRows;
-    if (headerCells.length) {
-      bodyRows = [...table.querySelectorAll('tbody tr')];
-      if (!bodyRows.length) bodyRows = [...table.querySelectorAll('tr')].filter(tr => !tr.querySelector('th'));
-    } else {
-      const all = [...table.querySelectorAll('tr')];
-      headerCells = [...(all[0] ? all[0].children : [])];
-      bodyRows = all.slice(1);
-    }
+  // --- People ---------------------------------------------------------------
+  // { id, name, sid, type: "gov"|"contractor", project, goal, history:Number[] }
+  // history = points landed in recent past sprints (drives the velocity average).
+  // Add people in the Team tab; seed their history via the Jira HTML import.
+  const PEOPLE = [];
 
-    // Build header names, de-duping repeats exactly like the old CSV path.
-    const seen = {};
-    const headers = headerCells.map(th => {
-      const k = cellText(th).trim();
-      if (seen[k] === undefined) { seen[k] = 0; return k; }
-      return `${k}.${++seen[k]}`;
-    });
+  // --- Leave ----------------------------------------------------------------
+  // { sid, date:ISO, frac: 1 (full) | 0.5 (half) } — import via Settings → iCal.
+  const LEAVE = [];
 
-    const rows = [];
-    for (const tr of bodyRows) {
-      const cells = [...tr.children];
-      if (!cells.length) continue;
-      const row = {};
-      headers.forEach((h, j) => { if (h) row[h] = cells[j] ? cellText(cells[j]) : ''; });
-      // Fall back to the row's data-issuekey when there's no Key column.
-      if (!row['Issue key'] && !row['Key'] && tr.getAttribute('data-issuekey')) {
-        row['Issue key'] = tr.getAttribute('data-issuekey');
-      }
-      rows.push(row);
-    }
-    return rows;
+  // --- Tickets --------------------------------------------------------------
+  // { id, key, epic, summary, points, resolution, wfh, assignee, sprints:[], desc }
+  // Status is derived:
+  //   resolution set + past sprint  -> historical (feeds velocity)
+  //   no resolution, current sprint -> in this sprint
+  //   no resolution, no sprint      -> backlog (assignment candidate)
+  const TICKETS = [];
+
+  const DONE_RESOLUTIONS = ["Done", "Fixed", "Resolved", "Completed", "Complete"];
+
+  // ========================================================================
+  //  Calculation helpers
+  // ========================================================================
+
+  // ---- dates ----
+  function parseISO(s) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }
+  function fmtISO(dt) { return dt.toISOString().slice(0, 10); }
+  function eachDay(startISO, endISO) {
+    const out = []; const d = parseISO(startISO); const end = parseISO(endISO);
+    while (d <= end) { out.push(fmtISO(d)); d.setDate(d.getDate() + 1); }
+    return out;
   }
+  function isWeekend(iso) { const g = parseISO(iso).getDay(); return g === 0 || g === 6; }
 
-  function resolveField(row, name) {
-    if (row[name] !== undefined) return row[name] || '';
-    const tries = [
-      `Custom field (${name})`,
-      `customfield_${name}`,
-      name.replace(/ /g, '_'),
-      name.toLowerCase(),
+  // ---- US federal holidays (observed) for the years we care about ----
+  // nth weekday helper
+  function nthWeekday(year, month, weekday, n) {
+    const first = new Date(year, month, 1);
+    let day = 1 + ((7 + weekday - first.getDay()) % 7) + (n - 1) * 7;
+    return new Date(year, month, day);
+  }
+  function lastWeekday(year, month, weekday) {
+    const last = new Date(year, month + 1, 0);
+    let day = last.getDate() - ((7 + last.getDay() - weekday) % 7);
+    return new Date(year, month, day);
+  }
+  function observed(dt) {
+    const g = dt.getDay();
+    if (g === 6) return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() - 1); // Sat -> Fri
+    if (g === 0) return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + 1); // Sun -> Mon
+    return dt;
+  }
+  function federalHolidays(year) {
+    const list = [
+      new Date(year, 0, 1),                 // New Year's
+      nthWeekday(year, 0, 1, 3),            // MLK (3rd Mon Jan)
+      nthWeekday(year, 1, 1, 3),            // Presidents (3rd Mon Feb)
+      lastWeekday(year, 4, 1),             // Memorial (last Mon May)
+      new Date(year, 5, 19),               // Juneteenth
+      new Date(year, 6, 4),                // Independence
+      nthWeekday(year, 8, 1, 1),           // Labor (1st Mon Sep)
+      nthWeekday(year, 9, 1, 2),           // Columbus (2nd Mon Oct)
+      new Date(year, 10, 11),              // Veterans
+      nthWeekday(year, 10, 4, 4),          // Thanksgiving (4th Thu Nov)
+      new Date(year, 11, 25),              // Christmas
     ];
-    for (const t of tries) {
-      if (row[t] !== undefined) return row[t] || '';
-    }
-    const lower = name.toLowerCase();
-    for (const k of Object.keys(row)) {
-      if (k.toLowerCase().includes(lower)) return row[k] || '';
-    }
-    return '';
+    return list.map(observed).map(fmtISO);
+  }
+  function holidaysInRange(startISO, endISO) {
+    if (!startISO || !endISO) return [];
+    const y0 = parseISO(startISO).getFullYear(), y1 = parseISO(endISO).getFullYear();
+    let hs = [];
+    for (let y = y0; y <= y1; y++) hs = hs.concat(federalHolidays(y));
+    const set = new Set(hs);
+    return eachDay(startISO, endISO).filter((d) => set.has(d) && !isWeekend(d));
   }
 
-  // "LX 26.3.1" or "[EXT]" blobs → "26.3.1"
-  function normSprintName(raw) {
-    if (!raw) return '';
-    let s = raw.trim();
-    const blob = s.match(/\bname=([^,\]]+)/i);
-    if (blob) s = blob[1].trim();
-    s = s.replace(/\s*\[EXT\](?:\[COMPLETED\])?/gi, '').trim();
-    const num = s.match(/(\d{2,4}\.\d+\.\d+)/);
-    return num ? num[1] : s;
+  // ---- undated sprints: a planning bucket with no committed timeframe ----
+  function isUndated(sprint) { return !sprint || !sprint.start || !sprint.end; }
+
+  // ---- work days in a sprint ----
+  function sprintWorkDays(sprint) {
+    if (isUndated(sprint)) return [];
+    const hol = new Set(holidaysInRange(sprint.start, sprint.end));
+    return eachDay(sprint.start, sprint.end).filter((d) => !isWeekend(d) && !hol.has(d));
   }
 
-  function collectSprints(row) {
-    const seen = new Set(), out = [];
-    for (const [k, v] of Object.entries(row)) {
-      if (!/^sprint(\.\d+)?$/i.test(k.trim()) || !v) continue;
-      for (const part of String(v).split(/\s*\+\s*/)) {
-        const n = normSprintName(part);
-        if (n && !seen.has(n)) { seen.add(n); out.push(n); }
+  // ---- velocity ----
+  function velocity(person) {
+    const h = person.history || [];
+    const count = h.length;
+    const avg = count ? h.reduce((a, b) => a + b, 0) / count : 0;
+    return { perSprint: h, average: avg, count };
+  }
+  function baseVelocity(person) {
+    const v = velocity(person);
+    if (v.count >= 2) return { value: v.average, isGoal: false };
+    return { value: person.goal || 0, isGoal: true };
+  }
+
+  // Continuously derive each person's velocity history from completed tickets:
+  // points on done tickets (resolution in `doneResolutions`) summed per past,
+  // dated sprint — i.e. sprints before the current one. Returns
+  // { [personId]: number[] } ordered chronologically; one entry per such sprint
+  // the person landed work in. This replaces the static seed at runtime whenever
+  // the board has completed work; otherwise the person's stored history is used.
+  function deriveHistory(tickets, doneResolutions, sprints, currentIdx) {
+    const done = new Set((doneResolutions || []).map((r) => r.toLowerCase()));
+    const idxByName = {};
+    (sprints || []).forEach((s, i) => { idxByName[s.name] = i; });
+    const acc = {}; // personId -> { sprintName: points }
+    for (const t of tickets || []) {
+      if (!t.assignee) continue;
+      if (!t.resolution || !done.has(t.resolution.toLowerCase())) continue;
+      const pts = Number(t.points) || 0;
+      if (pts <= 0) continue;
+      for (const sn of (t.sprints || [])) {
+        const i = idxByName[sn];
+        if (i === undefined || i >= currentIdx) continue; // only past, dated sprints
+        (acc[t.assignee] = acc[t.assignee] || {});
+        acc[t.assignee][sn] = (acc[t.assignee][sn] || 0) + pts;
       }
+    }
+    const out = {};
+    for (const [pid, bySprint] of Object.entries(acc)) {
+      const names = Object.keys(bySprint).sort((a, b) => idxByName[a] - idxByName[b]);
+      out[pid] = names.map((n) => bySprint[n]);
     }
     return out;
   }
 
-  const PROJECTS = ['DX', 'LX', 'RC'];
-
-  function bucketProject(key) {
-    const m = (key || '').match(/^([A-Z]+)/);
-    if (!m) return '';
-    return m[1] === 'RCR' ? 'RC' : m[1];
+  // ---- leave for a person within a sprint window ----
+  function leaveDaysInSprint(sid, sprint) {
+    const work = new Set(sprintWorkDays(sprint));
+    return LEAVE.filter((l) => l.sid === sid && work.has(l.date))
+      .reduce((sum, l) => sum + (l.frac || 1), 0);
+  }
+  function leaveRecords(sid, sprint) {
+    const work = new Set(sprintWorkDays(sprint));
+    return LEAVE.filter((l) => l.sid === sid && work.has(l.date));
   }
 
-  function parsePoints(row) {
-    const raw = resolveField(row, 'Story Points') || resolveField(row, 'Story point estimate') || '0';
-    return parseFloat(raw) || 0;
+  // ---- contractor WFH budget: <=2 days per calendar week with >=1 work day --
+  function wfhBudget(person, sprint) {
+    if (person.type !== "contractor") return null;
+    const work = sprintWorkDays(sprint);
+    // group work days by ISO week (year-week)
+    const weeks = {};
+    work.forEach((iso) => {
+      const dt = parseISO(iso);
+      const onejan = new Date(dt.getFullYear(), 0, 1);
+      const wk = dt.getFullYear() + "-" + Math.ceil(((dt - onejan) / 86400000 + onejan.getDay() + 1) / 7);
+      weeks[wk] = (weeks[wk] || 0) + 1;
+    });
+    const numWeeks = Object.keys(weeks).length;
+    const days = numWeeks * 2; // up to 2/week
+    return { weeks: numWeeks, days };
   }
 
-  // Jira renders an empty assignee/resolution as the literal "Unassigned" /
-  // "Unresolved" — treat those as blank.
-  function normField(val, blankWord) {
-    const s = (val || '').trim();
-    return s.toLowerCase() === blankWord ? '' : s;
-  }
-
-  function buildTicket(row) {
-    const key = (resolveField(row, 'Issue key') || resolveField(row, 'Key') || '').trim();
-    return {
-      key,
-      project:     bucketProject(key),
-      sprints:     collectSprints(row),
-      points:      parsePoints(row),
-      resolution:  normField(resolveField(row, 'Resolution'), 'unresolved'),
-      status:      resolveField(row, 'Status').trim(),
-      assignee:    normField(resolveField(row, 'Assignee'), 'unassigned'),
-      summary:     resolveField(row, 'Summary').trim(),
-      description: resolveField(row, 'Description').trim(),
-      epicName:    (resolveField(row, 'Epic Name') || resolveField(row, 'Epic Link')).trim(),
-      issueType:   resolveField(row, 'Issue Type').trim(),
-      labels:      resolveField(row, 'Labels').trim(),
-    };
-  }
-
-  // ─── Resolution ───────────────────────────────────────────────────────────
-
-  const DEFAULT_RESOLUTIONS = ['Done', 'Fixed', 'Resolved', 'Completed', 'Complete'];
-
-  function isDone(ticket, included) {
-    const res  = (ticket.resolution || '').toLowerCase();
-    const list = included && included.length ? included : DEFAULT_RESOLUTIONS;
-    return list.some(r => r.toLowerCase() === res);
-  }
-
-  // ─── Sprint quarter parsing ───────────────────────────────────────────────
-
-  // "26.3.1" → { year:26, quarter:3, sprint:1, quarterKey:"26.3" }
-  function parseSprint(name) {
-    const m = (name || '').match(/^(\d+)\.(\d+)\.(\d+)/);
-    if (!m) return null;
-    return { year: +m[1], quarter: +m[2], sprint: +m[3], quarterKey: `${m[1]}.${m[2]}` };
-  }
-
-  // ─── Velocity computation ─────────────────────────────────────────────────
-
-  /*
-   * Returns { [assignee]: { sprintPoints: { [sprintNum]: pts }, avg, sprintCount } }
-   * Considers only completed tickets (per includedResolutions).
-   * If personProject is provided, only counts sprints from that project.
-   */
-  function computeVelocity(tickets, includedResolutions, personProjectMap) {
-    const byPerson = {};   // assignee → { [sprintNum]: pts }
-
-    for (const t of tickets) {
-      if (!t.assignee || !t.sprints.length) continue;
-      if (!isDone(t, includedResolutions)) continue;
-      if (t.points <= 0) continue;
-
-      const name        = t.assignee;
-      const personProj  = personProjectMap && personProjectMap[name];
-
-      for (const s of t.sprints) {
-        const sp = parseSprint(s);
-        if (!sp) continue;
-
-        // Filter sprints by person's project if set
-        if (personProj && t.project && t.project !== personProj) continue;
-
-        if (!byPerson[name]) byPerson[name] = {};
-        // Use full sprint key so different quarters are separate
-        const sKey = `${sp.year}.${sp.quarter}.${sp.sprint}`;
-        byPerson[name][sKey] = (byPerson[name][sKey] || 0) + t.points;
-      }
-    }
-
-    const result = {};
-    for (const [name, sprintMap] of Object.entries(byPerson)) {
-      const vals = Object.values(sprintMap);
-      result[name] = {
-        sprintPoints: sprintMap,
-        avg:          vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0,
-        sprintCount:  vals.length,
+  // ---- full capacity for a person in a sprint ----
+  function capacity(person, sprint) {
+    // Undated sprint: no calendar to subtract from, so capacity is the person's
+    // full base velocity (history average, or goal if too little history).
+    if (isUndated(sprint)) {
+      const base = baseVelocity(person);
+      return {
+        undated: true,
+        workDays: 0, leave: 0, available: 0,
+        baseVelocity: base.value, isGoal: base.isGoal,
+        pointsPerDay: 0, adjusted: Math.round(base.value),
+        wfh: null, wfhPoints: null,
       };
     }
-    return result;
-  }
-
-  // ─── Capacity computation ─────────────────────────────────────────────────
-
-  /*
-   * person: { name, sid, type, goalPoints }
-   * sprintStart/End: ISO dates
-   * leaveData: [{ sid, date, halfDay }]
-   * velocity: output of computeVelocity
-   *
-   * Returns:
-   *   totalWorkDays, leaveDays, availDays,
-   *   baseVelocity, hasHistory, pointsPerDay, adjustedCapacity,
-   *   wfhBudgetDays, wfhBudgetPts, wfhWeeks: [ { weekKey, budgetDays, budgetPts } ]
-   */
-  function computeCapacity(person, sprintStart, sprintEnd, leaveData, velocity) {
-    const totalWorkDays = HOLIDAYS.workDays(sprintStart, sprintEnd);
-
-    // Leave days this person has inside the sprint
-    const sid      = (person.sid || '').toLowerCase();
-    const myLeave  = leaveData.filter(l => l.sid === sid && l.date >= sprintStart && l.date <= sprintEnd);
-    const leaveDays = myLeave.reduce((s, l) => s + (l.halfDay ? 0.5 : 1), 0);
-    const availDays = Math.max(0, totalWorkDays - leaveDays);
-
-    // Base velocity
-    const hist = velocity && velocity[person.name];
-    let baseVelocity, hasHistory;
-    if (hist && hist.sprintCount >= 2) {
-      baseVelocity = hist.avg;
-      hasHistory   = true;
-    } else {
-      baseVelocity = person.goalPoints || 0;
-      hasHistory   = false;
-    }
-
-    const pointsPerDay      = totalWorkDays > 0 ? baseVelocity / totalWorkDays : 0;
-    const adjustedCapacity  = Math.round(pointsPerDay * availDays);
-
-    // WFH budget (contractor: ≤2 days/week per calendar week that has ≥1 work day in sprint)
-    const weeks = HOLIDAYS.sprintWeeks(sprintStart, sprintEnd);
-    let wfhBudgetDays = 0;
-    const wfhWeeks = [];
-    if (person.type === 'contractor') {
-      for (const wk of weeks) {
-        // Work days in THIS sprint that fall in this week
-        const wkEnd = new Date(wk + 'T00:00:00');
-        wkEnd.setDate(wkEnd.getDate() + 4);           // Friday of that week
-        const wkEndIso = wkEnd.toISOString().slice(0, 10);
-        const effectiveEnd = wkEndIso < sprintEnd ? wkEndIso : sprintEnd;
-        const effectiveStart = wk > sprintStart ? wk : sprintStart;
-        const daysInWeek = HOLIDAYS.workDays(effectiveStart, effectiveEnd);
-        const wkBudgetDays = Math.min(2, daysInWeek);
-        const wkBudgetPts  = Math.round(pointsPerDay * wkBudgetDays);
-        wfhBudgetDays += wkBudgetDays;
-        wfhWeeks.push({ weekKey: wk, budgetDays: wkBudgetDays, budgetPts: wkBudgetPts });
-      }
-    }
-    const wfhBudgetPts = Math.round(pointsPerDay * wfhBudgetDays);
-
+    const workDays = sprintWorkDays(sprint).length;
+    const leave = leaveDaysInSprint(person.sid, sprint);
+    const available = Math.max(0, workDays - leave);
+    const base = baseVelocity(person);
+    const pointsPerDay = workDays ? base.value / workDays : 0;
+    const adjusted = Math.round(pointsPerDay * available);
+    const wfh = wfhBudget(person, sprint);
     return {
-      totalWorkDays,
-      leaveDays,
-      availDays,
-      baseVelocity,
-      hasHistory,
-      pointsPerDay,
-      adjustedCapacity,
-      wfhBudgetDays,
-      wfhBudgetPts,
-      wfhWeeks,
-      leaveDates: myLeave.map(l => l.date),
+      workDays, leave, available,
+      baseVelocity: base.value, isGoal: base.isGoal,
+      pointsPerDay, adjusted,
+      wfh, // {weeks, days} or null
+      wfhPoints: wfh ? Math.round(pointsPerDay * wfh.days) : null,
     };
   }
 
-  // ─── Sprint schedule generation ───────────────────────────────────────────
-
-  // Given a sprint start date and duration in days, generate N sprint records
-  function generateSprints(startIso, durationDays, count) {
-    const sprints = [];
-    let cursor = new Date(startIso + 'T00:00:00');
-    for (let i = 0; i < count; i++) {
-      const s   = cursor.toISOString().slice(0, 10);
-      const end = new Date(cursor);
-      end.setDate(end.getDate() + durationDays - 1);
-      const e   = end.toISOString().slice(0, 10);
-      const holidays = HOLIDAYS.inRange(s, e);
-      sprints.push({
-        idx:          i,
-        start:        s,
-        end:          e,
-        workDays:     HOLIDAYS.workDays(s, e),
-        holidays,
-      });
-      cursor = new Date(end);
-      cursor.setDate(cursor.getDate() + 1);   // next sprint starts day after
-    }
-    return sprints;
-  }
-
-  return {
-    parseHTML, resolveField, buildTicket,
-    isDone, parseSprint, normSprintName,
-    computeVelocity, computeCapacity,
-    generateSprints,
-    PROJECTS, DEFAULT_RESOLUTIONS,
+  window.VP = {
+    PROJECTS, SPRINTS, CURRENT_SPRINT_IDX, PEOPLE, TICKETS, LEAVE, DONE_RESOLUTIONS,
+    projectForKey,
+    // calc
+    isUndated,
+    sprintWorkDays, holidaysInRange, velocity, baseVelocity, deriveHistory,
+    leaveDaysInSprint, leaveRecords, wfhBudget, capacity,
+    parseISO, fmtISO, eachDay,
   };
 })();

@@ -1,0 +1,227 @@
+/* Team / People management view + add/edit modal. */
+
+function PersonCard({ person, onEdit, onRemove }) {
+  const v = VP.velocity(person);
+  const color = PROJ_COLOR[person.project];
+  const max = Math.max(...(v.perSprint.length ? v.perSprint : [1]));
+  return (
+    <div className="person-card">
+      <div className="pc-head">
+        <Avatar name={person.name} proj={person.project} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="pc-name">{person.name}</div>
+          <div className="pc-sid">{person.sid}</div>
+        </div>
+        <span className={"tag " + (person.type === "gov" ? "gov" : "con")}>{person.type === "gov" ? "GOV" : "CTR"}</span>
+      </div>
+
+      <div className="spark" title="Recent sprint points">
+        {(v.perSprint.length ? v.perSprint : [0, 0, 0]).map((n, i) => (
+          <i key={i} style={{ height: (8 + (n / max) * 22) + "px", background: n ? color : "var(--surface-3)" }} />
+        ))}
+      </div>
+
+      <div className="pc-stats">
+        <div className="pc-stat"><div className="v">{v.count ? v.average.toFixed(1) : "—"}</div><div className="k">Avg</div></div>
+        <div className="pc-stat"><div className="v">{v.count}</div><div className="k">Sprints</div></div>
+        <div className="pc-stat"><div className="v">{person.goal || "—"}</div><div className="k">Goal</div></div>
+      </div>
+
+      <div className="pc-actions">
+        <button className="btn sm" onClick={() => onEdit(person)}><Icon name="edit" size={13} /> Edit</button>
+        <button className="btn sm" onClick={() => onRemove(person)}><Icon name="trash" size={13} /> Remove</button>
+      </div>
+    </div>
+  );
+}
+
+function PersonModal({ person, project, existingNames, projects, onSave, onClose }) {
+  const editing = !!person;
+  const [name, setName] = useState(person?.name || "");
+  const [sid, setSid] = useState(person?.sid || "");
+  const [type, setType] = useState(person?.type || "contractor");
+  const [proj, setProj] = useState(person?.project || project);
+  const [goal, setGoal] = useState(person?.goal || "");
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    function onKey(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function submit() {
+    const nm = name.trim();
+    if (!nm) { setErr("Name is required."); return; }
+    const dupe = existingNames.some((n) => n.toLowerCase() === nm.toLowerCase() && (!editing || n.toLowerCase() !== person.name.toLowerCase()));
+    if (dupe) { setErr("A person named “" + nm + "” already exists."); return; }
+    onSave({ id: person?.id, name: nm, sid: sid.trim() || nm.toLowerCase().replace(/\s+/g, "").slice(0, 8), type, project: proj, goal: Number(goal) || 0 });
+  }
+
+  return (
+    <div className="modal-scrim" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <h3>{editing ? "Edit person" : "Add person"}</h3>
+          <button className="iconbtn" onClick={onClose}><Icon name="x" size={16} /></button>
+        </div>
+        <div className="modal-body">
+          <div className={"field" + (err && !name.trim() ? " err" : "")}>
+            <label>Name</label>
+            <input value={name} autoFocus onChange={(e) => { setName(e.target.value); setErr(""); }} placeholder="Jane Doe" />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div className="field"><label>SID</label><input value={sid} onChange={(e) => setSid(e.target.value)} placeholder="jdoe" style={{ fontFamily: "var(--font-mono)" }} /></div>
+            <div className="field"><label>Goal points</label><input type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="14" /></div>
+          </div>
+          <div className="field">
+            <label>Type</label>
+            <div className="seg">
+              <button data-on={type === "contractor"} onClick={() => setType("contractor")}>Contractor</button>
+              <button data-on={type === "gov"} onClick={() => setType("gov")}>Gov</button>
+            </div>
+          </div>
+          <div className="field">
+            <label>Primary project</label>
+            <div className="seg">
+              {projects.map((p) => (
+                <button key={p.id} data-on={proj === p.id} onClick={() => setProj(p.id)} style={proj === p.id ? { color: PROJ_COLOR[p.id], borderColor: PROJ_COLOR[p.id], background: PROJ_DIM[p.id] } : {}}>{p.id}</button>
+              ))}
+            </div>
+          </div>
+          {err && <div className="msg" style={{ color: "var(--danger)", fontWeight: 600, fontSize: 12 }}>{err}</div>}
+        </div>
+        <div className="modal-foot">
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" onClick={submit}>{editing ? "Save changes" : "Add person"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Team({ people, projects, currentProject, sprints, onAdd, onEdit, onRemove }) {
+  const [modal, setModal] = useState(null); // null | {person?}
+  const [addProj, setAddProj] = useState(currentProject);
+  const [tab, setTab] = useState("cards"); // 'cards' | 'velocity'
+  const total = people.length;
+
+  const pastSprints = sprints.slice(0, VP.CURRENT_SPRINT_IDX).reverse();
+  const cols = pastSprints.slice(0, 4);
+
+  return (
+    <div className="wrap">
+      <div className="team-head">
+        <div>
+          <h2>Team</h2>
+          <div className="sub">
+            {total} people across {projects.length} projects ·{" "}
+            {tab === "cards"
+              ? "auto-created from ticket assignees on import"
+              : "per-person velocity from completed historical tickets"}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div className="mode-toggle" role="tablist" aria-label="Team view">
+            <button data-active={tab === "cards"} onClick={() => setTab("cards")}>Cards</button>
+            <button data-active={tab === "velocity"} onClick={() => setTab("velocity")}>Velocity</button>
+          </div>
+          <button className="btn primary" onClick={() => { setAddProj(currentProject); setModal({}); }}>
+            <Icon name="plus" size={15} /> Add person
+          </button>
+        </div>
+      </div>
+
+      {projects.map((proj) => {
+        const list = people.filter((p) => p.project === proj.id);
+        const color = PROJ_COLOR[proj.id];
+        const withHist = list.filter((p) => p.history && p.history.length);
+        const teamAvg = withHist.length
+          ? withHist.reduce((s, p) => s + VP.velocity(p).average, 0) / withHist.length
+          : 0;
+
+        return (
+          <section className="team-section" key={proj.id}>
+            <header className="team-section-head">
+              <span className="dot" style={{ background: color }} />
+              <h3>{proj.name}<span className="k">{proj.id}</span></h3>
+              <span className="count">{list.length} {list.length === 1 ? "person" : "people"}</span>
+              <div style={{ flex: 1 }} />
+              {tab === "velocity" ? (
+                <span className="chip" title="Team average velocity">
+                  team avg <b style={{ fontFamily: "var(--font-mono)", marginLeft: 4 }}>{teamAvg ? teamAvg.toFixed(1) : "—"}</b>
+                </span>
+              ) : (
+                <button className="btn sm" onClick={() => { setAddProj(proj.id); setModal({ project: proj.id }); }}>
+                  <Icon name="plus" size={12} /> Add
+                </button>
+              )}
+            </header>
+
+            {list.length === 0 ? (
+              <div className="empty-state" style={{ padding: 28, fontSize: 13 }}>No people on {proj.id} yet.</div>
+            ) : tab === "cards" ? (
+              <div className="team-grid">
+                {list.map((p) => (
+                  <PersonCard key={p.id} person={p} onEdit={(pp) => setModal({ person: pp })} onRemove={onRemove} />
+                ))}
+              </div>
+            ) : (
+              <VelocityTable
+                rows={list.map((p) => ({ p, v: VP.velocity(p) })).sort((a, b) => b.v.average - a.v.average)}
+                cols={cols}
+              />
+            )}
+          </section>
+        );
+      })}
+
+      {modal && (
+        <PersonModal
+          person={modal.person} project={modal.project || addProj} projects={projects}
+          existingNames={people.map((p) => p.name)}
+          onClose={() => setModal(null)}
+          onSave={(data) => { modal.person ? onEdit(data) : onAdd(data); setModal(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---- Velocity table (per-team) ---- */
+function VelocityTable({ rows, cols }) {
+  return (
+    <div className="tickets v-table" style={{ overflowX: "auto" }}>
+      <div className="v-grid" style={{ gridTemplateColumns: `220px 64px 72px repeat(${cols.length}, 1fr)`, minWidth: 600 }}>
+        <div className="v-head">Person</div>
+        <div className="v-head align-r">Avg</div>
+        <div className="v-head align-r">Sprints</div>
+        {cols.map((s) => <div key={s.id} className="v-head align-r" style={{ fontFamily: "var(--font-mono)" }}>{s.name}</div>)}
+
+        {rows.map(({ p, v }, ri) => {
+          const hist = [...v.perSprint].reverse();
+          return (
+            <React.Fragment key={p.id}>
+              <div className="v-cell person-cell" data-row={ri}>
+                <Avatar name={p.name} proj={p.project} className="av" />
+                <div className="who">
+                  <div className="nm">{p.name}</div>
+                  <div className="sid">{p.sid}</div>
+                </div>
+              </div>
+              <div className="v-cell align-r num strong" data-row={ri}>{v.count ? v.average.toFixed(1) : "—"}</div>
+              <div className="v-cell align-r num dim" data-row={ri}>{v.count}</div>
+              {cols.map((s, ci) => (
+                <div key={s.id} className="v-cell align-r num" data-row={ri} data-empty={hist[ci] == null}>
+                  {hist[ci] != null ? hist[ci] : "·"}
+                </div>
+              ))}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+window.Team = Team;
