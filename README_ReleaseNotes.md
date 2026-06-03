@@ -30,7 +30,15 @@ the browser (`localStorage`) and restored on refresh.
    Summary, Epic, Fix Version/s, Status, Resolution, Assignee, Description** —
    issue types are read from the column text *or* the Jira type icon's alt-text.
 3. In **Compose**, fill in the build details (product, release, date,
-   environment, intro), toggle issues in/out, and click any summary to reword it.
+   environment, intro), then curate the issues:
+   - **Search** by key or summary, and toggle **type filter chips** to focus the
+     list (filters affect the view only, never the output).
+   - **Include/exclude** any issue with its switch, or use the bulk actions —
+     *Include shown*, *Exclude shown*, and **Exclude unresolved** (drops issues
+     with no resolution, i.e. not yet done).
+   - **Reclassify** a mis-typed issue by clicking its type badge (a dot marks
+     overrides; reset returns it to the Jira value).
+   - Click any **summary** to reword it for the notes.
 4. In **Preview & Export**, review the rendered notes and export.
 
 ## Grouping
@@ -50,6 +58,8 @@ the browser (`localStorage`) and restored on refresh.
 - **Copy Markdown** / **Download .md** — for wikis and Git.
 - **Download HTML** — a polished standalone document that adapts to the reader's
   OS light/dark mode via `prefers-color-scheme`.
+- **Print / PDF** — opens the standalone document and triggers the browser's
+  print dialog (Save as PDF).
 
 Adding a **Jira base URL** in Compose turns every issue key into a link.
 
@@ -64,3 +74,9 @@ python3 -c "import re; html=open('Jira_ReleaseNotes_v1.0_20260603.html').read();
   [open(f'/tmp/c{i}.js','w').write(b) for i,b in enumerate(blocks)]"
 node --check /tmp/c0.js
 ```
+
+A **SessionStart hook** (`.claude/hooks/session-start.sh`) runs this same check
+automatically at the start of every Claude Code session (including Claude Code
+on the web), reporting a ✅/‼️ status line for each `Jira_*.html` app. It always
+exits 0, so a syntax error surfaces in the session context without blocking
+startup. Once this hook is merged to the default branch, all future sessions use it.

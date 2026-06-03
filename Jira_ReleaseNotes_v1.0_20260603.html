@@ -348,6 +348,40 @@
   .toast.info .dotc { background: var(--accent); }
 
   svg.ic { width: 16px; height: 16px; }
+
+  /* ===================== Compose toolbar ===================== */
+  .rn-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .rn-search { display: flex; align-items: center; gap: 7px; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 0 10px; min-width: 230px; flex: 1 1 230px; max-width: 360px; }
+  .rn-search .ico { color: var(--text-faint); flex: none; display: grid; place-items: center; }
+  .rn-search input { border: none; background: transparent; color: var(--text); font: inherit; font-size: 13px; padding: 8px 0; width: 100%; outline: none; }
+  .type-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip-filter { cursor: pointer; border: 1px solid transparent; transition: opacity .15s var(--ease); }
+  .chip-filter[data-off="true"] { opacity: 0.4; filter: grayscale(0.6); text-decoration: line-through; }
+
+  .type-badge.clickable { cursor: pointer; border: 1px solid transparent; }
+  .type-badge.clickable:hover { border-color: currentColor; }
+  .type-badge[data-override="true"]::after { content: "•"; margin-left: 1px; }
+
+  /* type reclassification popover */
+  .type-menu {
+    position: fixed; z-index: 120; background: var(--surface-2); border: 1px solid var(--border-strong);
+    border-radius: 11px; box-shadow: var(--shadow); padding: 6px; min-width: 180px;
+    animation: pop .14s var(--ease);
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+  .type-menu-item {
+    display: flex; align-items: center; gap: 8px; width: 100%; border: none; background: transparent;
+    padding: 6px 8px; border-radius: 7px; font-weight: 600; font-size: 13px; color: var(--text); text-align: left;
+  }
+  .type-menu-item:hover { background: var(--surface-3); }
+  .type-menu-item[data-active="true"] { background: color-mix(in oklch, var(--accent) 16%, transparent); }
+  .type-menu-sep { height: 1px; background: var(--border); margin: 5px 4px; }
+
+  @media print {
+    .topbar, .navrow, .export-bar, .toasts { display: none !important; }
+    .content { overflow: visible !important; }
+    .rn-doc { border: none !important; padding: 0 !important; }
+  }
   </style>
 </head>
 <body>
@@ -442,17 +476,21 @@
     rows: [],            // [{ key, type, summary, epic, fixVersions:[], status, resolution, assignee, desc }]
     excluded: {},        // { key: true }
     edits: {},           // { key: editedSummary }
+    typeOverride: {},    // { key: typeId } — manual reclassification
     collapsed: {},       // { version: true }
     theme: "midnight",
     jiraBase: "",
     view: "editor",
   };
+  // Ephemeral Compose-view filters (not persisted; affect the list only, never the output).
+  let editorSearch = "";
+  let hiddenTypes = {};  // { typeId: true } — toggled off in the type filter
   function loadSaved() {
     try {
       const s = JSON.parse(localStorage.getItem(PERSIST_KEY));
       if (s && typeof s === "object") {
         state = { ...state, ...s, meta: { ...DEFAULT_META, ...(s.meta || {}) },
-          excluded: s.excluded || {}, edits: s.edits || {}, collapsed: s.collapsed || {} };
+          excluded: s.excluded || {}, edits: s.edits || {}, typeOverride: s.typeOverride || {}, collapsed: s.collapsed || {} };
       }
     } catch (_) {}
   }
@@ -565,9 +603,12 @@
   // ==========================================================================
   function included() { return state.rows.filter((r) => !state.excluded[r.key]); }
   function summaryFor(r) { return state.edits[r.key] != null ? state.edits[r.key] : r.summary; }
+  function typeFor(r) { return state.typeOverride[r.key] || r.type; }
+  function isResolved(r) { const v = (r.resolution || "").trim().toLowerCase(); return !!v && v !== "unresolved"; }
 
-  function grouped() {
-    // version -> Map(epic -> items[])
+  // Group an arbitrary row list: Fix Version -> Epic -> issues (bug fixes first).
+  function grouped(rows) {
+    const list = rows || included();
     const byVersion = new Map();
     function bucket(version, epic) {
       if (!byVersion.has(version)) byVersion.set(version, new Map());
@@ -575,7 +616,7 @@
       if (!epics.has(epic)) epics.set(epic, []);
       return epics.get(epic);
     }
-    for (const r of included()) {
+    for (const r of list) {
       const versions = r.fixVersions.length ? r.fixVersions : [NO_VERSION];
       const epic = r.epic || NO_EPIC;
       for (const v of versions) bucket(v, epic).push(r);
@@ -595,19 +636,29 @@
       });
       const epics = epicNames.map((e) => {
         const items = epicsMap.get(e).slice().sort((x, y) =>
-          (TYPES[x.type].rank - TYPES[y.type].rank) || naturalCmp(x.key, y.key));
+          (TYPES[typeFor(x)].rank - TYPES[typeFor(y)].rank) || naturalCmp(x.key, y.key));
         return { name: e, items };
       });
       const count = epics.reduce((n, e) => n + e.items.length, 0);
-      const bugs = epics.reduce((n, e) => n + e.items.filter((i) => i.type === "bug").length, 0);
+      const bugs = epics.reduce((n, e) => n + e.items.filter((i) => typeFor(i) === "bug").length, 0);
       return { version: v, epics, count, bugs };
+    });
+  }
+
+  // Rows shown in the Compose editor: all rows minus the view-only search/type filters.
+  function editorVisibleRows() {
+    const q = editorSearch.trim().toLowerCase();
+    return state.rows.filter((r) => {
+      if (hiddenTypes[typeFor(r)]) return false;
+      if (q && !(r.key.toLowerCase().includes(q) || summaryFor(r).toLowerCase().includes(q))) return false;
+      return true;
     });
   }
 
   function stats() {
     const inc = included();
     const byType = {};
-    inc.forEach((r) => { byType[r.type] = (byType[r.type] || 0) + 1; });
+    inc.forEach((r) => { const t = typeFor(r); byType[t] = (byType[t] || 0) + 1; });
     const versions = new Set();
     inc.forEach((r) => (r.fixVersions.length ? r.fixVersions : [NO_VERSION]).forEach((v) => versions.add(v)));
     return { total: inc.length, all: state.rows.length, byType, versions: versions.size };
@@ -710,10 +761,46 @@
     statCard.appendChild(statStrip);
     root.appendChild(statCard);
 
-    // --- grouped editor ---
-    const groups = grouped();
+    // --- toolbar: search, type filter, bulk actions ---
+    const visible = editorVisibleRows();
+    const toolbar = el("div", { class: "rn-toolbar" });
+    const searchWrap = el("div", { class: "rn-search" }, [
+      el("span", { class: "ico", html: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>' }),
+    ]);
+    const searchInput = el("input", { type: "search", placeholder: "Filter by key or summary…", value: editorSearch });
+    searchInput.addEventListener("input", () => {
+      editorSearch = searchInput.value;
+      const pos = searchInput.selectionStart;
+      renderEditor();
+      const ni = $(".rn-search input"); if (ni) { ni.focus(); try { ni.setSelectionRange(pos, pos); } catch (_) {} }
+    });
+    searchWrap.appendChild(searchInput);
+    toolbar.appendChild(searchWrap);
+
+    const chips = el("div", { class: "type-chips" });
+    ["bug", "feature", "improvement", "task", "other"].forEach((tid) => {
+      if (!(s.byType[tid] || state.rows.some((r) => typeFor(r) === tid))) return;
+      const on = !hiddenTypes[tid];
+      const chip = el("button", { class: "chip-filter type-badge " + TYPES[tid].cls, "data-off": String(!on), title: (on ? "Hide " : "Show ") + TYPES[tid].label }, [TYPES[tid].emoji + " " + TYPES[tid].label]);
+      chip.addEventListener("click", () => { if (hiddenTypes[tid]) delete hiddenTypes[tid]; else hiddenTypes[tid] = true; renderEditor(); });
+      chips.appendChild(chip);
+    });
+    toolbar.appendChild(chips);
+    toolbar.appendChild(el("div", { style: "flex:1" }));
+    const visibleKeys = visible.map((r) => r.key);
+    const bulk = (fn, msg) => () => { visible.forEach(fn); save(); renderEditor(); updateStatus(); if (msg) toast(msg, "info"); };
+    toolbar.appendChild(el("button", { class: "btn sm", title: "Include all shown issues", onclick: bulk((r) => { delete state.excluded[r.key]; }) }, ["Include shown"]));
+    toolbar.appendChild(el("button", { class: "btn sm", title: "Exclude all shown issues", onclick: bulk((r) => { state.excluded[r.key] = true; }) }, ["Exclude shown"]));
+    toolbar.appendChild(el("button", { class: "btn sm", title: "Exclude shown issues that have no resolution (not yet done)", onclick: bulk((r) => { if (!isResolved(r)) state.excluded[r.key] = true; }, "Excluded unresolved issues") }, ["Exclude unresolved"]));
+    root.appendChild(toolbar);
+
+    // --- grouped editor (from the filtered view) ---
+    const groups = grouped(visible);
     if (!groups.length) {
-      root.appendChild(el("div", { class: "card" }, [el("div", { class: "empty-state", text: "All issues are excluded. Toggle some back on to build the notes." })]));
+      const note = (editorSearch.trim() || Object.keys(hiddenTypes).length)
+        ? "No issues match the current filter."
+        : "All issues are excluded. Toggle some back on to build the notes.";
+      root.appendChild(el("div", { class: "card" }, [el("div", { class: "empty-state", text: note })]));
       return;
     }
     for (const g of groups) {
@@ -760,9 +847,14 @@
       ? el("a", { class: "tkey", href: state.jiraBase + "/browse/" + r.key, target: "_blank", rel: "noopener" }, [r.key])
       : el("span", { class: "tkey", text: r.key });
 
-    // type badge
-    const t = TYPES[r.type];
-    const badge = el("span", { class: "type-badge " + t.cls, title: r.typeRaw }, [t.emoji + " " + t.label]);
+    // type badge — click to reclassify
+    const tid = typeFor(r);
+    const t = TYPES[tid];
+    const overridden = !!state.typeOverride[r.key];
+    const badge = el("button", { class: "type-badge clickable " + t.cls, "data-override": String(overridden),
+      title: "Jira: " + r.typeRaw + (overridden ? " · overridden — click to change" : " · click to change type") },
+      [t.emoji + " " + t.label]);
+    badge.addEventListener("click", (e) => { e.stopPropagation(); openTypeMenu(badge, r); });
 
     // editable summary
     const sumWrap = el("div", { style: "min-width:0" });
@@ -793,6 +885,42 @@
     return row;
   }
 
+  // ---- type reclassification popover ----
+  let typeMenuEl = null;
+  function onTypeMenuDown(e) { if (typeMenuEl && !typeMenuEl.contains(e.target)) closeTypeMenu(); }
+  function closeTypeMenu() {
+    if (!typeMenuEl) return;
+    typeMenuEl.remove(); typeMenuEl = null;
+    document.removeEventListener("mousedown", onTypeMenuDown, true);
+  }
+  function openTypeMenu(anchor, r) {
+    closeTypeMenu();
+    const menu = el("div", { class: "type-menu" });
+    const cur = typeFor(r);
+    ["bug", "feature", "improvement", "task", "other"].forEach((tid) => {
+      const item = el("button", { class: "type-menu-item", "data-active": String(tid === cur) }, [
+        el("span", { class: "type-badge " + TYPES[tid].cls }, [TYPES[tid].emoji + " " + TYPES[tid].label]),
+      ]);
+      item.addEventListener("click", () => {
+        if (tid === r.type) delete state.typeOverride[r.key]; else state.typeOverride[r.key] = tid;
+        save(); closeTypeMenu(); renderEditor(); updateStatus();
+      });
+      menu.appendChild(item);
+    });
+    if (state.typeOverride[r.key]) {
+      menu.appendChild(el("div", { class: "type-menu-sep" }));
+      const reset = el("button", { class: "type-menu-item", text: "↺ Reset to Jira (" + TYPES[r.type].label + ")" });
+      reset.addEventListener("click", () => { delete state.typeOverride[r.key]; save(); closeTypeMenu(); renderEditor(); updateStatus(); });
+      menu.appendChild(reset);
+    }
+    document.body.appendChild(menu);
+    const rect = anchor.getBoundingClientRect();
+    menu.style.top = (rect.bottom + 6) + "px";
+    menu.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 8)) + "px";
+    typeMenuEl = menu;
+    setTimeout(() => document.addEventListener("mousedown", onTypeMenuDown, true), 0);
+  }
+
   // ==========================================================================
   //  RENDER — Preview view (in-app rendered doc + export bar)
   // ==========================================================================
@@ -808,6 +936,7 @@
     bar.appendChild(el("button", { class: "btn", onclick: () => copyMarkdown() }, ["Copy Markdown"]));
     bar.appendChild(el("button", { class: "btn", onclick: () => downloadHtml() }, ["Download HTML"]));
     bar.appendChild(el("button", { class: "btn", onclick: () => downloadMarkdown() }, ["Download .md"]));
+    bar.appendChild(el("button", { class: "btn", onclick: () => printDoc() }, ["Print / PDF"]));
     root.appendChild(bar);
 
     if (!included().length) {
@@ -839,7 +968,7 @@
         if (epic.name !== NO_EPIC || g.epics.length > 1) h += '<h4 class="epic">' + esc(epic.name) + "</h4>";
         h += '<ul class="items">';
         for (const it of epic.items) {
-          const t = TYPES[it.type];
+          const t = TYPES[typeFor(it)];
           const keyHtml = state.jiraBase
             ? '<a class="ikey" href="' + esc(state.jiraBase + "/browse/" + it.key) + '" target="_blank" rel="noopener">' + esc(it.key) + "</a>"
             : '<span class="ikey">' + esc(it.key) + "</span>";
@@ -881,7 +1010,7 @@
         if (epic.name !== NO_EPIC || g.epics.length > 1) h += "<h3>" + esc(epic.name) + "</h3>\n";
         h += "<table><tbody>\n<tr><th>Type</th><th>Issue</th><th>Summary</th></tr>\n";
         for (const it of epic.items) {
-          const t = TYPES[it.type];
+          const t = TYPES[typeFor(it)];
           const keyCell = state.jiraBase
             ? '<a href="' + esc(state.jiraBase + "/browse/" + it.key) + '">' + esc(it.key) + "</a>"
             : esc(it.key);
@@ -910,7 +1039,7 @@
       for (const epic of g.epics) {
         if (epic.name !== NO_EPIC || g.epics.length > 1) md += "### " + epic.name + "\n\n";
         for (const it of epic.items) {
-          const t = TYPES[it.type];
+          const t = TYPES[typeFor(it)];
           const key = state.jiraBase ? "[" + it.key + "](" + state.jiraBase + "/browse/" + it.key + ")" : it.key;
           md += "- " + t.emoji + " **" + t.label + "** — " + key + " " + summaryFor(it) + "\n";
         }
@@ -1011,6 +1140,14 @@
     download(fileSlug() + ".md", buildMarkdown(), "text/markdown");
     toast("Markdown downloaded");
   }
+  function printDoc() {
+    if (!included().length) { toast("Nothing to print", "err"); return; }
+    const w = window.open("", "_blank");
+    if (!w) { toast("Pop-up blocked — allow pop-ups to print/save PDF", "err"); return; }
+    w.document.open(); w.document.write(buildStandaloneHtml()); w.document.close();
+    w.focus();
+    setTimeout(() => { try { w.print(); } catch (_) {} }, 400);
+  }
 
   // ==========================================================================
   //  Import modal + drop zone
@@ -1076,8 +1213,15 @@
     scrim.appendChild(modal);
     document.body.appendChild(scrim);
     modalEl = scrim;
+    document.addEventListener("keydown", onModalKey);
+    setTimeout(() => ta.focus(), 0);
   }
-  function closeImport() { if (modalEl) { modalEl.remove(); modalEl = null; } }
+  function onModalKey(e) { if (e.key === "Escape") closeImport(); }
+  function closeImport() {
+    if (!modalEl) return;
+    modalEl.remove(); modalEl = null;
+    document.removeEventListener("keydown", onModalKey);
+  }
 
   function buildDropZone(onParsed) {
     const dz = el("div", { class: "drop-zone", role: "button", tabindex: "0" }, [
@@ -1126,6 +1270,7 @@
     const keys = new Set(parsed.rows.map((r) => r.key));
     state.excluded = Object.fromEntries(Object.entries(state.excluded).filter(([k]) => keys.has(k)));
     state.edits = Object.fromEntries(Object.entries(state.edits).filter(([k]) => keys.has(k)));
+    state.typeOverride = Object.fromEntries(Object.entries(state.typeOverride).filter(([k]) => keys.has(k)));
     // auto-fill version field if a single fix version dominates and field is empty
     if (!state.meta.version && parsed.versions.length === 1) state.meta.version = parsed.versions[0];
     save();
