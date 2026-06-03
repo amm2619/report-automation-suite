@@ -328,6 +328,18 @@ function App() {
     return c;
   }, [tickets, doneRes]);
 
+  // Velocity is derived live from completed tickets. Each person's effective
+  // history = the derived series when there is completed work, else their stored
+  // (imported) seed. The view components read velocity/capacity off this.
+  const derivedHistory = useMemo(
+    () => VP.deriveHistory(tickets, doneRes, sprintsList, currentSprintIdx),
+    [tickets, doneRes, sprintsList, currentSprintIdx]
+  );
+  const peopleV = useMemo(
+    () => people.map((p) => (derivedHistory[p.id] && derivedHistory[p.id].length ? { ...p, history: derivedHistory[p.id] } : p)),
+    [people, derivedHistory]
+  );
+
   const NAV = [
     { id: "planner", label: "Planner", icon: "board" },
     { id: "team", label: "Team", icon: "users" },
@@ -373,7 +385,7 @@ function App() {
       {/* content */}
       <main className="content">
         {view === "planner" && (
-          <Planner project={project} tickets={tickets} people={people} sprints={sprintsList}
+          <Planner project={project} tickets={tickets} people={peopleV} sprints={sprintsList}
             sprintIdx={sprintIdx} setSprintIdx={setSprintIdx} mode={mode} setMode={setMode}
             hidePast={hidePast}
             jiraBase={jiraBase} currentIdx={currentSprintIdx}
@@ -382,7 +394,7 @@ function App() {
             onOpenImportTickets={() => setShowImportTickets(true)} />
         )}
         {view === "team" && (
-          <Team people={people} projects={VP.PROJECTS} currentProject={project} sprints={sprintsList}
+          <Team people={peopleV} projects={VP.PROJECTS} currentProject={project} sprints={sprintsList}
             onAdd={onAddPerson} onEdit={onEditPerson} onRemove={onRemovePerson} />
         )}
         {view === "settings" && (
@@ -406,7 +418,7 @@ function App() {
       {descTicket && (
         <DescPanel
           ticket={tickets.find((t) => t.id === descTicket.id) || descTicket}
-          people={people}
+          people={peopleV}
           sprints={sprintsList}
           currentIdx={currentSprintIdx}
           hidePast={hidePast}

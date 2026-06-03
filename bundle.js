@@ -140,6 +140,37 @@
     return { value: person.goal || 0, isGoal: true };
   }
 
+  // Continuously derive each person's velocity history from completed tickets:
+  // points on done tickets (resolution in `doneResolutions`) summed per past,
+  // dated sprint — i.e. sprints before the current one. Returns
+  // { [personId]: number[] } ordered chronologically; one entry per such sprint
+  // the person landed work in. This replaces the static seed at runtime whenever
+  // the board has completed work; otherwise the person's stored history is used.
+  function deriveHistory(tickets, doneResolutions, sprints, currentIdx) {
+    const done = new Set((doneResolutions || []).map((r) => r.toLowerCase()));
+    const idxByName = {};
+    (sprints || []).forEach((s, i) => { idxByName[s.name] = i; });
+    const acc = {}; // personId -> { sprintName: points }
+    for (const t of tickets || []) {
+      if (!t.assignee) continue;
+      if (!t.resolution || !done.has(t.resolution.toLowerCase())) continue;
+      const pts = Number(t.points) || 0;
+      if (pts <= 0) continue;
+      for (const sn of (t.sprints || [])) {
+        const i = idxByName[sn];
+        if (i === undefined || i >= currentIdx) continue; // only past, dated sprints
+        (acc[t.assignee] = acc[t.assignee] || {});
+        acc[t.assignee][sn] = (acc[t.assignee][sn] || 0) + pts;
+      }
+    }
+    const out = {};
+    for (const [pid, bySprint] of Object.entries(acc)) {
+      const names = Object.keys(bySprint).sort((a, b) => idxByName[a] - idxByName[b]);
+      out[pid] = names.map((n) => bySprint[n]);
+    }
+    return out;
+  }
+
   // ---- leave for a person within a sprint window ----
   function leaveDaysInSprint(sid, sprint) {
     const work = new Set(sprintWorkDays(sprint));
@@ -203,7 +234,7 @@
     projectForKey,
     // calc
     isUndated,
-    sprintWorkDays, holidaysInRange, velocity, baseVelocity,
+    sprintWorkDays, holidaysInRange, velocity, baseVelocity, deriveHistory,
     leaveDaysInSprint, leaveRecords, wfhBudget, capacity,
     parseISO, fmtISO, eachDay,
   };
@@ -4015,6 +4046,11 @@ function App() {
     });
     return c;
   }, [tickets, doneRes]);
+  const derivedHistory = useMemo(() => VP.deriveHistory(tickets, doneRes, sprintsList, currentSprintIdx), [tickets, doneRes, sprintsList, currentSprintIdx]);
+  const peopleV = useMemo(() => people.map(p => derivedHistory[p.id] && derivedHistory[p.id].length ? {
+    ...p,
+    history: derivedHistory[p.id]
+  } : p), [people, derivedHistory]);
   const NAV = [{
     id: "planner",
     label: "Planner",
@@ -4104,7 +4140,7 @@ function App() {
   }, view === "planner" && React.createElement(Planner, {
     project: project,
     tickets: tickets,
-    people: people,
+    people: peopleV,
     sprints: sprintsList,
     sprintIdx: sprintIdx,
     setSprintIdx: setSprintIdx,
@@ -4121,7 +4157,7 @@ function App() {
     onOpenDesc: setDescTicket,
     onOpenImportTickets: () => setShowImportTickets(true)
   }), view === "team" && React.createElement(Team, {
-    people: people,
+    people: peopleV,
     projects: VP.PROJECTS,
     currentProject: project,
     sprints: sprintsList,
@@ -4161,7 +4197,7 @@ function App() {
     onOpenImportIcal: () => setShowImportIcal(true)
   })), descTicket && React.createElement(DescPanel, {
     ticket: tickets.find(t => t.id === descTicket.id) || descTicket,
-    people: people,
+    people: peopleV,
     sprints: sprintsList,
     currentIdx: currentSprintIdx,
     hidePast: hidePast,
