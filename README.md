@@ -29,8 +29,11 @@ the browser (`localStorage`) and restored on refresh.
    onto the window, or paste the markup). The parser reads **Key, Issue Type,
    Summary, Epic, Fix Version/s, Status, Resolution, Assignee, Description** —
    issue types are read from the column text *or* the Jira type icon's alt-text.
-3. In **Compose**, fill in the build details (product, release, date,
-   environment, intro), then curate the issues:
+3. In **Compose**, fill in the build details — **Product / system** (DataXplorer,
+   LinkXplorer, ROLLERCOASTER, SWINGCAROUSEL), **Build / release**, **Release
+   date** (themed calendar that matches the app theme), **Environment** (Staging,
+   Beta, Production), and optional **Intro** / **Jira base URL** — then curate the
+   issues:
    - **Search** by key or summary, and toggle **type filter chips** to focus the
      list (filters affect the view only, never the output).
    - **Include/exclude** any issue with its switch, or use the bulk actions —
@@ -43,32 +46,33 @@ the browser (`localStorage`) and restored on refresh.
 
 ## Grouping
 
-- **Fix Version** (newest first; issues with multiple fix versions appear under
-  each; issues with none fall under *Unversioned*).
+- **Fix Version** — numeric versions first (natural order, e.g. `2.9.0` before
+  `2.10.0`), then alphabetically-named versions; issues with multiple fix
+  versions appear under each, and issues with none fall under *Unversioned* (last).
 - then **Epic** (alphabetical; un-epic'd issues under *Other changes*).
 - then individual **issues**, with **bug fixes first**, then new features,
   improvements, tasks, and other changes.
 
 ## Output (built for Confluence)
 
-- **Copy for Confluence** — copies rich HTML to the clipboard. Paste it straight
-  into a Confluence page. The markup is **semantic and color-free** (headings,
-  tables, blockquote, emoji type markers), so it **inherits the reader's
-  Confluence light/dark theme** instead of fighting it.
-- **Copy storage (macros)** — emits Confluence **storage format** (XHTML +
-  macros): a native **status lozenge** per issue type (Red bug / Green feature /
-  Blue improvement / Yellow task / Grey change), the intro in an **info** panel,
-  and an **expand** section per fix version. This is for consumers of storage
-  format — the Confluence **REST API** (`body.storage`) or a source/storage
-  editor — not the rich-text editor. Also available as **Download storage**
-  (`.confluence-storage.xml`).
-- **Copy Markdown** / **Download .md** — for wikis and Git.
-- **Download HTML** — a polished standalone document that adapts to the reader's
-  OS light/dark mode via `prefers-color-scheme`.
-- **Print / PDF** — opens the standalone document and triggers the browser's
-  print dialog (Save as PDF).
+A single export — **Copy for Confluence** — copies **Confluence storage format**
+(XHTML + macros) to the clipboard. The generated page contains:
 
-Adding a **Jira base URL** in Compose turns every issue key into a link.
+- a **table of contents** macro;
+- an **Overview** section — *"The &lt;Product&gt; product team is scheduled to
+  deploy the latest release &lt;Build/release&gt; to &lt;Environment&gt; on
+  &lt;Release date&gt;…"* — filled from the Compose fields (plus the optional
+  Intro in an **info** panel);
+- a **Release Summary** table (Deployment Checklist · OME · Regression Tests),
+  left blank to fill in for the deployment;
+- the deployment contents: a native **status lozenge** per issue type (Red bug /
+  Green feature / Blue improvement / Yellow task / Grey change) inside an
+  **expand** section per fix version, epics within, bug fixes on top.
+
+Because it's storage format, paste it via the page's **{ } source editor** or
+push it through the Confluence **REST API** (`body.storage`) — not the
+rich-text editor. Adding a **Jira base URL** in Compose turns every issue key
+into a link.
 
 ## Enclave transfer (`enclave/`)
 

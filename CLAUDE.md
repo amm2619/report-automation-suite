@@ -16,8 +16,8 @@ straight from `file://`. The version lives in two places that must stay in sync:
 2. the file name `Jira_ReleaseNotes_v<version>_<date>.html`
 
 When the version changes, rename the file to match and update the title. The
-standalone export document built by `buildStandaloneHtml()` derives its own
-title from the build metadata, so it needs no version bump.
+exported document derives its own title from the build metadata (`docTitle()`),
+so it needs no version bump.
 
 ## Look & feel
 
@@ -34,19 +34,27 @@ the apps feel like one suite. Keep visual changes consistent with that system.
   Description. It splits multiple fix versions, preserves multi-line
   descriptions, and skips non-issue rows (key must match `KEY_RE`).
 - **Grouping** — `grouped(rows)` buckets Fix Version → Epic → issues, with
-  **bug fixes first** (`TYPES[].rank`). Versions sort newest-first, the
-  no-version bucket (`NO_VERSION`) and no-epic bucket (`NO_EPIC`) sort last.
+  **bug fixes first** (`TYPES[].rank`). Versions sort via `versionCmp`:
+  numeric-leading names first (natural ascending), then alphabetical names, with
+  the no-version bucket (`NO_VERSION`) always last; epics sort alphabetically
+  with the no-epic bucket (`NO_EPIC`) last.
+- **Compose** — build metadata: Product / system (dropdown: DataXplorer,
+  LinkXplorer, ROLLERCOASTER, SWINGCAROUSEL), Build / release (text), Release
+  date (themed popover via `makeDatePicker`, not the native control),
+  Environment (dropdown: Staging, Beta, Production), plus optional Intro and
+  Jira base URL. `overviewText()` turns these into the Overview prose.
 - **Type system** — `TYPES` maps a normalized type id (bug / feature /
-  improvement / task / other) to rank, label, emoji, CSS class. `classifyType`
-  normalizes Jira's raw type; `typeFor(r)` applies a per-issue manual override
-  (`state.typeOverride`). Route all label/rank/emoji reads through `typeFor`.
-- **Output builders** — `buildConfluenceHtml()` (semantic, **color-free** so it
-  inherits the reader's Confluence light/dark theme), `buildMarkdown()`,
-  `buildStandaloneHtml()` (a styled doc that adapts via `prefers-color-scheme`),
-  and `buildConfluenceStorage()` (Confluence storage XHTML with `status` +
-  `expand` + `info` macros; must stay well-formed — each type carries a
-  `TYPES[].colour` for the lozenge). When you change the grouping or add a
-  field, update all four.
+  improvement / task / other) to rank, label, emoji, CSS class, and Confluence
+  `colour`. `classifyType` normalizes Jira's raw type; `typeFor(r)` applies a
+  per-issue manual override (`state.typeOverride`). Route all
+  label/rank/emoji/colour reads through `typeFor`.
+- **Output** — a single export, `buildConfluenceStorage()`: Confluence storage
+  XHTML with a `toc` macro, an **Overview** section (`overviewText`), a
+  **Release Summary** table (Deployment Checklist / OME / Regression Tests, left
+  blank to fill in), then a `status` lozenge per issue inside an `expand` per
+  fix version (intro in an `info` panel). It must stay well-formed XML.
+  `buildPreviewHtml()` renders a themed on-screen approximation of the same.
+  When you change the grouping/structure, update both.
 - **State** persists to `localStorage` (`rn.state.v1`): meta, per-issue
   exclusions, summary edits, type overrides, collapse, theme, jira base URL.
   Search and type-filter chips are view-only and never affect the output.
