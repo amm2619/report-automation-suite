@@ -425,6 +425,8 @@
   .rn-doc table.rs-table th, .rn-doc table.rs-table td { text-align: left; padding: 9px 12px; border: 1px solid var(--border); vertical-align: top; }
   .rn-doc table.rs-table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); font-weight: 800; background: var(--surface-2); }
   .rn-doc table.rs-table td { height: 34px; }
+  .rn-doc table.rs-table.kv th { width: 170px; white-space: nowrap; }
+  .rn-doc table.rs-table.kv td { height: auto; font-family: var(--font-mono); font-size: 13px; }
 
   @media print {
     .topbar, .navrow, .export-bar, .toasts { display: none !important; }
@@ -737,7 +739,25 @@
     const date = m.releaseDate ? fmtDate(m.releaseDate) : "(release date)";
     return "The " + product + " product team is scheduled to deploy the latest release " + release +
       " to " + env + " on " + date + ". We will capture the deployment information below for " +
-      "memorialization information, and to provide full listing of tickets in the deployment.";
+      "memorialization, and to provide full listing of tickets in the deployment.";
+  }
+
+  // "This release includes N bug fixes, …" — lists the non-empty type counts.
+  function summarySentence() {
+    const s = stats();
+    if (!s.total) return "";
+    const order = ["bug", "feature", "improvement", "task", "other"];
+    const bits = order.filter((t) => s.byType[t]).map((t) => {
+      const n = s.byType[t];
+      const lbl = t === "bug" ? (n === 1 ? "bug fix" : "bug fixes")
+        : t === "feature" ? (n === 1 ? "new feature" : "new features")
+        : t === "improvement" ? (n === 1 ? "improvement" : "improvements")
+        : t === "task" ? (n === 1 ? "task" : "tasks")
+        : (n === 1 ? "change" : "changes");
+      return n + " " + lbl;
+    });
+    const list = bits.length > 1 ? bits.slice(0, -1).join(", ") + " and " + bits.slice(-1) : bits[0];
+    return "This release includes " + list + ".";
   }
 
   // ==========================================================================
@@ -1033,6 +1053,16 @@
       "<tr><th>Deployment Checklist</th><th>OME</th><th>Regression Tests</th></tr>" +
       "<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></tbody></table>";
 
+    // Deployment summary block (build details + count sentence)
+    h += '<h3 class="ver">' + esc(docTitle()) + "</h3>";
+    h += '<table class="rs-table kv"><tbody>' +
+      "<tr><th>Build / Release</th><td>" + esc(m.version || "") + "</td></tr>" +
+      "<tr><th>Release Date</th><td>" + esc(m.releaseDate ? fmtDate(m.releaseDate) : "") + "</td></tr>" +
+      "<tr><th>Environment</th><td>" + esc(m.environment || "") + "</td></tr>" +
+      "</tbody></table>";
+    const sentence = summarySentence();
+    if (sentence) h += '<div class="doc-summary">' + esc(sentence) + "</div>";
+
     for (const g of groups) {
       h += '<h3 class="ver">' + esc(g.version) + "</h3>";
       for (const epic of g.epics) {
@@ -1081,6 +1111,17 @@
       "<tr><th>Deployment Checklist</th><th>OME</th><th>Regression Tests</th></tr>\n" +
       "<tr><td></td><td></td><td></td></tr>\n" +
       "</tbody></table>\n";
+
+    // Deployment summary — build details + the "This release includes…" line,
+    // sitting between the Release Summary and the ticket listing.
+    h += "<h2>" + esc(docTitle()) + "</h2>\n";
+    h += "<table><tbody>\n" +
+      "<tr><th>Build / Release</th><td>" + esc(m.version || "") + "</td></tr>\n" +
+      "<tr><th>Release Date</th><td>" + esc(m.releaseDate ? fmtDate(m.releaseDate) : "") + "</td></tr>\n" +
+      "<tr><th>Environment</th><td>" + esc(m.environment || "") + "</td></tr>\n" +
+      "</tbody></table>\n";
+    const sentence = summarySentence();
+    if (sentence) h += "<p>" + esc(sentence) + "</p>\n";
 
     // Deployment contents — one expand per Fix Version (no extra heading)
     for (const g of groups) {
