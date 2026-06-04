@@ -54,6 +54,17 @@
 
   const DONE_RESOLUTIONS = ["Done", "Fixed", "Resolved", "Completed", "Complete"];
 
+  // Jira custom-field IDs for the columns the board parser needs. Match the
+  // values inside `class="...customfield_NNNNN..."` on your Jira HTML export.
+  // (Hover a column header in Jira → view source → find the `customfield_…`
+  // class on the <th>.) Text-based detection ("Story Points", "Sprint", "Epic")
+  // is used as a fallback when a class match isn't found.
+  const JIRA_CUSTOM_FIELDS = {
+    epic:   "customfield_11840",
+    points: "customfield_10023",
+    sprint: "customfield_11240",
+  };
+
   // ========================================================================
   //  Calculation helpers
   // ========================================================================
@@ -224,7 +235,7 @@
   }
 
   window.VP = {
-    PROJECTS, SPRINTS, CURRENT_SPRINT_IDX, PEOPLE, TICKETS, LEAVE, DONE_RESOLUTIONS,
+    PROJECTS, SPRINTS, CURRENT_SPRINT_IDX, PEOPLE, TICKETS, LEAVE, DONE_RESOLUTIONS, JIRA_CUSTOM_FIELDS,
     projectForKey,
     // calc
     isUndated,

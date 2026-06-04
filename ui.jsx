@@ -276,16 +276,29 @@ function parseBoardHtml(html) {
     headerCells = [...(all[0] ? all[0].children : [])];
     bodyRows = all.slice(1);
   }
+  // Header text + class for each column. Jira exports include class names like
+  // "headerrow-customfield_10023" / "headerrow-summary" — those are stable
+  // across renames/translations, so we match by class first then fall back to
+  // the human-readable header text.
   const headers = headerCells.map((th) => cellText(th).toLowerCase());
-  const col = (pred) => headers.findIndex(pred);
-  const idxKey = col((h) => h === "key" || h === "issuekey" || h.includes("issue key"));
-  const idxSum = col((h) => h.includes("summary"));
-  const idxAss = col((h) => h.includes("assignee"));
-  const idxEpic = col((h) => h.includes("epic"));
-  const idxPts = col((h) => h.includes("story point"));
-  const idxRes = col((h) => h.includes("resolution"));
-  const idxDesc = col((h) => h.includes("description"));
-  const sprintCols = headers.map((h, i) => (h === "sprint" || h.startsWith("sprint")) ? i : -1).filter((i) => i >= 0);
+  const headerClasses = headerCells.map((th) => String(th.className || "").toLowerCase());
+  const CF = VP.JIRA_CUSTOM_FIELDS || {};
+  const byClass = (needle) => needle ? headerClasses.findIndex((c) => c.includes(String(needle).toLowerCase())) : -1;
+  const byText = (pred) => headers.findIndex(pred);
+  const pick = (cls, pred) => { const i = byClass(cls); return i >= 0 ? i : byText(pred); };
+
+  const idxKey = pick("issuekey", (h) => h === "key" || h === "issuekey" || h.includes("issue key"));
+  const idxSum = pick("summary", (h) => h.includes("summary"));
+  const idxAss = pick("assignee", (h) => h.includes("assignee"));
+  const idxEpic = pick(CF.epic, (h) => h.includes("epic"));
+  const idxPts = pick(CF.points, (h) => h.includes("story point"));
+  const idxRes = pick("resolution", (h) => h.includes("resolution"));
+  const idxDesc = pick("description", (h) => h.includes("description"));
+  // Sprint can appear under its custom-field class OR a plain "Sprint" header
+  // (sometimes more than once). Take both.
+  const sprintCols = [];
+  headerClasses.forEach((c, i) => { if (CF.sprint && c.includes(CF.sprint.toLowerCase())) sprintCols.push(i); });
+  headers.forEach((h, i) => { if ((h === "sprint" || h.startsWith("sprint")) && !sprintCols.includes(i)) sprintCols.push(i); });
 
   const sprintRe = /\b\d{2,4}\.\d+\.\d+\b/g;
   // Jira renders an empty assignee/resolution as "Unassigned"/"Unresolved".
@@ -446,11 +459,14 @@ function parseIcal(text, people) {
         const end = parseDate(cur.end) || start;
         const summary = cur.summary || "";
         const looksLikeLeave = /\b(ooo|out of office|pto|leave|vacation|holiday|sick)\b/i.test(summary);
+        // Program calendars list WFH days too — those are working days, not
+        // leave, so skip them outright.
+        const looksLikeWfh = /\b(wfh|work\s*from\s*home|telework|telecommut)/i.test(summary);
         // Try ATTENDEEs first, then SUMMARY
         let matched = null;
         for (const a of cur.attendees) { matched = findPerson([a]); if (matched) break; }
         if (!matched) matched = findPerson([summary, cur.organizer]);
-        if (matched && start && (looksLikeLeave || cur.attendees.length || /ooo|leave|vacation/i.test(summary))) {
+        if (matched && start && !looksLikeWfh && (looksLikeLeave || cur.attendees.length)) {
           const days = eachDay(start, end);
           // Many calendars store DTEND as exclusive — if end == start+1 and event is single-day, the day list may be off by one.
           // Heuristic: if event spans only one weekday and the end matches the next day, that's fine because eachDay already includes start.

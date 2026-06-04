@@ -55,7 +55,7 @@ function PersonModal({ person, project, existingNames, projects, onSave, onClose
     if (!nm) { setErr("Name is required."); return; }
     const dupe = existingNames.some((n) => n.toLowerCase() === nm.toLowerCase() && (!editing || n.toLowerCase() !== person.name.toLowerCase()));
     if (dupe) { setErr("A person named “" + nm + "” already exists."); return; }
-    onSave({ id: person?.id, name: nm, sid: sid.trim() || nm.toLowerCase().replace(/\s+/g, "").slice(0, 8), type, project: proj, goal: Number(goal) || 0 });
+    onSave({ id: person?.id, name: nm, sid: sid.trim(), type, project: proj, goal: Number(goal) || 0 });
   }
 
   return (
@@ -71,7 +71,7 @@ function PersonModal({ person, project, existingNames, projects, onSave, onClose
             <input value={name} autoFocus onChange={(e) => { setName(e.target.value); setErr(""); }} placeholder="Jane Doe" />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div className="field"><label>SID</label><input value={sid} onChange={(e) => setSid(e.target.value)} placeholder="jdoe" style={{ fontFamily: "var(--font-mono)" }} /></div>
+            <div className="field"><label>SID (must match the program calendar)</label><input value={sid} onChange={(e) => setSid(e.target.value)} placeholder="leave blank if you don't use one" style={{ fontFamily: "var(--font-mono)" }} /></div>
             <div className="field"><label>Goal points</label><input type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="14" /></div>
           </div>
           <div className="field">

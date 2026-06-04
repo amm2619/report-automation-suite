@@ -60,6 +60,17 @@
 
   const DONE_RESOLUTIONS = ["Done", "Fixed", "Resolved", "Completed", "Complete"];
 
+  // Jira custom-field IDs for the columns the board parser needs. Match the
+  // values inside `class="...customfield_NNNNN..."` on your Jira HTML export.
+  // (Hover a column header in Jira → view source → find the `customfield_…`
+  // class on the <th>.) Text-based detection ("Story Points", "Sprint", "Epic")
+  // is used as a fallback when a class match isn't found.
+  const JIRA_CUSTOM_FIELDS = {
+    epic:   "customfield_11840",
+    points: "customfield_10023",
+    sprint: "customfield_11240",
+  };
+
   // ========================================================================
   //  Calculation helpers
   // ========================================================================
@@ -230,7 +241,7 @@
   }
 
   window.VP = {
-    PROJECTS, SPRINTS, CURRENT_SPRINT_IDX, PEOPLE, TICKETS, LEAVE, DONE_RESOLUTIONS,
+    PROJECTS, SPRINTS, CURRENT_SPRINT_IDX, PEOPLE, TICKETS, LEAVE, DONE_RESOLUTIONS, JIRA_CUSTOM_FIELDS,
     projectForKey,
     // calc
     isUndated,
@@ -740,15 +751,28 @@ function parseBoardHtml(html) {
     bodyRows = all.slice(1);
   }
   const headers = headerCells.map(th => cellText(th).toLowerCase());
-  const col = pred => headers.findIndex(pred);
-  const idxKey = col(h => h === "key" || h === "issuekey" || h.includes("issue key"));
-  const idxSum = col(h => h.includes("summary"));
-  const idxAss = col(h => h.includes("assignee"));
-  const idxEpic = col(h => h.includes("epic"));
-  const idxPts = col(h => h.includes("story point"));
-  const idxRes = col(h => h.includes("resolution"));
-  const idxDesc = col(h => h.includes("description"));
-  const sprintCols = headers.map((h, i) => h === "sprint" || h.startsWith("sprint") ? i : -1).filter(i => i >= 0);
+  const headerClasses = headerCells.map(th => String(th.className || "").toLowerCase());
+  const CF = VP.JIRA_CUSTOM_FIELDS || {};
+  const byClass = needle => needle ? headerClasses.findIndex(c => c.includes(String(needle).toLowerCase())) : -1;
+  const byText = pred => headers.findIndex(pred);
+  const pick = (cls, pred) => {
+    const i = byClass(cls);
+    return i >= 0 ? i : byText(pred);
+  };
+  const idxKey = pick("issuekey", h => h === "key" || h === "issuekey" || h.includes("issue key"));
+  const idxSum = pick("summary", h => h.includes("summary"));
+  const idxAss = pick("assignee", h => h.includes("assignee"));
+  const idxEpic = pick(CF.epic, h => h.includes("epic"));
+  const idxPts = pick(CF.points, h => h.includes("story point"));
+  const idxRes = pick("resolution", h => h.includes("resolution"));
+  const idxDesc = pick("description", h => h.includes("description"));
+  const sprintCols = [];
+  headerClasses.forEach((c, i) => {
+    if (CF.sprint && c.includes(CF.sprint.toLowerCase())) sprintCols.push(i);
+  });
+  headers.forEach((h, i) => {
+    if ((h === "sprint" || h.startsWith("sprint")) && !sprintCols.includes(i)) sprintCols.push(i);
+  });
   const sprintRe = /\b\d{2,4}\.\d+\.\d+\b/g;
   const norm = (s, blank) => {
     const v = (s || "").trim();
@@ -908,13 +932,14 @@ function parseIcal(text, people) {
         const end = parseDate(cur.end) || start;
         const summary = cur.summary || "";
         const looksLikeLeave = /\b(ooo|out of office|pto|leave|vacation|holiday|sick)\b/i.test(summary);
+        const looksLikeWfh = /\b(wfh|work\s*from\s*home|telework|telecommut)/i.test(summary);
         let matched = null;
         for (const a of cur.attendees) {
           matched = findPerson([a]);
           if (matched) break;
         }
         if (!matched) matched = findPerson([summary, cur.organizer]);
-        if (matched && start && (looksLikeLeave || cur.attendees.length || /ooo|leave|vacation/i.test(summary))) {
+        if (matched && start && !looksLikeWfh && (looksLikeLeave || cur.attendees.length)) {
           const days = eachDay(start, end);
           for (const date of days) records.push({
             sid: matched.sid,
@@ -2049,7 +2074,7 @@ function PersonModal({
     onSave({
       id: person?.id,
       name: nm,
-      sid: sid.trim() || nm.toLowerCase().replace(/\s+/g, "").slice(0, 8),
+      sid: sid.trim(),
       type,
       project: proj,
       goal: Number(goal) || 0
@@ -2089,10 +2114,10 @@ function PersonModal({
     }
   }, React.createElement("div", {
     className: "field"
-  }, React.createElement("label", null, "SID"), React.createElement("input", {
+  }, React.createElement("label", null, "SID (must match the program calendar)"), React.createElement("input", {
     value: sid,
     onChange: e => setSid(e.target.value),
-    placeholder: "jdoe",
+    placeholder: "leave blank if you don't use one",
     style: {
       fontFamily: "var(--font-mono)"
     }
@@ -2344,6 +2369,8 @@ function Settings({
   setHidePast,
   leaveOverlay,
   onClearImportedLeave,
+  onAddLeave,
+  onRemoveLeave,
   onAddSprint,
   onEditSprint,
   onRemoveSprint,
@@ -2395,7 +2422,8 @@ function Settings({
     reader.readAsText(f);
     e.target.value = "";
   }
-  const importedLeaveCount = leaveOverlay?.length || 0;
+  const importedLeaveCount = (leaveOverlay || []).filter(e => e.source === "ical").length;
+  const manualLeave = (leaveOverlay || []).filter(e => e.source !== "ical");
   return React.createElement("div", {
     className: "wrap",
     style: {
@@ -2605,7 +2633,12 @@ function Settings({
   }, React.createElement(Icon, {
     name: "cal",
     size: 14
-  }), " Import iCal"))), React.createElement(SprintCalendarCard, {
+  }), " Import iCal"))), React.createElement(ManualLeaveCard, {
+    people: people,
+    records: manualLeave,
+    onAdd: onAddLeave,
+    onRemove: onRemoveLeave
+  }), React.createElement(SprintCalendarCard, {
     sprints: sprints,
     currentIdx: currentIdx,
     hidePast: hidePast,
@@ -2753,6 +2786,186 @@ function Settings({
       setConfirmClear(false);
     }
   }, "Clear everything")))));
+}
+function ManualLeaveCard({
+  people,
+  records,
+  onAdd,
+  onRemove
+}) {
+  const withSid = useMemo(() => people.filter(p => p.sid), [people]);
+  const [sid, setSid] = useState("");
+  const [date, setDate] = useState("");
+  const [half, setHalf] = useState(false);
+  function commit() {
+    if (!sid || !date) return;
+    onAdd(sid, date, half);
+    setDate("");
+    setHalf(false);
+  }
+  const grouped = useMemo(() => {
+    const m = new Map();
+    for (const r of records) {
+      if (!m.has(r.sid)) m.set(r.sid, []);
+      m.get(r.sid).push(r);
+    }
+    for (const arr of m.values()) arr.sort((a, b) => a.date.localeCompare(b.date));
+    return [...m.entries()].map(([s, arr]) => ({
+      sid: s,
+      person: people.find(p => p.sid === s) || null,
+      records: arr
+    })).sort((a, b) => (a.person?.name || a.sid).localeCompare(b.person?.name || b.sid));
+  }, [records, people]);
+  return React.createElement("div", {
+    className: "person-card settings-card",
+    style: {
+      marginBottom: 16
+    }
+  }, React.createElement("div", {
+    className: "section-label",
+    style: {
+      margin: 0
+    }
+  }, "Manual leave"), React.createElement("div", {
+    className: "muted",
+    style: {
+      fontSize: 12.5
+    }
+  }, "Add ad-hoc leave days for anyone with a SID set in the Team tab. These are kept separate from iCal-imported leave and survive Clear."), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr auto auto",
+      gap: 10,
+      alignItems: "end"
+    }
+  }, React.createElement("div", {
+    className: "field"
+  }, React.createElement("label", null, "Person"), React.createElement("select", {
+    className: "twk-field",
+    value: sid,
+    onChange: e => setSid(e.target.value),
+    style: {
+      fontFamily: "inherit",
+      height: 38,
+      padding: "0 10px",
+      borderRadius: 9,
+      border: "1px solid var(--border)",
+      background: "var(--surface-2)",
+      color: "var(--text)"
+    }
+  }, React.createElement("option", {
+    value: ""
+  }, "\u2014 Pick a person \u2014"), withSid.map(p => React.createElement("option", {
+    key: p.id,
+    value: p.sid
+  }, p.name, " (", p.sid, ")")))), React.createElement("div", {
+    className: "field"
+  }, React.createElement("label", null, "Date"), React.createElement(DatePicker, {
+    value: date,
+    onChange: setDate,
+    placeholder: "Pick a date"
+  })), React.createElement("label", {
+    className: "opt-row",
+    style: {
+      cursor: "pointer",
+      padding: "10px 11px",
+      alignSelf: "end"
+    }
+  }, React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700
+    }
+  }, "Half day"), React.createElement("span", {
+    className: "switch",
+    "data-on": half,
+    onClick: e => {
+      e.stopPropagation();
+      setHalf(!half);
+    },
+    role: "switch",
+    "aria-checked": half
+  }, React.createElement("span", {
+    className: "knob"
+  }))), React.createElement("button", {
+    className: "btn primary",
+    onClick: commit,
+    disabled: !sid || !date,
+    style: {
+      height: 38
+    }
+  }, React.createElement(Icon, {
+    name: "plus",
+    size: 14
+  }), " Add")), withSid.length === 0 && React.createElement("div", {
+    className: "muted",
+    style: {
+      fontSize: 12
+    }
+  }, "Nobody has a SID yet \u2014 open the Team tab, edit a person, and fill in their SID."), grouped.length > 0 && React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      marginTop: 6
+    }
+  }, grouped.map(({
+    sid: s,
+    person,
+    records: list
+  }) => React.createElement("div", {
+    key: s,
+    style: {
+      display: "flex",
+      gap: 10,
+      alignItems: "flex-start"
+    }
+  }, React.createElement("div", {
+    style: {
+      minWidth: 140,
+      fontSize: 13
+    }
+  }, React.createElement("div", {
+    style: {
+      fontWeight: 700
+    }
+  }, person ? person.name : s), React.createElement("div", {
+    className: "muted",
+    style: {
+      fontFamily: "var(--font-mono)",
+      fontSize: 11
+    }
+  }, s)), React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 6,
+      flex: 1
+    }
+  }, list.map(r => React.createElement("span", {
+    key: r.sid + "|" + r.date,
+    className: "res-chip",
+    "data-on": "true",
+    title: r.frac === 0.5 ? "Half day" : "Full day"
+  }, React.createElement("span", {
+    style: {
+      fontFamily: "var(--font-mono)"
+    }
+  }, r.date), r.frac === 0.5 && React.createElement("span", {
+    style: {
+      fontSize: 10,
+      fontWeight: 800,
+      opacity: 0.7
+    }
+  }, "\xB7\xBD"), React.createElement("button", {
+    className: "x",
+    onClick: () => onRemove(r.sid, r.date),
+    title: "Remove",
+    "aria-label": "Remove"
+  }, React.createElement(Icon, {
+    name: "x",
+    size: 11
+  })))))))));
 }
 function SprintCalendarCard({
   sprints,
@@ -3949,7 +4162,7 @@ function App() {
       const np = {
         id: "np" + ++_tid,
         name: name.trim(),
-        sid: name.trim().toLowerCase().replace(/\s+/g, "").slice(0, 8),
+        sid: "",
         type: "contractor",
         project: proj,
         goal: 0,
@@ -4002,12 +4215,41 @@ function App() {
     };
   };
   const onClearImportedLeave = () => {
-    const keys = new Set(leaveOverlay.map(e => e.sid + "|" + e.date));
+    const isImported = e => e && e.source === "ical";
+    const dropKeys = new Set(leaveOverlay.filter(isImported).map(e => e.sid + "|" + e.date));
     for (let i = VP.LEAVE.length - 1; i >= 0; i--) {
-      if (keys.has(VP.LEAVE[i].sid + "|" + VP.LEAVE[i].date)) VP.LEAVE.splice(i, 1);
+      const k = VP.LEAVE[i].sid + "|" + VP.LEAVE[i].date;
+      if (dropKeys.has(k) && isImported(VP.LEAVE[i])) VP.LEAVE.splice(i, 1);
     }
-    setLeaveOverlay([]);
+    setLeaveOverlay(prev => prev.filter(e => !isImported(e)));
     toast("Cleared imported leave", "info");
+  };
+  const onAddLeave = (sid, date, halfDay) => {
+    if (!sid || !date) {
+      toast("Pick a person and a date", "err");
+      return;
+    }
+    if (VP.LEAVE.some(e => e.sid === sid && e.date === date)) {
+      toast("That date is already on record for them", "info");
+      return;
+    }
+    const rec = {
+      sid,
+      date,
+      frac: halfDay ? 0.5 : 1,
+      source: "manual"
+    };
+    VP.LEAVE.push(rec);
+    setLeaveOverlay(prev => [...prev, rec]);
+    const name = people.find(p => p.sid === sid)?.name || sid;
+    toast(`Added leave: ${name} · ${date}${halfDay ? " · half day" : ""}`);
+  };
+  const onRemoveLeave = (sid, date) => {
+    for (let i = VP.LEAVE.length - 1; i >= 0; i--) {
+      if (VP.LEAVE[i].sid === sid && VP.LEAVE[i].date === date) VP.LEAVE.splice(i, 1);
+    }
+    setLeaveOverlay(prev => prev.filter(e => !(e.sid === sid && e.date === date)));
+    toast("Removed leave day", "info");
   };
   const onAddPerson = data => {
     setPeople(ps => [...ps, {
@@ -4178,6 +4420,8 @@ function App() {
     setHidePast: setHidePast,
     leaveOverlay: leaveOverlay,
     onClearImportedLeave: onClearImportedLeave,
+    onAddLeave: onAddLeave,
+    onRemoveLeave: onRemoveLeave,
     onAddSprint: onAddSprint,
     onEditSprint: onEditSprint,
     onRemoveSprint: onRemoveSprint,

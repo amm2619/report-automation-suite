@@ -258,7 +258,7 @@ function App() {
       const proj = Object.entries(projTally[k] || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || project;
       const np = {
         id: "np" + (++_tid), name: name.trim(),
-        sid: name.trim().toLowerCase().replace(/\s+/g, "").slice(0, 8),
+        sid: "",   // user fills it in to match their iCal calendar
         type: "contractor", project: proj, goal: 0, history: [],
       };
       newPeople.push(np);
@@ -300,12 +300,35 @@ function App() {
     return { ...result, eventCount: fresh.length };
   };
   const onClearImportedLeave = () => {
-    const keys = new Set(leaveOverlay.map((e) => e.sid + "|" + e.date));
+    // Only drop iCal-imported records; manual entries the user added survive.
+    const isImported = (e) => e && e.source === "ical";
+    const dropKeys = new Set(leaveOverlay.filter(isImported).map((e) => e.sid + "|" + e.date));
     for (let i = VP.LEAVE.length - 1; i >= 0; i--) {
-      if (keys.has(VP.LEAVE[i].sid + "|" + VP.LEAVE[i].date)) VP.LEAVE.splice(i, 1);
+      const k = VP.LEAVE[i].sid + "|" + VP.LEAVE[i].date;
+      if (dropKeys.has(k) && isImported(VP.LEAVE[i])) VP.LEAVE.splice(i, 1);
     }
-    setLeaveOverlay([]);
+    setLeaveOverlay((prev) => prev.filter((e) => !isImported(e)));
     toast("Cleared imported leave", "info");
+  };
+  // Manually add a leave day for a person. Dedupes against existing same
+  // sid+date so duplicates can't accumulate.
+  const onAddLeave = (sid, date, halfDay) => {
+    if (!sid || !date) { toast("Pick a person and a date", "err"); return; }
+    if (VP.LEAVE.some((e) => e.sid === sid && e.date === date)) {
+      toast("That date is already on record for them", "info"); return;
+    }
+    const rec = { sid, date, frac: halfDay ? 0.5 : 1, source: "manual" };
+    VP.LEAVE.push(rec);
+    setLeaveOverlay((prev) => [...prev, rec]);
+    const name = people.find((p) => p.sid === sid)?.name || sid;
+    toast(`Added leave: ${name} · ${date}${halfDay ? " · half day" : ""}`);
+  };
+  const onRemoveLeave = (sid, date) => {
+    for (let i = VP.LEAVE.length - 1; i >= 0; i--) {
+      if (VP.LEAVE[i].sid === sid && VP.LEAVE[i].date === date) VP.LEAVE.splice(i, 1);
+    }
+    setLeaveOverlay((prev) => prev.filter((e) => !(e.sid === sid && e.date === date)));
+    toast("Removed leave day", "info");
   };
 
   // ---- team actions ----
@@ -403,6 +426,7 @@ function App() {
             sprints={sprintsList} currentIdx={currentSprintIdx} people={people}
             hidePast={hidePast} setHidePast={setHidePast}
             leaveOverlay={leaveOverlay} onClearImportedLeave={onClearImportedLeave}
+            onAddLeave={onAddLeave} onRemoveLeave={onRemoveLeave}
             onAddSprint={onAddSprint} onEditSprint={onEditSprint} onRemoveSprint={onRemoveSprint} onSetCurrent={onSetCurrent}
             toast={toast}
             onExportData={onExportData} onImportData={onImportData} onClearData={onClearData}
