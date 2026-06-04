@@ -8,7 +8,7 @@ function Settings({
   doneRes, setDoneRes, customRes, setCustomRes,
   sprints, currentIdx, people,
   hidePast, setHidePast,
-  leaveOverlay, onClearImportedLeave,
+  leaveOverlay, onClearImportedLeave, onAddLeave, onRemoveLeave,
   onAddSprint, onEditSprint, onRemoveSprint, onSetCurrent,
   toast, onExportData, onImportData, onClearData,
   fsSupported, folder, folderReconnect, onConnectFolder, onReconnectFolder, onDisconnectFolder,
@@ -44,7 +44,8 @@ function Settings({
     e.target.value = "";
   }
 
-  const importedLeaveCount = leaveOverlay?.length || 0;
+  const importedLeaveCount = (leaveOverlay || []).filter((e) => e.source === "ical").length;
+  const manualLeave = (leaveOverlay || []).filter((e) => e.source !== "ical");
 
   return (
     <div className="wrap" style={{ maxWidth: 820 }}>
@@ -128,6 +129,14 @@ function Settings({
         </div>
       </div>
 
+      {/* Manual leave entry */}
+      <ManualLeaveCard
+        people={people}
+        records={manualLeave}
+        onAdd={onAddLeave}
+        onRemove={onRemoveLeave}
+      />
+
       {/* Sprint calendar */}
       <SprintCalendarCard
         sprints={sprints}
@@ -210,6 +219,103 @@ function Settings({
                 onClick={() => { onClearData(); setConfirmClear(false); }}>Clear everything</button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================================
+   Manual leave entry — add ad-hoc leave days for any person with a SID
+   ========================================================================== */
+function ManualLeaveCard({ people, records, onAdd, onRemove }) {
+  // Only people with a SID can have leave records (capacity is matched by SID).
+  const withSid = useMemo(() => people.filter((p) => p.sid), [people]);
+  const [sid, setSid] = useState("");
+  const [date, setDate] = useState("");
+  const [half, setHalf] = useState(false);
+
+  function commit() {
+    if (!sid || !date) return;
+    onAdd(sid, date, half);
+    setDate(""); setHalf(false);
+  }
+
+  // Group records by person for display.
+  const grouped = useMemo(() => {
+    const m = new Map();
+    for (const r of records) {
+      if (!m.has(r.sid)) m.set(r.sid, []);
+      m.get(r.sid).push(r);
+    }
+    for (const arr of m.values()) arr.sort((a, b) => a.date.localeCompare(b.date));
+    return [...m.entries()].map(([s, arr]) => ({
+      sid: s,
+      person: people.find((p) => p.sid === s) || null,
+      records: arr,
+    })).sort((a, b) => (a.person?.name || a.sid).localeCompare(b.person?.name || b.sid));
+  }, [records, people]);
+
+  return (
+    <div className="person-card settings-card" style={{ marginBottom: 16 }}>
+      <div className="section-label" style={{ margin: 0 }}>Manual leave</div>
+      <div className="muted" style={{ fontSize: 12.5 }}>
+        Add ad-hoc leave days for anyone with a SID set in the Team tab. These are kept separate from iCal-imported leave and survive Clear.
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 10, alignItems: "end" }}>
+        <div className="field">
+          <label>Person</label>
+          <select className="twk-field" value={sid} onChange={(e) => setSid(e.target.value)}
+            style={{ fontFamily: "inherit", height: 38, padding: "0 10px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)" }}>
+            <option value="">— Pick a person —</option>
+            {withSid.map((p) => (
+              <option key={p.id} value={p.sid}>{p.name} ({p.sid})</option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label>Date</label>
+          <DatePicker value={date} onChange={setDate} placeholder="Pick a date" />
+        </div>
+        <label className="opt-row" style={{ cursor: "pointer", padding: "10px 11px", alignSelf: "end" }}>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>Half day</span>
+          <span className="switch" data-on={half} onClick={(e) => { e.stopPropagation(); setHalf(!half); }} role="switch" aria-checked={half}>
+            <span className="knob" />
+          </span>
+        </label>
+        <button className="btn primary" onClick={commit} disabled={!sid || !date} style={{ height: 38 }}>
+          <Icon name="plus" size={14} /> Add
+        </button>
+      </div>
+
+      {withSid.length === 0 && (
+        <div className="muted" style={{ fontSize: 12 }}>
+          Nobody has a SID yet — open the Team tab, edit a person, and fill in their SID.
+        </div>
+      )}
+
+      {grouped.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 6 }}>
+          {grouped.map(({ sid: s, person, records: list }) => (
+            <div key={s} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <div style={{ minWidth: 140, fontSize: 13 }}>
+                <div style={{ fontWeight: 700 }}>{person ? person.name : s}</div>
+                <div className="muted" style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>{s}</div>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, flex: 1 }}>
+                {list.map((r) => (
+                  <span key={r.sid + "|" + r.date} className="res-chip" data-on="true" title={r.frac === 0.5 ? "Half day" : "Full day"}>
+                    <span style={{ fontFamily: "var(--font-mono)" }}>{r.date}</span>
+                    {r.frac === 0.5 && <span style={{ fontSize: 10, fontWeight: 800, opacity: 0.7 }}>·½</span>}
+                    <button className="x" onClick={() => onRemove(r.sid, r.date)} title="Remove" aria-label="Remove">
+                      <Icon name="x" size={11} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
