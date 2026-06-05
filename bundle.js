@@ -260,6 +260,44 @@
     return LEAVE.filter((l) => l.sid === sid && work.has(l.date));
   }
 
+  /*
+   * Projected velocity for the upcoming sprint — the by-hand method, automated:
+   *
+   *   avg points / sprint = total completed points / number of past sprints
+   *                         (all past sprints count; a sprint with no completed
+   *                          work counts as 0)
+   *   points / day        = avg / pastSprintDays   (past sprints were 2-week=10;
+   *                                                  configurable for monthly)
+   *   available days      = upcoming working days you type
+   *                          − federal holidays in the upcoming date range
+   *                          − this person's leave in that range (from the
+   *                            leave calendar — looked up for you)
+   *   velocity            = points/day × available days
+   *
+   * cfg = { pastSprintDays, pastSprintCount, upcoming:{ workingDays, start, end } }
+   */
+  function projectedVelocity(person, cfg) {
+    cfg = cfg || {};
+    const up = cfg.upcoming || {};
+    const pastDays = Math.max(1, +cfg.pastSprintDays || 10);
+    const hist = person.history || [];
+    // Divide by the whole past window (all sprints), not just the ones the
+    // person logged work in — zeros drag the average down, as intended.
+    const sprintCount = Math.max(1, +cfg.pastSprintCount || hist.length || 1);
+    const totalPts = hist.reduce((a, b) => a + b, 0);
+    const avgPerSprint = totalPts / sprintCount;
+    const pointsPerDay = avgPerSprint / pastDays;
+
+    const gross = Math.max(0, Math.round(+up.workingDays || 0));
+    const dated = up.start && up.end;
+    const holidays = dated ? holidaysInRange(up.start, up.end).length : 0;
+    const leave = dated ? leaveDaysInSprint(person.sid, { start: up.start, end: up.end }) : 0;
+    const available = Math.max(0, gross - holidays - leave);
+    const velocity = Math.round(pointsPerDay * available);
+
+    return { totalPts, sprintCount, avgPerSprint, pointsPerDay, pastDays, gross, holidays, leave, available, velocity, dated };
+  }
+
   // ---- contractor WFH budget: <=2 days per calendar week with >=1 work day --
   function wfhBudget(person, sprint) {
     if (person.type !== "contractor") return null;
@@ -314,6 +352,7 @@
     isUndated,
     parseSprintNumber, sprintSortKey, shiftWorkingDays, buildSprintCalendar,
     sprintWorkDays, holidaysInRange, velocity, baseVelocity, deriveHistory,
+    projectedVelocity,
     leaveDaysInSprint, leaveRecords, wfhBudget, capacity,
     parseISO, fmtISO, eachDay,
   };
@@ -1290,7 +1329,7 @@ function CapCard({
     title: "Based on goal points (under 2 sprints of history)"
   }, "GOAL")))), React.createElement("div", {
     className: "cap-nums",
-    title: `${assigned} points assigned · ${cap.adjusted} adjusted capacity (base ${Math.round(cap.baseVelocity)} − ${cap.leave}d leave${hol ? ` − ${hol}d hol` : ""})`
+    title: `${assigned} pts assigned · ${cap.adjusted} projected velocity for the upcoming sprint`
   }, React.createElement("span", {
     className: "big"
   }, assigned), React.createElement("span", {
@@ -1323,13 +1362,13 @@ function CapCard({
     className: "dt wfh"
   }), wfhUsed, " wfh")), cap.undated ? React.createElement("span", {
     className: "chip",
-    title: `No timeframe — capacity is base velocity (${Math.round(cap.baseVelocity)} pts${cap.isGoal ? ", from goal" : ""})`
+    title: "Set the upcoming sprint working days in Settings to project velocity"
   }, React.createElement(Icon, {
     name: "cal",
     size: 12
-  }), "base ", Math.round(cap.baseVelocity)) : React.createElement("span", {
+  }), "no sprint set") : React.createElement("span", {
     className: "chip",
-    title: `${cap.available} working days available (${cap.workDays} total in this sprint after weekends + holidays)`
+    title: `${cap.available} days available = ${cap.workDays} upcoming working days − ${hol} holiday${hol === 1 ? "" : "s"} − ${cap.leave} leave · avg ${cap.baseVelocity.toFixed(1)}/sprint → ${cap.pointsPerDay.toFixed(2)}/day`
   }, React.createElement(Icon, {
     name: "cal",
     size: 12
@@ -1338,7 +1377,7 @@ function CapCard({
     style: {
       color: "var(--rc)"
     },
-    title: "Federal holidays in this sprint (already subtracted)"
+    title: "Federal holidays in the upcoming sprint (already subtracted)"
   }, hol, "d hol"), !cap.undated && cap.leave > 0 && React.createElement("span", {
     className: "chip",
     title: "Personal leave in this sprint"
@@ -1647,6 +1686,7 @@ function Planner({
   mode,
   setMode,
   hidePast,
+  velCfg,
   jiraBase,
   onAssign,
   onWfh,
@@ -1688,13 +1728,29 @@ function Planner({
       wfh: w
     };
   }, [inSprint]);
-  const caps = useMemo(() => projPeople.map(p => ({
-    p,
-    cap: VP.capacity(p, sprint)
-  })), [projPeople, sprint]);
-  const undated = VP.isUndated(sprint);
-  const workDays = VP.sprintWorkDays(sprint).length;
-  const holidays = VP.holidaysInRange(sprint.start, sprint.end);
+  const up = velCfg && velCfg.upcoming || {};
+  const upDated = !!(up.start && up.end);
+  const holidays = upDated ? VP.holidaysInRange(up.start, up.end) : [];
+  const caps = useMemo(() => projPeople.map(p => {
+    const pv = VP.projectedVelocity(p, velCfg);
+    return {
+      p,
+      cap: {
+        adjusted: pv.velocity,
+        baseVelocity: pv.avgPerSprint,
+        isGoal: pv.totalPts === 0,
+        leave: pv.leave,
+        available: pv.available,
+        workDays: pv.gross,
+        undated: pv.gross === 0,
+        pointsPerDay: pv.pointsPerDay,
+        wfh: null,
+        wfhPoints: null
+      }
+    };
+  }), [projPeople, velCfg]);
+  const undated = !up.workingDays;
+  const workDays = up.workingDays || 0;
   const totalAssigned = Object.values(assignedBy.pts).reduce((a, b) => a + b, 0);
   const totalCap = caps.reduce((a, c) => a + c.cap.adjusted, 0);
   return React.createElement("div", {
@@ -1731,13 +1787,13 @@ function Planner({
     className: "sprint-head"
   }, React.createElement("div", null, React.createElement("h2", null, sprintName ? label(sprint) : "No sprint"), React.createElement("div", {
     className: "sub"
-  }, sprintName ? fmtRange(sprint.start, sprint.end) : "Import tickets, then set the current sprint in Settings.")), React.createElement("div", {
+  }, upDated ? `Upcoming window · ${fmtRange(up.start, up.end)}` : sprintName ? "Set the upcoming sprint window in Settings" : "Import tickets to get started")), React.createElement("div", {
     className: "div"
   }), React.createElement("div", {
     className: "metric"
   }, React.createElement("span", {
     className: "k"
-  }, "Work days"), React.createElement("span", {
+  }, "Working days"), React.createElement("span", {
     className: "v"
   }, undated ? "—" : workDays)), React.createElement("div", {
     className: "metric"
@@ -1755,7 +1811,7 @@ function Planner({
     className: "metric"
   }, React.createElement("span", {
     className: "k"
-  }, undated ? "Base cap" : "Capacity"), React.createElement("span", {
+  }, "Velocity"), React.createElement("span", {
     className: "v"
   }, totalCap)), React.createElement("div", {
     style: {
@@ -1927,6 +1983,7 @@ function Planner({
     sprints: sprints,
     currentIdx: currentIdx,
     hidePast: hidePast,
+    velCfg: velCfg,
     jiraBase: jiraBase,
     onOpenDesc: onOpenDesc
   }));
@@ -1938,17 +1995,19 @@ function MultiView({
   sprints,
   currentIdx,
   hidePast,
+  velCfg,
   onOpenDesc
 }) {
   const isDone = t => t.resolution && VP.DONE_RESOLUTIONS.includes(t.resolution);
   const projPeople = people.filter(p => p.project === project);
+  const teamVel = projPeople.reduce((a, p) => a + VP.projectedVelocity(p, velCfg).velocity, 0);
   return React.createElement("div", {
     className: "multi-cols"
   }, sprints.map((s, i) => {
     if (hidePast && i < currentIdx) return null;
     const list = tickets.filter(t => VP.projectForKey(t.key) === project && !isDone(t) && t.sprints.includes(s.name) && t.assignee);
     const assigned = list.reduce((a, t) => a + t.points, 0);
-    const cap = projPeople.reduce((a, p) => a + VP.capacity(p, s).adjusted, 0);
+    const cap = teamVel;
     const over = assigned > cap;
     return React.createElement("div", {
       className: "mcol",
@@ -2248,6 +2307,7 @@ function Team({
   currentProject,
   sprints,
   currentIdx,
+  velCfg,
   onAdd,
   onEdit,
   onRemove
@@ -2259,13 +2319,15 @@ function Team({
   const cur = Number.isInteger(currentIdx) ? currentIdx : sprints.length;
   const pastSprints = sprints.slice(0, cur).reverse();
   const cols = pastSprints.slice(0, 4);
+  const shown = projects.filter(p => p.id === currentProject);
+  const scopedTotal = people.filter(p => p.project === currentProject).length;
   return React.createElement("div", {
     className: "wrap"
   }, React.createElement("div", {
     className: "team-head"
-  }, React.createElement("div", null, React.createElement("h2", null, "Team"), React.createElement("div", {
+  }, React.createElement("div", null, React.createElement("h2", null, "Team \xB7 ", currentProject), React.createElement("div", {
     className: "sub"
-  }, total, " people across ", projects.length, " projects \xB7", " ", tab === "cards" ? "auto-created from ticket assignees on import" : "per-person velocity from completed historical tickets")), React.createElement("div", {
+  }, scopedTotal, " ", scopedTotal === 1 ? "person" : "people", " \xB7", " ", tab === "cards" ? "auto-created from ticket assignees on import" : "per-person velocity from completed historical tickets")), React.createElement("div", {
     style: {
       display: "flex",
       gap: 10,
@@ -2290,11 +2352,14 @@ function Team({
   }, React.createElement(Icon, {
     name: "plus",
     size: 15
-  }), " Add person"))), projects.map(proj => {
+  }), " Add person"))), shown.map(proj => {
     const list = people.filter(p => p.project === proj.id);
     const color = PROJ_COLOR[proj.id];
-    const withHist = list.filter(p => p.history && p.history.length);
-    const teamAvg = withHist.length ? withHist.reduce((s, p) => s + VP.velocity(p).average, 0) / withHist.length : 0;
+    const vrows = list.map(p => ({
+      p,
+      pv: VP.projectedVelocity(p, velCfg)
+    })).sort((a, b) => b.pv.velocity - a.pv.velocity);
+    const teamVel = vrows.reduce((s, r) => s + r.pv.velocity, 0);
     return React.createElement("section", {
       className: "team-section",
       key: proj.id
@@ -2315,13 +2380,13 @@ function Team({
       }
     }), tab === "velocity" ? React.createElement("span", {
       className: "chip",
-      title: "Team average velocity"
-    }, "team avg ", React.createElement("b", {
+      title: "Projected team velocity for the upcoming sprint"
+    }, "team velocity ", React.createElement("b", {
       style: {
         fontFamily: "var(--font-mono)",
         marginLeft: 4
       }
-    }, teamAvg ? teamAvg.toFixed(1) : "—")) : React.createElement("button", {
+    }, teamVel || "—")) : React.createElement("button", {
       className: "btn sm",
       onClick: () => {
         setAddProj(proj.id);
@@ -2348,10 +2413,7 @@ function Team({
       }),
       onRemove: onRemove
     }))) : React.createElement(VelocityTable, {
-      rows: list.map(p => ({
-        p,
-        v: VP.velocity(p)
-      })).sort((a, b) => b.v.average - a.v.average),
+      rows: vrows,
       cols: cols
     }));
   }), modal && React.createElement(PersonModal, {
@@ -2370,6 +2432,7 @@ function VelocityTable({
   rows,
   cols
 }) {
+  const histCols = cols.length;
   return React.createElement("div", {
     className: "tickets v-table",
     style: {
@@ -2378,26 +2441,38 @@ function VelocityTable({
   }, React.createElement("div", {
     className: "v-grid",
     style: {
-      gridTemplateColumns: `220px 64px 72px repeat(${cols.length}, 1fr)`,
+      gridTemplateColumns: `200px repeat(${histCols}, 46px) 64px 66px 78px 78px`,
       minWidth: 600
     }
   }, React.createElement("div", {
     className: "v-head"
-  }, "Person"), React.createElement("div", {
-    className: "v-head align-r"
-  }, "Avg"), React.createElement("div", {
-    className: "v-head align-r"
-  }, "Sprints"), cols.map(s => React.createElement("div", {
+  }, "Person"), cols.map(s => React.createElement("div", {
     key: s.id,
     className: "v-head align-r",
     style: {
-      fontFamily: "var(--font-mono)"
+      fontFamily: "var(--font-mono)",
+      fontSize: 11
     }
-  }, s.name)), rows.map(({
+  }, s.name)), React.createElement("div", {
+    className: "v-head align-r",
+    title: "Average completed points per past sprint (empty sprints count as 0)"
+  }, "Avg/spr"), React.createElement("div", {
+    className: "v-head align-r",
+    title: "Avg \xF7 past sprint length"
+  }, "Pts/day"), React.createElement("div", {
+    className: "v-head align-r",
+    title: "Upcoming working days \u2212 holidays \u2212 leave"
+  }, "Avail"), React.createElement("div", {
+    className: "v-head align-r",
+    title: "Projected velocity for the upcoming sprint"
+  }, "Velocity"), rows.map(({
     p,
-    v
+    pv
   }, ri) => {
-    const hist = [...v.perSprint].reverse();
+    const hist = (p.history || []).slice(-histCols).reverse();
+    const availTip = `${pv.gross} working days − ${pv.holidays} holiday${pv.holidays === 1 ? "" : "s"} − ${pv.leave} leave = ${pv.available}`;
+    const avgTip = `${pv.totalPts} pts ÷ ${pv.sprintCount} sprints = ${pv.avgPerSprint.toFixed(2)}`;
+    const ppdTip = `${pv.avgPerSprint.toFixed(2)} ÷ ${pv.pastDays} days = ${pv.pointsPerDay.toFixed(2)}`;
     return React.createElement(React.Fragment, {
       key: p.id
     }, React.createElement("div", {
@@ -2413,18 +2488,27 @@ function VelocityTable({
       className: "nm"
     }, p.name), React.createElement("div", {
       className: "sid"
-    }, p.sid))), React.createElement("div", {
-      className: "v-cell align-r num strong",
-      "data-row": ri
-    }, v.count ? v.average.toFixed(1) : "—"), React.createElement("div", {
-      className: "v-cell align-r num dim",
-      "data-row": ri
-    }, v.count), cols.map((s, ci) => React.createElement("div", {
+    }, p.sid))), cols.map((s, ci) => React.createElement("div", {
       key: s.id,
       className: "v-cell align-r num",
       "data-row": ri,
       "data-empty": hist[ci] == null
-    }, hist[ci] != null ? hist[ci] : "·")));
+    }, hist[ci] != null ? hist[ci] : "·")), React.createElement("div", {
+      className: "v-cell align-r num",
+      "data-row": ri,
+      title: avgTip
+    }, pv.totalPts ? pv.avgPerSprint.toFixed(1) : "—"), React.createElement("div", {
+      className: "v-cell align-r num dim",
+      "data-row": ri,
+      title: ppdTip
+    }, pv.totalPts ? pv.pointsPerDay.toFixed(2) : "—"), React.createElement("div", {
+      className: "v-cell align-r num dim",
+      "data-row": ri,
+      title: availTip
+    }, pv.available), React.createElement("div", {
+      className: "v-cell align-r num strong",
+      "data-row": ri
+    }, pv.totalPts ? pv.velocity : "—"));
   })));
 }
 window.Team = Team;
@@ -2447,9 +2531,9 @@ function Settings({
   onClearImportedLeave,
   onAddLeave,
   onRemoveLeave,
-  sprintConfig,
-  onSprintConfig,
-  onAddNextSprint,
+  velCfg,
+  velCfgResolved,
+  onVelCfg,
   toast,
   onExportData,
   onImportData,
@@ -2713,12 +2797,11 @@ function Settings({
     records: manualLeave,
     onAdd: onAddLeave,
     onRemove: onRemoveLeave
-  }), React.createElement(SprintCadenceCard, {
+  }), React.createElement(SprintSettingsCard, {
     sprints: sprints,
-    currentIdx: currentIdx,
-    sprintConfig: sprintConfig,
-    onSprintConfig: onSprintConfig,
-    onAddNextSprint: onAddNextSprint,
+    velCfg: velCfg,
+    velCfgResolved: velCfgResolved,
+    onVelCfg: onVelCfg,
     hidePast: hidePast,
     setHidePast: setHidePast
   }), React.createElement("div", {
@@ -3040,26 +3123,37 @@ function ManualLeaveCard({
     size: 11
   })))))))));
 }
-function SprintCadenceCard({
+function SprintSettingsCard({
   sprints,
-  currentIdx,
-  sprintConfig,
-  onSprintConfig,
-  onAddNextSprint,
+  velCfg,
+  velCfgResolved,
+  onVelCfg,
   hidePast,
   setHidePast
 }) {
-  const cfg = sprintConfig || {};
+  const cfg = velCfg || {};
+  const up = cfg.upcoming || {};
+  const detected = sprints.length;
+  const usedCount = velCfgResolved ? velCfgResolved.pastSprintCount : detected;
   const numStyle = {
     fontFamily: "var(--font-mono)",
     fontWeight: 700,
-    fontSize: 13,
+    fontSize: 14,
     padding: "9px 11px",
     borderRadius: 9,
     border: "1px solid var(--border)",
     background: "var(--surface-2)",
-    color: "var(--text)"
+    color: "var(--text)",
+    width: "100%",
+    boxSizing: "border-box"
   };
+  const setUp = patch => onVelCfg({
+    upcoming: {
+      ...up,
+      ...patch
+    }
+  });
+  const holidays = up.start && up.end ? VP.holidaysInRange(up.start, up.end) : [];
   return React.createElement("div", {
     className: "person-card settings-card"
   }, React.createElement("div", {
@@ -3067,47 +3161,108 @@ function SprintCadenceCard({
     style: {
       margin: 0
     }
-  }, "Sprint cadence"), React.createElement("div", {
+  }, "Sprint & velocity"), React.createElement("div", {
     className: "muted",
     style: {
       fontSize: 12.5
     }
-  }, "One sprint per number (e.g. ", React.createElement("b", null, "26.3.5"), "), shared by all projects \u2014 the project tab adds the prefix. Set the current sprint and its start once; every other sprint is dated as back-to-back blocks of this many working days (weekends + federal holidays skipped). The calendar fills in from your imported tickets."), React.createElement("div", {
+  }, "One cadence for the whole team \u2014 these settings are shared across every product; the product tabs just filter the view. Velocity per person = ", React.createElement("b", null, "(avg points per past sprint \xF7 past-sprint length)"), " \xD7 ", React.createElement("b", null, "(upcoming working days \u2212 federal holidays \u2212 that person's leave)"), ". Holidays and each person's leave are pulled automatically."), React.createElement("div", {
+    className: "section-label",
+    style: {
+      marginTop: 14,
+      marginBottom: 6,
+      fontSize: 11.5
+    }
+  }, "Past sprints (history basis)"), React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: "1fr 1.2fr 130px",
+      gridTemplateColumns: "1fr 1fr",
       gap: 10
     }
   }, React.createElement("div", {
     className: "field"
-  }, React.createElement("label", null, "Current sprint #"), React.createElement("input", {
-    value: cfg.current || "",
-    placeholder: "26.3.5",
-    onChange: e => onSprintConfig({
-      current: e.target.value
+  }, React.createElement("label", null, "Past sprint length (working days)"), React.createElement("input", {
+    type: "number",
+    min: 1,
+    max: 40,
+    value: cfg.pastSprintDays || 10,
+    onChange: e => onVelCfg({
+      pastSprintDays: Math.max(1, Math.min(40, Math.round(Number(e.target.value) || 10)))
     }),
     style: numStyle
-  })), React.createElement("div", {
+  }), React.createElement("div", {
+    className: "muted",
+    style: {
+      fontSize: 11.5,
+      marginTop: 4
+    }
+  }, "Divides the average to get points/day. Past sprints were 2-week = 10.")), React.createElement("div", {
     className: "field"
-  }, React.createElement("label", null, "Its start date"), React.createElement(DatePicker, {
-    value: cfg.currentStart || "",
-    onChange: v => onSprintConfig({
-      currentStart: v
+  }, React.createElement("label", null, "Sprints to average over"), React.createElement("input", {
+    type: "number",
+    min: 0,
+    max: 60,
+    value: cfg.pastSprintCount || 0,
+    onChange: e => onVelCfg({
+      pastSprintCount: Math.max(0, Math.round(Number(e.target.value) || 0))
     }),
-    placeholder: "Pick the start"
-  })), React.createElement("div", {
+    style: numStyle
+  }), React.createElement("div", {
+    className: "muted",
+    style: {
+      fontSize: 11.5,
+      marginTop: 4
+    }
+  }, "0 = auto. Using ", React.createElement("b", null, usedCount || "—"), " (", detected, " detected from your tickets). Empty sprints count as 0."))), React.createElement("div", {
+    className: "section-label",
+    style: {
+      marginTop: 16,
+      marginBottom: 6,
+      fontSize: 11.5
+    }
+  }, "Upcoming sprint (the one you're planning)"), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "120px 1fr 1fr",
+      gap: 10
+    }
+  }, React.createElement("div", {
     className: "field"
   }, React.createElement("label", null, "Working days"), React.createElement("input", {
     type: "number",
-    min: 1,
-    max: 30,
-    value: cfg.workingDays || 10,
-    onChange: e => onSprintConfig({
-      workingDays: Math.max(1, Math.min(30, Math.round(Number(e.target.value) || 10)))
+    min: 0,
+    max: 40,
+    value: up.workingDays || 0,
+    onChange: e => setUp({
+      workingDays: Math.max(0, Math.min(40, Math.round(Number(e.target.value) || 0)))
     }),
     style: numStyle
-  }))), React.createElement("label", {
-    className: "opt-row"
+  })), React.createElement("div", {
+    className: "field"
+  }, React.createElement("label", null, "Start date"), React.createElement(DatePicker, {
+    value: up.start || "",
+    onChange: v => setUp({
+      start: v
+    }),
+    placeholder: "Pick start"
+  })), React.createElement("div", {
+    className: "field"
+  }, React.createElement("label", null, "End date"), React.createElement(DatePicker, {
+    value: up.end || "",
+    onChange: v => setUp({
+      end: v
+    }),
+    placeholder: "Pick end"
+  }))), React.createElement("div", {
+    className: "muted",
+    style: {
+      fontSize: 12
+    }
+  }, up.start && up.end ? holidays.length ? React.createElement("span", null, holidays.length, " federal holiday", holidays.length > 1 ? "s" : "", " in range (", holidays.map(fmtDate).join(", "), ") \u2014 subtracted for everyone. Leave is subtracted per person.") : React.createElement("span", null, "No federal holidays in range. Leave is subtracted per person from the leave calendar.") : React.createElement("span", null, "Pick the start and end dates so holidays and leave can be detected.")), React.createElement("label", {
+    className: "opt-row",
+    style: {
+      marginTop: 12
+    }
   }, React.createElement("span", null, React.createElement("div", {
     style: {
       fontWeight: 700,
@@ -3118,7 +3273,7 @@ function SprintCadenceCard({
     style: {
       fontSize: 12
     }
-  }, "Excludes sprints before the current one from the planner tabs and the move-to menus.")), React.createElement("span", {
+  }, "Excludes earlier sprints from the planner tabs and the move-to menus.")), React.createElement("span", {
     className: "switch",
     "data-on": hidePast,
     onClick: () => setHidePast(!hidePast),
@@ -3126,65 +3281,7 @@ function SprintCadenceCard({
     "aria-checked": hidePast
   }, React.createElement("span", {
     className: "knob"
-  }))), React.createElement("div", {
-    className: "sprint-list"
-  }, !cfg.current ? React.createElement("p", {
-    className: "muted",
-    style: {
-      fontSize: 12.5,
-      padding: "4px 0"
-    }
-  }, "Enter the current sprint number above to build the calendar.") : sprints.length === 0 ? React.createElement("p", {
-    className: "muted",
-    style: {
-      fontSize: 12.5,
-      padding: "4px 0"
-    }
-  }, "No sprints yet \u2014 import some tickets.") : sprints.map((s, i) => {
-    const rel = i === currentIdx ? "current" : i < currentIdx ? "past" : "future";
-    if (hidePast && rel === "past") return null;
-    return React.createElement("div", {
-      key: s.id,
-      className: "sprint-row",
-      "data-when": rel
-    }, React.createElement("span", {
-      className: "sprint-badge " + (rel === "current" ? "now" : rel === "past" ? "past" : "future")
-    }, rel === "current" ? "NOW" : rel === "past" ? "PAST" : "NEXT"), React.createElement("span", {
-      className: "sprint-name"
-    }, s.name), React.createElement("span", {
-      className: "muted sprint-dates"
-    }, s.start ? fmtRange(s.start, s.end) : "—"), React.createElement("div", {
-      style: {
-        flex: 1
-      }
-    }), rel !== "current" && React.createElement("button", {
-      className: "iconbtn",
-      title: "Make this the current sprint",
-      style: {
-        width: 28,
-        height: 28
-      },
-      onClick: () => onSprintConfig({
-        current: s.name,
-        currentStart: s.start || cfg.currentStart
-      })
-    }, React.createElement(Icon, {
-      name: "check",
-      size: 13
-    })));
-  })), React.createElement("div", {
-    className: "se-foot"
-  }, React.createElement("div", {
-    style: {
-      flex: 1
-    }
-  }), React.createElement("button", {
-    className: "btn sm",
-    onClick: onAddNextSprint
-  }, React.createElement(Icon, {
-    name: "calplus",
-    size: 14
-  }), " Add next sprint")));
+  }))));
 }
 function ImportHistoryModal({
   people,
@@ -3930,11 +4027,16 @@ function App() {
   const [people, setPeople] = useState(() => (SAVED.people || VP.PEOPLE).map(x => ({
     ...x
   })));
-  const [sprintConfig, setSprintConfig] = useState(() => SAVED.sprintConfig || {
-    current: "",
-    currentStart: "",
-    workingDays: 10
-  });
+  const [velCfg, setVelCfg] = useState(() => ({
+    pastSprintDays: 10,
+    pastSprintCount: 0,
+    upcoming: {
+      workingDays: 10,
+      start: "",
+      end: ""
+    },
+    ...(SAVED.velCfg || {})
+  }));
   const [descTicket, setDescTicket] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [jiraBase, setJiraBase] = useState(() => SAVED.jiraBase != null ? SAVED.jiraBase : "https://jira.example.com");
@@ -3950,15 +4052,24 @@ function App() {
   const writeTimer = useRef(null);
   const fsSupported = !!(window.FSStore && window.FSStore.supported());
   const sprintsList = useMemo(() => {
-    const nums = [...(sprintConfig.extra || [])];
+    const nums = [];
     tickets.forEach(t => (t.sprints || []).forEach(s => nums.push(s)));
-    return VP.buildSprintCalendar(nums, sprintConfig);
-  }, [tickets, sprintConfig]);
-  const currentSprintIdx = useMemo(() => {
-    const cur = VP.parseSprintNumber(sprintConfig.current) || sprintConfig.current;
-    const i = sprintsList.findIndex(s => s.name === cur);
-    return i >= 0 ? i : 0;
-  }, [sprintsList, sprintConfig.current]);
+    return VP.buildSprintCalendar(nums, {});
+  }, [tickets]);
+  const currentSprintIdx = sprintsList.length ? sprintsList.length - 1 : 0;
+  const velCfgResolved = useMemo(() => ({
+    pastSprintDays: velCfg.pastSprintDays || 10,
+    pastSprintCount: velCfg.pastSprintCount > 0 ? velCfg.pastSprintCount : sprintsList.length,
+    upcoming: velCfg.upcoming || {
+      workingDays: 10,
+      start: "",
+      end: ""
+    }
+  }), [velCfg, sprintsList.length]);
+  const onVelCfg = patch => setVelCfg(c => ({
+    ...c,
+    ...patch
+  }));
   useEffect(() => {
     if (sprintIdx >= sprintsList.length) setSprintIdx(Math.max(0, sprintsList.length - 1));
   }, [sprintsList.length]);
@@ -3973,7 +4084,7 @@ function App() {
     v: 1,
     people,
     tickets,
-    sprintConfig,
+    velCfg,
     leave: leaveOverlay,
     jiraBase,
     doneRes,
@@ -3992,7 +4103,7 @@ function App() {
         window.FSStore.write(dirHandle.current, snap).catch(() => {});
       }, 500);
     }
-  }, [people, tickets, sprintConfig, leaveOverlay, jiraBase, doneRes, customRes, project, hidePast, folder]);
+  }, [people, tickets, velCfg, leaveOverlay, jiraBase, doneRes, customRes, project, hidePast, folder]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -4063,38 +4174,13 @@ function App() {
       points: Math.max(0, Math.min(99, Math.round(Number(pts) || 0)))
     });
   };
-  const onSprintConfig = patch => setSprintConfig(c => ({
-    ...c,
-    ...patch
-  }));
-  const onAddNextSprint = () => {
-    const nums = new Set();
-    tickets.forEach(t => (t.sprints || []).forEach(s => {
-      const p = VP.parseSprintNumber(s);
-      if (p) nums.add(p);
-    }));
-    if (sprintConfig.current) nums.add(VP.parseSprintNumber(sprintConfig.current) || sprintConfig.current);
-    const sorted = [...nums].sort((a, b) => VP.sprintSortKey(a) - VP.sprintSortKey(b));
-    const last = sorted[sorted.length - 1];
-    if (!last) {
-      toast("Set the current sprint first", "info");
-      return;
-    }
-    const m = last.match(/(\d+)\.(\d+)\.(\d+)/);
-    const next = `${m[1]}.${m[2]}.${+m[3] + 1}`;
-    setSprintConfig(c => ({
-      ...c,
-      extra: [...new Set([...(c.extra || []), next])]
-    }));
-    toast(`Added sprint ${next}`);
-  };
   const onExportData = () => {
     const payload = {
       version: 1,
       exportedAt: new Date().toISOString(),
       people,
       tickets,
-      sprintConfig,
+      velCfg,
       leave: leaveOverlay,
       jiraBase,
       doneRes,
@@ -4124,9 +4210,10 @@ function App() {
       ...t,
       sprints: (t.sprints || []).map(s => VP.parseSprintNumber(s) || s)
     })));
-    if (d.sprintConfig && typeof d.sprintConfig === "object") setSprintConfig({
-      ...d.sprintConfig
-    });
+    if (d.velCfg && typeof d.velCfg === "object") setVelCfg(c => ({
+      ...c,
+      ...d.velCfg
+    }));
     const leave = Array.isArray(d.leave) ? d.leave : Array.isArray(d.leaveOverlay) ? d.leaveOverlay : null;
     if (leave) {
       VP.LEAVE.length = 0;
@@ -4151,10 +4238,14 @@ function App() {
     VP.LEAVE.length = 0;
     setPeople([]);
     setTickets([]);
-    setSprintConfig({
-      current: "",
-      currentStart: "",
-      workingDays: 10
+    setVelCfg({
+      pastSprintDays: 10,
+      pastSprintCount: 0,
+      upcoming: {
+        workingDays: 10,
+        start: "",
+        end: ""
+      }
     });
     setSprintIdx(0);
     setLeaveOverlay([]);
@@ -4173,7 +4264,7 @@ function App() {
       const h = await window.FSStore.connect();
       dirHandle.current = h;
       const existing = await window.FSStore.read(h);
-      if (existing && (existing.people || existing.tickets || existing.sprintConfig)) {
+      if (existing && (existing.people || existing.tickets || existing.velCfg)) {
         applyData(existing);
         toast(`Connected “${h.name}” · loaded its data`);
       } else {
@@ -4488,6 +4579,7 @@ function App() {
     mode: mode,
     setMode: setMode,
     hidePast: hidePast,
+    velCfg: velCfgResolved,
     jiraBase: jiraBase,
     currentIdx: currentSprintIdx,
     onAssign: onAssign,
@@ -4503,6 +4595,7 @@ function App() {
     currentProject: project,
     sprints: sprintsList,
     currentIdx: currentSprintIdx,
+    velCfg: velCfgResolved,
     onAdd: onAddPerson,
     onEdit: onEditPerson,
     onRemove: onRemovePerson
@@ -4522,9 +4615,9 @@ function App() {
     onClearImportedLeave: onClearImportedLeave,
     onAddLeave: onAddLeave,
     onRemoveLeave: onRemoveLeave,
-    sprintConfig: sprintConfig,
-    onSprintConfig: onSprintConfig,
-    onAddNextSprint: onAddNextSprint,
+    velCfg: velCfg,
+    velCfgResolved: velCfgResolved,
+    onVelCfg: onVelCfg,
     toast: toast,
     onExportData: onExportData,
     onImportData: onImportData,

@@ -254,6 +254,44 @@
     return LEAVE.filter((l) => l.sid === sid && work.has(l.date));
   }
 
+  /*
+   * Projected velocity for the upcoming sprint — the by-hand method, automated:
+   *
+   *   avg points / sprint = total completed points / number of past sprints
+   *                         (all past sprints count; a sprint with no completed
+   *                          work counts as 0)
+   *   points / day        = avg / pastSprintDays   (past sprints were 2-week=10;
+   *                                                  configurable for monthly)
+   *   available days      = upcoming working days you type
+   *                          − federal holidays in the upcoming date range
+   *                          − this person's leave in that range (from the
+   *                            leave calendar — looked up for you)
+   *   velocity            = points/day × available days
+   *
+   * cfg = { pastSprintDays, pastSprintCount, upcoming:{ workingDays, start, end } }
+   */
+  function projectedVelocity(person, cfg) {
+    cfg = cfg || {};
+    const up = cfg.upcoming || {};
+    const pastDays = Math.max(1, +cfg.pastSprintDays || 10);
+    const hist = person.history || [];
+    // Divide by the whole past window (all sprints), not just the ones the
+    // person logged work in — zeros drag the average down, as intended.
+    const sprintCount = Math.max(1, +cfg.pastSprintCount || hist.length || 1);
+    const totalPts = hist.reduce((a, b) => a + b, 0);
+    const avgPerSprint = totalPts / sprintCount;
+    const pointsPerDay = avgPerSprint / pastDays;
+
+    const gross = Math.max(0, Math.round(+up.workingDays || 0));
+    const dated = up.start && up.end;
+    const holidays = dated ? holidaysInRange(up.start, up.end).length : 0;
+    const leave = dated ? leaveDaysInSprint(person.sid, { start: up.start, end: up.end }) : 0;
+    const available = Math.max(0, gross - holidays - leave);
+    const velocity = Math.round(pointsPerDay * available);
+
+    return { totalPts, sprintCount, avgPerSprint, pointsPerDay, pastDays, gross, holidays, leave, available, velocity, dated };
+  }
+
   // ---- contractor WFH budget: <=2 days per calendar week with >=1 work day --
   function wfhBudget(person, sprint) {
     if (person.type !== "contractor") return null;
@@ -308,6 +346,7 @@
     isUndated,
     parseSprintNumber, sprintSortKey, shiftWorkingDays, buildSprintCalendar,
     sprintWorkDays, holidaysInRange, velocity, baseVelocity, deriveHistory,
+    projectedVelocity,
     leaveDaysInSprint, leaveRecords, wfhBudget, capacity,
     parseISO, fmtISO, eachDay,
   };

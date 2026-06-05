@@ -9,7 +9,7 @@ function Settings({
   sprints, currentIdx, people,
   hidePast, setHidePast,
   leaveOverlay, onClearImportedLeave, onAddLeave, onRemoveLeave,
-  sprintConfig, onSprintConfig, onAddNextSprint,
+  velCfg, velCfgResolved, onVelCfg,
   toast, onExportData, onImportData, onClearData,
   fsSupported, folder, folderReconnect, onConnectFolder, onReconnectFolder, onDisconnectFolder,
   onOpenImportHistory, onOpenImportTickets, onOpenImportIcal,
@@ -137,13 +137,12 @@ function Settings({
         onRemove={onRemoveLeave}
       />
 
-      {/* Sprint cadence */}
-      <SprintCadenceCard
+      {/* Sprint & velocity settings (shared across all products) */}
+      <SprintSettingsCard
         sprints={sprints}
-        currentIdx={currentIdx}
-        sprintConfig={sprintConfig}
-        onSprintConfig={onSprintConfig}
-        onAddNextSprint={onAddNextSprint}
+        velCfg={velCfg}
+        velCfgResolved={velCfgResolved}
+        onVelCfg={onVelCfg}
         hidePast={hidePast}
         setHidePast={setHidePast}
       />
@@ -321,82 +320,84 @@ function ManualLeaveCard({ people, records, onAdd, onRemove }) {
 }
 
 /* ============================================================================
-   Sprint cadence card — one shared sprint per number, dated from one anchor
+   Sprint & velocity settings — shared across every product (one cadence)
    ========================================================================== */
-function SprintCadenceCard({ sprints, currentIdx, sprintConfig, onSprintConfig, onAddNextSprint, hidePast, setHidePast }) {
-  const cfg = sprintConfig || {};
-  const numStyle = { fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13, padding: "9px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)" };
+function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg, hidePast, setHidePast }) {
+  const cfg = velCfg || {};
+  const up = cfg.upcoming || {};
+  const detected = sprints.length;
+  const usedCount = velCfgResolved ? velCfgResolved.pastSprintCount : detected;
+  const numStyle = { fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14, padding: "9px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", width: "100%", boxSizing: "border-box" };
+
+  const setUp = (patch) => onVelCfg({ upcoming: { ...up, ...patch } });
+  const holidays = (up.start && up.end) ? VP.holidaysInRange(up.start, up.end) : [];
 
   return (
     <div className="person-card settings-card">
-      <div className="section-label" style={{ margin: 0 }}>Sprint cadence</div>
+      <div className="section-label" style={{ margin: 0 }}>Sprint &amp; velocity</div>
       <div className="muted" style={{ fontSize: 12.5 }}>
-        One sprint per number (e.g. <b>26.3.5</b>), shared by all projects — the project tab adds the prefix.
-        Set the current sprint and its start once; every other sprint is dated as back-to-back blocks of this many
-        working days (weekends + federal holidays skipped). The calendar fills in from your imported tickets.
+        One cadence for the whole team — these settings are shared across every product; the product tabs just filter
+        the view. Velocity per person = <b>(avg points per past sprint ÷ past-sprint length)</b> × <b>(upcoming working
+        days − federal holidays − that person's leave)</b>. Holidays and each person's leave are pulled automatically.
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr 130px", gap: 10 }}>
+      {/* Past sprints → points/day basis */}
+      <div className="section-label" style={{ marginTop: 14, marginBottom: 6, fontSize: 11.5 }}>Past sprints (history basis)</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <div className="field">
-          <label>Current sprint #</label>
-          <input value={cfg.current || ""} placeholder="26.3.5"
-            onChange={(e) => onSprintConfig({ current: e.target.value })} style={numStyle} />
+          <label>Past sprint length (working days)</label>
+          <input type="number" min={1} max={40} value={cfg.pastSprintDays || 10}
+            onChange={(e) => onVelCfg({ pastSprintDays: Math.max(1, Math.min(40, Math.round(Number(e.target.value) || 10))) })}
+            style={numStyle} />
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>Divides the average to get points/day. Past sprints were 2-week = 10.</div>
         </div>
         <div className="field">
-          <label>Its start date</label>
-          <DatePicker value={cfg.currentStart || ""} onChange={(v) => onSprintConfig({ currentStart: v })} placeholder="Pick the start" />
+          <label>Sprints to average over</label>
+          <input type="number" min={0} max={60} value={cfg.pastSprintCount || 0}
+            onChange={(e) => onVelCfg({ pastSprintCount: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
+            style={numStyle} />
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
+            0 = auto. Using <b>{usedCount || "—"}</b> ({detected} detected from your tickets). Empty sprints count as 0.
+          </div>
         </div>
+      </div>
+
+      {/* Upcoming sprint → available days */}
+      <div className="section-label" style={{ marginTop: 16, marginBottom: 6, fontSize: 11.5 }}>Upcoming sprint (the one you're planning)</div>
+      <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr", gap: 10 }}>
         <div className="field">
           <label>Working days</label>
-          <input type="number" min={1} max={30} value={cfg.workingDays || 10}
-            onChange={(e) => onSprintConfig({ workingDays: Math.max(1, Math.min(30, Math.round(Number(e.target.value) || 10))) })}
+          <input type="number" min={0} max={40} value={up.workingDays || 0}
+            onChange={(e) => setUp({ workingDays: Math.max(0, Math.min(40, Math.round(Number(e.target.value) || 0))) })}
             style={numStyle} />
         </div>
+        <div className="field">
+          <label>Start date</label>
+          <DatePicker value={up.start || ""} onChange={(v) => setUp({ start: v })} placeholder="Pick start" />
+        </div>
+        <div className="field">
+          <label>End date</label>
+          <DatePicker value={up.end || ""} onChange={(v) => setUp({ end: v })} placeholder="Pick end" />
+        </div>
+      </div>
+      <div className="muted" style={{ fontSize: 12 }}>
+        {up.start && up.end ? (
+          holidays.length
+            ? <span>{holidays.length} federal holiday{holidays.length > 1 ? "s" : ""} in range ({holidays.map(fmtDate).join(", ")}) — subtracted for everyone. Leave is subtracted per person.</span>
+            : <span>No federal holidays in range. Leave is subtracted per person from the leave calendar.</span>
+        ) : <span>Pick the start and end dates so holidays and leave can be detected.</span>}
       </div>
 
       {/* Hide past sprints toggle */}
-      <label className="opt-row">
+      <label className="opt-row" style={{ marginTop: 12 }}>
         <span>
           <div style={{ fontWeight: 700, fontSize: 13 }}>Hide past sprints</div>
-          <div className="muted" style={{ fontSize: 12 }}>Excludes sprints before the current one from the planner tabs and the move-to menus.</div>
+          <div className="muted" style={{ fontSize: 12 }}>Excludes earlier sprints from the planner tabs and the move-to menus.</div>
         </span>
         <span className="switch" data-on={hidePast} onClick={() => setHidePast(!hidePast)} role="switch" aria-checked={hidePast}>
           <span className="knob" />
         </span>
       </label>
-
-      {/* Derived calendar (read-only) */}
-      <div className="sprint-list">
-        {!cfg.current ? (
-          <p className="muted" style={{ fontSize: 12.5, padding: "4px 0" }}>Enter the current sprint number above to build the calendar.</p>
-        ) : sprints.length === 0 ? (
-          <p className="muted" style={{ fontSize: 12.5, padding: "4px 0" }}>No sprints yet — import some tickets.</p>
-        ) : sprints.map((s, i) => {
-          const rel = i === currentIdx ? "current" : i < currentIdx ? "past" : "future";
-          if (hidePast && rel === "past") return null;
-          return (
-            <div key={s.id} className="sprint-row" data-when={rel}>
-              <span className={"sprint-badge " + (rel === "current" ? "now" : rel === "past" ? "past" : "future")}>
-                {rel === "current" ? "NOW" : rel === "past" ? "PAST" : "NEXT"}
-              </span>
-              <span className="sprint-name">{s.name}</span>
-              <span className="muted sprint-dates">{s.start ? fmtRange(s.start, s.end) : "—"}</span>
-              <div style={{ flex: 1 }} />
-              {rel !== "current" && (
-                <button className="iconbtn" title="Make this the current sprint" style={{ width: 28, height: 28 }}
-                  onClick={() => onSprintConfig({ current: s.name, currentStart: s.start || cfg.currentStart })}>
-                  <Icon name="check" size={13} />
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="se-foot">
-        <div style={{ flex: 1 }} />
-        <button className="btn sm" onClick={onAddNextSprint}><Icon name="calplus" size={14} /> Add next sprint</button>
-      </div>
     </div>
   );
 }

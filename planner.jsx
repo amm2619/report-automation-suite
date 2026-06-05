@@ -22,7 +22,7 @@ function CapCard({ person, assigned, cap, wfhUsed, holidays }) {
         </div>
       </div>
 
-      <div className="cap-nums" title={`${assigned} points assigned · ${cap.adjusted} adjusted capacity (base ${Math.round(cap.baseVelocity)} − ${cap.leave}d leave${hol ? ` − ${hol}d hol` : ""})`}>
+      <div className="cap-nums" title={`${assigned} pts assigned · ${cap.adjusted} projected velocity for the upcoming sprint`}>
         <span className="big">{assigned}</span>
         <span className="slash">/</span>
         <span className="cap">{cap.adjusted}</span>
@@ -43,15 +43,15 @@ function CapCard({ person, assigned, cap, wfhUsed, holidays }) {
           </span>
         )}
         {cap.undated ? (
-          <span className="chip" title={`No timeframe — capacity is base velocity (${Math.round(cap.baseVelocity)} pts${cap.isGoal ? ", from goal" : ""})`}>
-            <Icon name="cal" size={12} />base {Math.round(cap.baseVelocity)}
+          <span className="chip" title="Set the upcoming sprint working days in Settings to project velocity">
+            <Icon name="cal" size={12} />no sprint set
           </span>
         ) : (
-          <span className="chip" title={`${cap.available} working days available (${cap.workDays} total in this sprint after weekends + holidays)`}>
+          <span className="chip" title={`${cap.available} days available = ${cap.workDays} upcoming working days − ${hol} holiday${hol === 1 ? "" : "s"} − ${cap.leave} leave · avg ${cap.baseVelocity.toFixed(1)}/sprint → ${cap.pointsPerDay.toFixed(2)}/day`}>
             <Icon name="cal" size={12} />{cap.available}d
           </span>
         )}
-        {!cap.undated && hol > 0 && <span className="chip" style={{ color: "var(--rc)" }} title="Federal holidays in this sprint (already subtracted)">
+        {!cap.undated && hol > 0 && <span className="chip" style={{ color: "var(--rc)" }} title="Federal holidays in the upcoming sprint (already subtracted)">
           {hol}d hol
         </span>}
         {!cap.undated && cap.leave > 0 && <span className="chip" title="Personal leave in this sprint">
@@ -217,7 +217,7 @@ function byAssignee(list, people) {
   return out;
 }
 
-function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, mode, setMode, hidePast, jiraBase, onAssign, onWfh, onMove, onBacklog, onPoints, onOpenDesc, currentIdx, onOpenImportTickets }) {
+function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, mode, setMode, hidePast, velCfg, jiraBase, onAssign, onWfh, onMove, onBacklog, onPoints, onOpenDesc, currentIdx, onOpenImportTickets }) {
   const [openPop, setOpenPop] = useState(null);
   const [userCollapse, setUserCollapse] = useState({}); // {pid: bool} — explicit user overrides
   // If hide-past flips on while viewing a past sprint, jump to current.
@@ -246,10 +246,21 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
     return { pts: m, wfh: w };
   }, [inSprint]);
 
-  const caps = useMemo(() => projPeople.map((p) => ({ p, cap: VP.capacity(p, sprint) })), [projPeople, sprint]);
-  const undated = VP.isUndated(sprint);
-  const workDays = VP.sprintWorkDays(sprint).length;
-  const holidays = VP.holidaysInRange(sprint.start, sprint.end);
+  // Capacity = the projected velocity for the shared upcoming sprint (same
+  // formula as the Team view), so the bars line up with what people can take on.
+  const up = (velCfg && velCfg.upcoming) || {};
+  const upDated = !!(up.start && up.end);
+  const holidays = upDated ? VP.holidaysInRange(up.start, up.end) : [];
+  const caps = useMemo(() => projPeople.map((p) => {
+    const pv = VP.projectedVelocity(p, velCfg);
+    return { p, cap: {
+      adjusted: pv.velocity, baseVelocity: pv.avgPerSprint, isGoal: pv.totalPts === 0,
+      leave: pv.leave, available: pv.available, workDays: pv.gross,
+      undated: pv.gross === 0, pointsPerDay: pv.pointsPerDay, wfh: null, wfhPoints: null,
+    } };
+  }), [projPeople, velCfg]);
+  const undated = !up.workingDays;
+  const workDays = up.workingDays || 0;
   const totalAssigned = Object.values(assignedBy.pts).reduce((a, b) => a + b, 0);
   const totalCap = caps.reduce((a, c) => a + c.cap.adjusted, 0);
 
@@ -281,13 +292,13 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
           <div className="sprint-head">
             <div>
               <h2>{sprintName ? label(sprint) : "No sprint"}</h2>
-              <div className="sub">{sprintName ? fmtRange(sprint.start, sprint.end) : "Import tickets, then set the current sprint in Settings."}</div>
+              <div className="sub">{upDated ? `Upcoming window · ${fmtRange(up.start, up.end)}` : (sprintName ? "Set the upcoming sprint window in Settings" : "Import tickets to get started")}</div>
             </div>
             <div className="div" />
-            <div className="metric"><span className="k">Work days</span><span className="v">{undated ? "—" : workDays}</span></div>
+            <div className="metric"><span className="k">Working days</span><span className="v">{undated ? "—" : workDays}</span></div>
             <div className="metric"><span className="k">Holidays</span><span className="v">{undated ? "—" : holidays.length}</span></div>
             <div className="metric"><span className="k">Assigned</span><span className="v">{totalAssigned}</span></div>
-            <div className="metric"><span className="k">{undated ? "Base cap" : "Capacity"}</span><span className="v">{totalCap}</span></div>
+            <div className="metric"><span className="k">Velocity</span><span className="v">{totalCap}</span></div>
             <div style={{ flex: 1 }} />
             <button className="btn" onClick={onOpenImportTickets}><Icon name="download" size={15} /> Import tickets</button>
           </div>
@@ -370,23 +381,26 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
           )}
         </React.Fragment>
       ) : (
-        <MultiView project={project} tickets={tickets} people={people} sprints={sprints} currentIdx={currentIdx} hidePast={hidePast} jiraBase={jiraBase} onOpenDesc={onOpenDesc} />
+        <MultiView project={project} tickets={tickets} people={people} sprints={sprints} currentIdx={currentIdx} hidePast={hidePast} velCfg={velCfg} jiraBase={jiraBase} onOpenDesc={onOpenDesc} />
       )}
     </div>
   );
 }
 
 /* ---- multi sprint columns ---- */
-function MultiView({ project, tickets, people, sprints, currentIdx, hidePast, onOpenDesc }) {
+function MultiView({ project, tickets, people, sprints, currentIdx, hidePast, velCfg, onOpenDesc }) {
   const isDone = (t) => t.resolution && VP.DONE_RESOLUTIONS.includes(t.resolution);
   const projPeople = people.filter((p) => p.project === project);
+  // Forward-looking team velocity for the shared upcoming window (same for
+  // every column — it's the projection, not per-historical-sprint capacity).
+  const teamVel = projPeople.reduce((a, p) => a + VP.projectedVelocity(p, velCfg).velocity, 0);
   return (
     <div className="multi-cols">
       {sprints.map((s, i) => {
         if (hidePast && i < currentIdx) return null;
         const list = tickets.filter((t) => VP.projectForKey(t.key) === project && !isDone(t) && t.sprints.includes(s.name) && t.assignee);
         const assigned = list.reduce((a, t) => a + t.points, 0);
-        const cap = projPeople.reduce((a, p) => a + VP.capacity(p, s).adjusted, 0);
+        const cap = teamVel;
         const over = assigned > cap;
         return (
           <div className="mcol" key={s.id}>
