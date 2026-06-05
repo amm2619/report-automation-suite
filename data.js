@@ -137,6 +137,15 @@
     const m = String(num || "").match(/(\d+)\.(\d+)\.(\d+)/);
     return m ? (+m[1]) * 1e6 + (+m[2]) * 1e3 + (+m[3]) : Infinity;
   }
+  // Suggest the sprint after the latest one in a list (bump the last segment),
+  // so a freshly planned sprint gets a name that won't collide with history.
+  function nextSprintName(names) {
+    const nums = (names || []).map(parseSprintNumber).filter(Boolean);
+    if (!nums.length) return "";
+    const latest = nums.sort((a, b) => sprintSortKey(a) - sprintSortKey(b)).pop();
+    const m = latest.match(/(\d+)\.(\d+)\.(\d+)/);
+    return `${m[1]}.${m[2]}.${+m[3] + 1}`;
+  }
   function isWorkingDay(dt) {
     const g = dt.getDay();
     if (g === 0 || g === 6) return false;
@@ -344,7 +353,7 @@
     projectForKey,
     // calc
     isUndated,
-    parseSprintNumber, sprintSortKey, shiftWorkingDays, buildSprintCalendar,
+    parseSprintNumber, sprintSortKey, nextSprintName, shiftWorkingDays, buildSprintCalendar,
     sprintWorkDays, holidaysInRange, velocity, baseVelocity, deriveHistory,
     projectedVelocity,
     leaveDaysInSprint, leaveRecords, wfhBudget, capacity,

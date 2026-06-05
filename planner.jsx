@@ -98,23 +98,18 @@ function AssignPop({ ticket, people, onPick, onClose }) {
   );
 }
 
-/* ---- move-to-sprint popover ---- */
-function MovePop({ ticket, sprints, curName, currentIdx, hidePast, onMove, onBacklog, onClose }) {
+/* ---- move-to-sprint popover — one upcoming sprint, or back to the backlog ---- */
+function MovePop({ ticket, upcomingName, onMove, onBacklog, onClose }) {
   const ref = useRef(null);
   useClickOutside(ref, onClose);
+  const inSprint = upcomingName && ticket.sprints.includes(upcomingName);
   return (
     <div className="pop" ref={ref} style={{ right: 0, top: "calc(100% + 6px)", minWidth: 200 }}>
-      <div className="pop-label">Move to sprint</div>
-      {sprints.map((s, i) => {
-        if (hidePast && i < currentIdx) return null;
-        return (
-          <button key={s.id} className="pop-item" data-active={ticket.sprints.includes(s.name)} onClick={() => onMove(s.name)}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700 }}>{s.name}</span>
-            <span className="meta">{fmtDate(s.start)}</span>
-          </button>
-        );
-      })}
-      <div className="pop-sep" />
+      {upcomingName && (
+        <button className="pop-item" data-active={inSprint} onClick={() => onMove(upcomingName)}>
+          <Icon name="calplus" size={14} /> <span>Add to {upcomingName}</span>
+        </button>
+      )}
       <button className="pop-item" onClick={onBacklog} style={{ color: "var(--text-dim)" }}>
         <Icon name="history" size={14} /> <span>Return to backlog</span>
       </button>
@@ -123,7 +118,7 @@ function MovePop({ ticket, sprints, curName, currentIdx, hidePast, onMove, onBac
 }
 
 /* ---- ticket row ---- */
-function TicketRow({ ticket, people, jiraBase, sprints, curName, currentIdx, hidePast, openPop, setOpenPop, onAssign, onWfh, onMove, onBacklog, onPoints, onOpenDesc, variant = "sprint" }) {
+function TicketRow({ ticket, people, jiraBase, upcomingName, openPop, setOpenPop, onAssign, onWfh, onMove, onBacklog, onPoints, onOpenDesc, variant = "sprint" }) {
   const proj = VP.projectForKey(ticket.key);
   const color = PROJ_COLOR[proj];
   const assignee = people.find((p) => p.id === ticket.assignee);
@@ -171,7 +166,7 @@ function TicketRow({ ticket, people, jiraBase, sprints, curName, currentIdx, hid
           <button className="iconbtn" style={{ width: 30, height: 30 }} onClick={() => setOpenPop(popM ? null : { id: ticket.id, type: "move" })} aria-label="Move ticket">
             <Icon name="dots" size={16} />
           </button>
-          {popM && <MovePop ticket={ticket} sprints={sprints} curName={curName} currentIdx={currentIdx} hidePast={hidePast} onClose={() => setOpenPop(null)}
+          {popM && <MovePop ticket={ticket} upcomingName={upcomingName} onClose={() => setOpenPop(null)}
             onMove={(nm) => { onMove(ticket, nm); setOpenPop(null); }} onBacklog={() => { onBacklog(ticket); setOpenPop(null); }} />}
         </div>
       </div>
@@ -217,25 +212,21 @@ function byAssignee(list, people) {
   return out;
 }
 
-function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, mode, setMode, hidePast, velCfg, jiraBase, onAssign, onWfh, onMove, onBacklog, onPoints, onOpenDesc, currentIdx, onOpenImportTickets }) {
+function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, onMove, onBacklog, onPoints, onOpenDesc, onOpenImportTickets }) {
   const [openPop, setOpenPop] = useState(null);
   const [userCollapse, setUserCollapse] = useState({}); // {pid: bool} — explicit user overrides
-  // If hide-past flips on while viewing a past sprint, jump to current.
-  useEffect(() => {
-    if (hidePast && sprintIdx < currentIdx) setSprintIdx(currentIdx);
-  }, [hidePast, sprintIdx, currentIdx, setSprintIdx]);
-  // Sprints are shared by number; the active project supplies the label prefix.
-  const label = (s) => (s && s.name ? `${project} ${s.name}` : "—");
-  const sprint = sprints[sprintIdx] || sprints[0] || { id: "_none", name: "", start: null, end: null };
-  const sprintName = sprint.name;
+  // The one sprint we're planning. Its name lives in the shared velocity config.
+  const up = (velCfg && velCfg.upcoming) || {};
+  const upcomingName = up.name || "";
+  const label = upcomingName ? `${project} ${upcomingName}` : "Upcoming sprint";
 
   const projPeople = useMemo(() => people.filter((p) => p.project === project), [people, project]);
   const isDone = (t) => t.resolution && VP.DONE_RESOLUTIONS.includes(t.resolution);
 
-  // tickets in this project + sprint (active work)
-  const inSprint = useMemo(() => tickets.filter((t) => VP.projectForKey(t.key) === project && !isDone(t) && t.sprints.includes(sprintName)), [tickets, project, sprintName]);
-  // unassigned backlog candidates for this project
-  const backlog = useMemo(() => tickets.filter((t) => VP.projectForKey(t.key) === project && !isDone(t) && t.sprints.length === 0), [tickets, project]);
+  // Tickets pulled into the upcoming sprint vs. everything still available to
+  // schedule (unsprinted work + incomplete carryover from earlier sprints).
+  const inSprint = useMemo(() => tickets.filter((t) => VP.projectForKey(t.key) === project && !isDone(t) && upcomingName && t.sprints.includes(upcomingName)), [tickets, project, upcomingName]);
+  const backlog = useMemo(() => tickets.filter((t) => VP.projectForKey(t.key) === project && !isDone(t) && !(upcomingName && t.sprints.includes(upcomingName))), [tickets, project, upcomingName]);
 
   // assigned points per person this sprint
   const assignedBy = useMemo(() => {
@@ -248,7 +239,6 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
 
   // Capacity = the projected velocity for the shared upcoming sprint (same
   // formula as the Team view), so the bars line up with what people can take on.
-  const up = (velCfg && velCfg.upcoming) || {};
   const upDated = !!(up.start && up.end);
   const holidays = upDated ? VP.holidaysInRange(up.start, up.end) : [];
   const caps = useMemo(() => projPeople.map((p) => {
@@ -266,33 +256,12 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
 
   return (
     <div className="wrap">
-      {/* sprint selector bar */}
-      <div className="sprint-bar">
-        <div className="sprint-tabs">
-          {sprints.map((s, i) => {
-            const isPast = i < currentIdx;
-            if (hidePast && isPast) return null;
-            return (
-              <button key={s.id} className="sprint-tab" data-active={i === sprintIdx} data-current={i === currentIdx} data-past={isPast} data-undated={VP.isUndated(s)} onClick={() => setSprintIdx(i)}>
-                {label(s)}
-              </button>
-            );
-          })}
-        </div>
-        <div style={{ flex: 1 }} />
-        <div className="mode-toggle">
-          <button data-active={mode === "single"} onClick={() => setMode("single")}>Single</button>
-          <button data-active={mode === "multi"} onClick={() => setMode("multi")}>Multi</button>
-        </div>
-      </div>
-
-      {mode === "single" ? (
         <React.Fragment>
           {/* sprint header */}
           <div className="sprint-head">
             <div>
-              <h2>{sprintName ? label(sprint) : "No sprint"}</h2>
-              <div className="sub">{upDated ? `Upcoming window · ${fmtRange(up.start, up.end)}` : (sprintName ? "Set the upcoming sprint window in Settings" : "Import tickets to get started")}</div>
+              <h2>{label}</h2>
+              <div className="sub">{upDated ? `Planning window · ${fmtRange(up.start, up.end)}` : "Set the upcoming sprint window in Settings"}</div>
             </div>
             <div className="div" />
             <div className="metric"><span className="k">Working days</span><span className="v">{undated ? "—" : workDays}</span></div>
@@ -316,7 +285,7 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
           {/* ticket list — grouped by assignee */}
           <div className="section-label">In this sprint · {inSprint.length} tickets · {inSprint.reduce((a, t) => a + t.points, 0)} pts</div>
           <div className="tickets" style={{ marginBottom: 20 }}>
-            {inSprint.length === 0 && <div className="empty-state">No tickets assigned to this sprint yet.</div>}
+            {inSprint.length === 0 && <div className="empty-state">{upcomingName ? "Nothing pulled in yet — add tickets from the backlog below." : "Set the upcoming sprint in Settings to start planning."}</div>}
             {byAssignee(inSprint, people).map(({ key, person, tickets: list, points }) => {
               const cap = person ? caps.find((c) => c.p.id === person.id)?.cap : null;
               const over = cap && points > cap.adjusted;
@@ -355,7 +324,7 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
                     )}
                   </div>
                   {!collapsed && list.map((t) => (
-                    <TicketRow key={t.id} ticket={t} people={projPeople} jiraBase={jiraBase} sprints={sprints} curName={sprintName} currentIdx={currentIdx} hidePast={hidePast}
+                    <TicketRow key={t.id} ticket={t} people={projPeople} jiraBase={jiraBase} upcomingName={upcomingName}
                       openPop={openPop} setOpenPop={setOpenPop} onAssign={onAssign} onWfh={onWfh}
                       onMove={(tk, nm) => onMove(tk, nm)} onBacklog={onBacklog} onPoints={onPoints} onOpenDesc={onOpenDesc} />
                   ))}
@@ -370,9 +339,9 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
               <div className="section-label">Backlog · assignment candidates · {backlog.length}</div>
               <div className="tickets">
                 {backlog.map((t) => (
-                  <TicketRow key={t.id} ticket={t} people={projPeople} jiraBase={jiraBase} sprints={sprints} curName={sprintName} currentIdx={currentIdx} hidePast={hidePast}
+                  <TicketRow key={t.id} ticket={t} people={projPeople} jiraBase={jiraBase} upcomingName={upcomingName}
                     openPop={openPop} setOpenPop={setOpenPop}
-                    onAssign={(tk, pid) => onAssign(tk, pid, sprintName)} onWfh={onWfh}
+                    onAssign={(tk, pid) => onAssign(tk, pid, upcomingName)} onWfh={onWfh}
                     onMove={(tk, nm) => onMove(tk, nm)} onBacklog={onBacklog} onPoints={onPoints} onOpenDesc={onOpenDesc}
                     variant="backlog" />
                 ))}
@@ -380,56 +349,6 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
             </React.Fragment>
           )}
         </React.Fragment>
-      ) : (
-        <MultiView project={project} tickets={tickets} people={people} sprints={sprints} currentIdx={currentIdx} hidePast={hidePast} velCfg={velCfg} jiraBase={jiraBase} onOpenDesc={onOpenDesc} />
-      )}
-    </div>
-  );
-}
-
-/* ---- multi sprint columns ---- */
-function MultiView({ project, tickets, people, sprints, currentIdx, hidePast, velCfg, onOpenDesc }) {
-  const isDone = (t) => t.resolution && VP.DONE_RESOLUTIONS.includes(t.resolution);
-  const projPeople = people.filter((p) => p.project === project);
-  // Forward-looking team velocity for the shared upcoming window (same for
-  // every column — it's the projection, not per-historical-sprint capacity).
-  const teamVel = projPeople.reduce((a, p) => a + VP.projectedVelocity(p, velCfg).velocity, 0);
-  return (
-    <div className="multi-cols">
-      {sprints.map((s, i) => {
-        if (hidePast && i < currentIdx) return null;
-        const list = tickets.filter((t) => VP.projectForKey(t.key) === project && !isDone(t) && t.sprints.includes(s.name) && t.assignee);
-        const assigned = list.reduce((a, t) => a + t.points, 0);
-        const cap = teamVel;
-        const over = assigned > cap;
-        return (
-          <div className="mcol" key={s.id}>
-            <div className="mcol-head">
-              <div className="nm">{project} {s.name}</div>
-              <div className="dt">{fmtRange(s.start, s.end)}</div>
-              <div className="bar" style={{ marginTop: 8 }}>
-                <i style={{ width: pct(assigned, cap) + "%", background: over ? "var(--danger)" : PROJ_COLOR[project] }} />
-              </div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, marginTop: 5, color: over ? "var(--danger)" : "var(--text-faint)" }}>{assigned} / {cap} pts</div>
-            </div>
-            <div className="mcol-body">
-              {list.length === 0 && <div className="muted" style={{ padding: 14, fontSize: 12, textAlign: "center" }}>No tickets</div>}
-              {list.map((t) => {
-                const a = people.find((p) => p.id === t.assignee);
-                return (
-                  <div className="mini-tk" key={t.id} onClick={() => onOpenDesc(t)} style={{ cursor: "pointer" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span className="k" style={{ color: PROJ_COLOR[project] }}>{t.key}</span>
-                      <span style={{ fontFamily: "var(--font-mono)", fontWeight: 800, fontSize: 12 }}>{t.points}</span>
-                    </div>
-                    <div className="s">{t.summary}</div>
-                    {a && <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}><Avatar name={a.name} proj={a.project} className="av" style={{ width: 18, height: 18 }} /><span style={{ fontSize: 11, color: "var(--text-faint)" }}>{a.name}</span></div>}
-                  </div>
-                );
-              })}            </div>
-          </div>
-        );
-      })}
     </div>
   );
 }

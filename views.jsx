@@ -6,8 +6,7 @@
 function Settings({
   jiraBase, setJiraBase,
   doneRes, setDoneRes, customRes, setCustomRes,
-  sprints, currentIdx, people,
-  hidePast, setHidePast,
+  sprints, people,
   leaveOverlay, onClearImportedLeave, onAddLeave, onRemoveLeave,
   velCfg, velCfgResolved, onVelCfg,
   toast, onExportData, onImportData, onClearData,
@@ -143,8 +142,6 @@ function Settings({
         velCfg={velCfg}
         velCfgResolved={velCfgResolved}
         onVelCfg={onVelCfg}
-        hidePast={hidePast}
-        setHidePast={setHidePast}
       />
 
       {/* Data — auto-save, folder sync, clear */}
@@ -322,11 +319,13 @@ function ManualLeaveCard({ people, records, onAdd, onRemove }) {
 /* ============================================================================
    Sprint & velocity settings — shared across every product (one cadence)
    ========================================================================== */
-function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg, hidePast, setHidePast }) {
+function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg }) {
   const cfg = velCfg || {};
   const up = cfg.upcoming || {};
-  const detected = sprints.length;
-  const usedCount = velCfgResolved ? velCfgResolved.pastSprintCount : detected;
+  const resolvedUp = (velCfgResolved && velCfgResolved.upcoming) || {};
+  const usedCount = velCfgResolved ? velCfgResolved.pastSprintCount : sprints.length;
+  // Past sprints = the detected numbers minus the one we're planning.
+  const detected = sprints.filter((s) => s.name !== resolvedUp.name).length;
   const numStyle = { fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14, padding: "9px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", width: "100%", boxSizing: "border-box" };
 
   const setUp = (patch) => onVelCfg({ upcoming: { ...up, ...patch } });
@@ -364,7 +363,12 @@ function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg, hidePas
 
       {/* Upcoming sprint → available days */}
       <div className="section-label" style={{ marginTop: 16, marginBottom: 6, fontSize: 11.5 }}>Upcoming sprint (the one you're planning)</div>
-      <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 1fr 1fr", gap: 10 }}>
+        <div className="field">
+          <label>Sprint #</label>
+          <input value={up.name || ""} placeholder={resolvedUp.name || "26.4.1"}
+            onChange={(e) => setUp({ name: e.target.value })} style={numStyle} />
+        </div>
         <div className="field">
           <label>Working days</label>
           <input type="number" min={0} max={40} value={up.workingDays || 0}
@@ -381,23 +385,13 @@ function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg, hidePas
         </div>
       </div>
       <div className="muted" style={{ fontSize: 12 }}>
+        Planning <b>{resolvedUp.name || "—"}</b>{!up.name && resolvedUp.name ? " (auto, next after your latest sprint)" : ""}.{" "}
         {up.start && up.end ? (
           holidays.length
             ? <span>{holidays.length} federal holiday{holidays.length > 1 ? "s" : ""} in range ({holidays.map(fmtDate).join(", ")}) — subtracted for everyone. Leave is subtracted per person.</span>
             : <span>No federal holidays in range. Leave is subtracted per person from the leave calendar.</span>
         ) : <span>Pick the start and end dates so holidays and leave can be detected.</span>}
       </div>
-
-      {/* Hide past sprints toggle */}
-      <label className="opt-row" style={{ marginTop: 12 }}>
-        <span>
-          <div style={{ fontWeight: 700, fontSize: 13 }}>Hide past sprints</div>
-          <div className="muted" style={{ fontSize: 12 }}>Excludes earlier sprints from the planner tabs and the move-to menus.</div>
-        </span>
-        <span className="switch" data-on={hidePast} onClick={() => setHidePast(!hidePast)} role="switch" aria-checked={hidePast}>
-          <span className="knob" />
-        </span>
-      </label>
     </div>
   );
 }

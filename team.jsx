@@ -106,9 +106,6 @@ function Team({ people, projects, currentProject, sprints, currentIdx, velCfg, o
   const [tab, setTab] = useState("cards"); // 'cards' | 'velocity'
   const total = people.length;
 
-  const cur = Number.isInteger(currentIdx) ? currentIdx : sprints.length;
-  const pastSprints = sprints.slice(0, cur).reverse();
-  const cols = pastSprints.slice(0, 4);
   // One team in view at a time — scope to the active product tab.
   const shown = projects.filter((p) => p.id === currentProject);
   const scopedTotal = people.filter((p) => p.project === currentProject).length;
@@ -170,7 +167,7 @@ function Team({ people, projects, currentProject, sprints, currentIdx, velCfg, o
                 ))}
               </div>
             ) : (
-              <VelocityTable rows={vrows} cols={cols} />
+              <VelocityTable rows={vrows} />
             )}
           </section>
         );
@@ -188,23 +185,19 @@ function Team({ people, projects, currentProject, sprints, currentIdx, velCfg, o
   );
 }
 
-/* ---- Velocity table (per-team) — mirrors the by-hand calc, column by column.
-   recent sprint points → avg/sprint → points/day → upcoming available days →
-   projected velocity for the next sprint. ---- */
-function VelocityTable({ rows, cols }) {
-  const histCols = cols.length;
+/* ---- Velocity table (per-team) — mirrors the by-hand calc, column by column:
+   avg/sprint → points/day → upcoming available days → projected velocity. ---- */
+function VelocityTable({ rows }) {
   return (
     <div className="tickets v-table" style={{ overflowX: "auto" }}>
-      <div className="v-grid" style={{ gridTemplateColumns: `200px repeat(${histCols}, 46px) 64px 66px 78px 78px`, minWidth: 600 }}>
+      <div className="v-grid" style={{ gridTemplateColumns: `1fr 80px 84px 92px 96px`, minWidth: 520 }}>
         <div className="v-head">Person</div>
-        {cols.map((s) => <div key={s.id} className="v-head align-r" style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>{s.name}</div>)}
-        <div className="v-head align-r" title="Average completed points per past sprint (empty sprints count as 0)">Avg/spr</div>
-        <div className="v-head align-r" title="Avg ÷ past sprint length">Pts/day</div>
-        <div className="v-head align-r" title="Upcoming working days − holidays − leave">Avail</div>
-        <div className="v-head align-r" title="Projected velocity for the upcoming sprint">Velocity</div>
+        <div className="v-head align-r" title="Total completed points ÷ number of past sprints (empty sprints count as 0)">Avg / sprint</div>
+        <div className="v-head align-r" title="Avg ÷ past sprint length">Points / day</div>
+        <div className="v-head align-r" title="Upcoming working days − holidays − leave">Avail days</div>
+        <div className="v-head align-r" title="Points/day × available days — projected velocity for the upcoming sprint">Velocity</div>
 
         {rows.map(({ p, pv }, ri) => {
-          const hist = (p.history || []).slice(-histCols).reverse();
           const availTip = `${pv.gross} working days − ${pv.holidays} holiday${pv.holidays === 1 ? "" : "s"} − ${pv.leave} leave = ${pv.available}`;
           const avgTip = `${pv.totalPts} pts ÷ ${pv.sprintCount} sprints = ${pv.avgPerSprint.toFixed(2)}`;
           const ppdTip = `${pv.avgPerSprint.toFixed(2)} ÷ ${pv.pastDays} days = ${pv.pointsPerDay.toFixed(2)}`;
@@ -217,11 +210,6 @@ function VelocityTable({ rows, cols }) {
                   <div className="sid">{p.sid}</div>
                 </div>
               </div>
-              {cols.map((s, ci) => (
-                <div key={s.id} className="v-cell align-r num" data-row={ri} data-empty={hist[ci] == null}>
-                  {hist[ci] != null ? hist[ci] : "·"}
-                </div>
-              ))}
               <div className="v-cell align-r num" data-row={ri} title={avgTip}>{pv.totalPts ? pv.avgPerSprint.toFixed(1) : "—"}</div>
               <div className="v-cell align-r num dim" data-row={ri} title={ppdTip}>{pv.totalPts ? pv.pointsPerDay.toFixed(2) : "—"}</div>
               <div className="v-cell align-r num dim" data-row={ri} title={availTip}>{pv.available}</div>
