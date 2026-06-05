@@ -125,6 +125,68 @@
   // ---- undated sprints: a planning bucket with no committed timeframe ----
   function isUndated(sprint) { return !sprint || !sprint.start || !sprint.end; }
 
+  // ---- sprint numbering ("YY.Q.N") -------------------------------------------
+  // A sprint's identity is its number; any project prefix ("DX 26.3.5") is just
+  // a label. parseSprintNumber pulls the canonical "26.3.5" out of any string.
+  function parseSprintNumber(s) {
+    const m = String(s || "").match(/(\d{2,4})\.(\d+)\.(\d+)/);
+    return m ? `${m[1]}.${m[2]}.${m[3]}` : null;
+  }
+  // Sortable key so 26.3.6 < 26.4.1 and 26.3.2 < 26.3.10.
+  function sprintSortKey(num) {
+    const m = String(num || "").match(/(\d+)\.(\d+)\.(\d+)/);
+    return m ? (+m[1]) * 1e6 + (+m[2]) * 1e3 + (+m[3]) : Infinity;
+  }
+  function isWorkingDay(dt) {
+    const g = dt.getDay();
+    if (g === 0 || g === 6) return false;
+    return !holidaysInRange(fmtISO(dt), fmtISO(dt)).length;
+  }
+  // Date that is `n` working days from `iso` (n<0 walks backward). n=0 returns
+  // the next working day on/after iso.
+  function shiftWorkingDays(iso, n) {
+    const d = parseISO(iso);
+    while (!isWorkingDay(d)) d.setDate(d.getDate() + 1); // snap onto a work day
+    const step = n >= 0 ? 1 : -1;
+    let remaining = Math.abs(n);
+    while (remaining > 0) {
+      d.setDate(d.getDate() + step);
+      if (isWorkingDay(d)) remaining--;
+    }
+    return fmtISO(d);
+  }
+
+  /*
+   * Build the shared sprint calendar from a cadence anchor. One sprint per
+   * number; all projects share it. Sprints are contiguous blocks of
+   * `workingDays` working days (weekends + federal holidays skipped), anchored
+   * so that `config.current` starts on `config.currentStart`.
+   *
+   * config = { current:"26.3.5", currentStart:"2026-05-27", workingDays:10 }
+   * numbers = the distinct sprint numbers to place (e.g. from imported tickets).
+   * Returns [{ id, name:"26.3.5", start, end }] sorted ascending; undated when
+   * the anchor isn't set.
+   */
+  function buildSprintCalendar(numbers, config) {
+    const cfg = config || {};
+    const W = Math.max(1, +cfg.workingDays || 10);
+    const set = new Set();
+    (numbers || []).forEach((n) => { const p = parseSprintNumber(n); if (p) set.add(p); });
+    if (cfg.current) set.add(parseSprintNumber(cfg.current) || cfg.current);
+    const sorted = [...set].sort((a, b) => sprintSortKey(a) - sprintSortKey(b));
+    const anchorIdx = sorted.indexOf(parseSprintNumber(cfg.current) || cfg.current);
+
+    return sorted.map((name, i) => {
+      let start = null, end = null;
+      if (cfg.currentStart && anchorIdx >= 0) {
+        // offset in sprints from the anchor → offset in working days.
+        start = shiftWorkingDays(cfg.currentStart, (i - anchorIdx) * W);
+        end = shiftWorkingDays(start, W - 1);
+      }
+      return { id: "sp_" + name, name, start, end };
+    });
+  }
+
   // ---- work days in a sprint ----
   function sprintWorkDays(sprint) {
     if (isUndated(sprint)) return [];
@@ -244,6 +306,7 @@
     projectForKey,
     // calc
     isUndated,
+    parseSprintNumber, sprintSortKey, shiftWorkingDays, buildSprintCalendar,
     sprintWorkDays, holidaysInRange, velocity, baseVelocity, deriveHistory,
     leaveDaysInSprint, leaveRecords, wfhBudget, capacity,
     parseISO, fmtISO, eachDay,

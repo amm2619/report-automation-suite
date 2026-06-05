@@ -131,6 +131,68 @@
   // ---- undated sprints: a planning bucket with no committed timeframe ----
   function isUndated(sprint) { return !sprint || !sprint.start || !sprint.end; }
 
+  // ---- sprint numbering ("YY.Q.N") -------------------------------------------
+  // A sprint's identity is its number; any project prefix ("DX 26.3.5") is just
+  // a label. parseSprintNumber pulls the canonical "26.3.5" out of any string.
+  function parseSprintNumber(s) {
+    const m = String(s || "").match(/(\d{2,4})\.(\d+)\.(\d+)/);
+    return m ? `${m[1]}.${m[2]}.${m[3]}` : null;
+  }
+  // Sortable key so 26.3.6 < 26.4.1 and 26.3.2 < 26.3.10.
+  function sprintSortKey(num) {
+    const m = String(num || "").match(/(\d+)\.(\d+)\.(\d+)/);
+    return m ? (+m[1]) * 1e6 + (+m[2]) * 1e3 + (+m[3]) : Infinity;
+  }
+  function isWorkingDay(dt) {
+    const g = dt.getDay();
+    if (g === 0 || g === 6) return false;
+    return !holidaysInRange(fmtISO(dt), fmtISO(dt)).length;
+  }
+  // Date that is `n` working days from `iso` (n<0 walks backward). n=0 returns
+  // the next working day on/after iso.
+  function shiftWorkingDays(iso, n) {
+    const d = parseISO(iso);
+    while (!isWorkingDay(d)) d.setDate(d.getDate() + 1); // snap onto a work day
+    const step = n >= 0 ? 1 : -1;
+    let remaining = Math.abs(n);
+    while (remaining > 0) {
+      d.setDate(d.getDate() + step);
+      if (isWorkingDay(d)) remaining--;
+    }
+    return fmtISO(d);
+  }
+
+  /*
+   * Build the shared sprint calendar from a cadence anchor. One sprint per
+   * number; all projects share it. Sprints are contiguous blocks of
+   * `workingDays` working days (weekends + federal holidays skipped), anchored
+   * so that `config.current` starts on `config.currentStart`.
+   *
+   * config = { current:"26.3.5", currentStart:"2026-05-27", workingDays:10 }
+   * numbers = the distinct sprint numbers to place (e.g. from imported tickets).
+   * Returns [{ id, name:"26.3.5", start, end }] sorted ascending; undated when
+   * the anchor isn't set.
+   */
+  function buildSprintCalendar(numbers, config) {
+    const cfg = config || {};
+    const W = Math.max(1, +cfg.workingDays || 10);
+    const set = new Set();
+    (numbers || []).forEach((n) => { const p = parseSprintNumber(n); if (p) set.add(p); });
+    if (cfg.current) set.add(parseSprintNumber(cfg.current) || cfg.current);
+    const sorted = [...set].sort((a, b) => sprintSortKey(a) - sprintSortKey(b));
+    const anchorIdx = sorted.indexOf(parseSprintNumber(cfg.current) || cfg.current);
+
+    return sorted.map((name, i) => {
+      let start = null, end = null;
+      if (cfg.currentStart && anchorIdx >= 0) {
+        // offset in sprints from the anchor → offset in working days.
+        start = shiftWorkingDays(cfg.currentStart, (i - anchorIdx) * W);
+        end = shiftWorkingDays(start, W - 1);
+      }
+      return { id: "sp_" + name, name, start, end };
+    });
+  }
+
   // ---- work days in a sprint ----
   function sprintWorkDays(sprint) {
     if (isUndated(sprint)) return [];
@@ -250,6 +312,7 @@
     projectForKey,
     // calc
     isUndated,
+    parseSprintNumber, sprintSortKey, shiftWorkingDays, buildSprintCalendar,
     sprintWorkDays, holidaysInRange, velocity, baseVelocity, deriveHistory,
     leaveDaysInSprint, leaveRecords, wfhBudget, capacity,
     parseISO, fmtISO, eachDay,
@@ -802,7 +865,7 @@ function parseBoardHtml(html) {
     const project = VP.projectForKey(key);
     if (!project) continue;
     const matches = sprintCols.map(i => get(i)).join(" , ").match(sprintRe) || [];
-    const sprintName = matches.length ? matches[matches.length - 1].trim() : "";
+    const sprintName = matches.length ? VP.parseSprintNumber(matches[matches.length - 1]) || "" : "";
     const assigneeName = norm(get(idxAss), "unassigned");
     rows.push({
       key,
@@ -1599,7 +1662,13 @@ function Planner({
   useEffect(() => {
     if (hidePast && sprintIdx < currentIdx) setSprintIdx(currentIdx);
   }, [hidePast, sprintIdx, currentIdx, setSprintIdx]);
-  const sprint = sprints[sprintIdx];
+  const label = s => s && s.name ? `${project} ${s.name}` : "—";
+  const sprint = sprints[sprintIdx] || sprints[0] || {
+    id: "_none",
+    name: "",
+    start: null,
+    end: null
+  };
   const sprintName = sprint.name;
   const projPeople = useMemo(() => people.filter(p => p.project === project), [people, project]);
   const isDone = t => t.resolution && VP.DONE_RESOLUTIONS.includes(t.resolution);
@@ -1645,7 +1714,7 @@ function Planner({
       "data-past": isPast,
       "data-undated": VP.isUndated(s),
       onClick: () => setSprintIdx(i)
-    }, s.name);
+    }, label(s));
   })), React.createElement("div", {
     style: {
       flex: 1
@@ -1660,9 +1729,9 @@ function Planner({
     onClick: () => setMode("multi")
   }, "Multi"))), mode === "single" ? React.createElement(React.Fragment, null, React.createElement("div", {
     className: "sprint-head"
-  }, React.createElement("div", null, React.createElement("h2", null, "Sprint ", sprintName), React.createElement("div", {
+  }, React.createElement("div", null, React.createElement("h2", null, sprintName ? label(sprint) : "No sprint"), React.createElement("div", {
     className: "sub"
-  }, fmtRange(sprint.start, sprint.end))), React.createElement("div", {
+  }, sprintName ? fmtRange(sprint.start, sprint.end) : "Import tickets, then set the current sprint in Settings.")), React.createElement("div", {
     className: "div"
   }), React.createElement("div", {
     className: "metric"
@@ -1888,7 +1957,7 @@ function MultiView({
       className: "mcol-head"
     }, React.createElement("div", {
       className: "nm"
-    }, s.name), React.createElement("div", {
+    }, project, " ", s.name), React.createElement("div", {
       className: "dt"
     }, fmtRange(s.start, s.end)), React.createElement("div", {
       className: "bar",
@@ -2178,6 +2247,7 @@ function Team({
   projects,
   currentProject,
   sprints,
+  currentIdx,
   onAdd,
   onEdit,
   onRemove
@@ -2186,7 +2256,8 @@ function Team({
   const [addProj, setAddProj] = useState(currentProject);
   const [tab, setTab] = useState("cards");
   const total = people.length;
-  const pastSprints = sprints.slice(0, VP.CURRENT_SPRINT_IDX).reverse();
+  const cur = Number.isInteger(currentIdx) ? currentIdx : sprints.length;
+  const pastSprints = sprints.slice(0, cur).reverse();
   const cols = pastSprints.slice(0, 4);
   return React.createElement("div", {
     className: "wrap"
@@ -2376,10 +2447,9 @@ function Settings({
   onClearImportedLeave,
   onAddLeave,
   onRemoveLeave,
-  onAddSprint,
-  onEditSprint,
-  onRemoveSprint,
-  onSetCurrent,
+  sprintConfig,
+  onSprintConfig,
+  onAddNextSprint,
   toast,
   onExportData,
   onImportData,
@@ -2643,16 +2713,14 @@ function Settings({
     records: manualLeave,
     onAdd: onAddLeave,
     onRemove: onRemoveLeave
-  }), React.createElement(SprintCalendarCard, {
+  }), React.createElement(SprintCadenceCard, {
     sprints: sprints,
     currentIdx: currentIdx,
+    sprintConfig: sprintConfig,
+    onSprintConfig: onSprintConfig,
+    onAddNextSprint: onAddNextSprint,
     hidePast: hidePast,
-    setHidePast: setHidePast,
-    onAddSprint: onAddSprint,
-    onEditSprint: onEditSprint,
-    onRemoveSprint: onRemoveSprint,
-    onSetCurrent: onSetCurrent,
-    toast: toast
+    setHidePast: setHidePast
   }), React.createElement("div", {
     className: "person-card settings-card",
     style: {
@@ -2972,78 +3040,73 @@ function ManualLeaveCard({
     size: 11
   })))))))));
 }
-function SprintCalendarCard({
+function SprintCadenceCard({
   sprints,
   currentIdx,
+  sprintConfig,
+  onSprintConfig,
+  onAddNextSprint,
   hidePast,
-  setHidePast,
-  onAddSprint,
-  onEditSprint,
-  onRemoveSprint,
-  onSetCurrent,
-  toast
+  setHidePast
 }) {
-  const [addOpen, setAddOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [confirmRm, setConfirmRm] = useState(null);
-  const last = [...sprints].reverse().find(s => s.start && s.end) || sprints[sprints.length - 1];
-  function nextSuggested() {
-    if (!last || !last.end) return {
-      name: "",
-      start: "",
-      end: ""
-    };
-    const parts = last.name.split(".");
-    const tail = parseInt(parts[parts.length - 1], 10);
-    const name = isNaN(tail) ? last.name + ".1" : [...parts.slice(0, -1), tail + 1].join(".");
-    const [y, m, d] = last.end.split("-").map(Number);
-    const dt = new Date(y, m - 1, d);
-    dt.setDate(dt.getDate() + 1);
-    while (dt.getDay() === 0 || dt.getDay() === 6) dt.setDate(dt.getDate() + 1);
-    const start = dt.toISOString().slice(0, 10);
-    dt.setDate(dt.getDate() + 11);
-    const end = dt.toISOString().slice(0, 10);
-    return {
-      name,
-      start,
-      end
-    };
-  }
+  const cfg = sprintConfig || {};
+  const numStyle = {
+    fontFamily: "var(--font-mono)",
+    fontWeight: 700,
+    fontSize: 13,
+    padding: "9px 11px",
+    borderRadius: 9,
+    border: "1px solid var(--border)",
+    background: "var(--surface-2)",
+    color: "var(--text)"
+  };
   return React.createElement("div", {
     className: "person-card settings-card"
-  }, React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 12
-    }
-  }, React.createElement("div", {
-    style: {
-      flex: 1
-    }
   }, React.createElement("div", {
     className: "section-label",
     style: {
       margin: 0
     }
-  }, "Sprint calendar \xB7 ", sprints.length, " sprint", sprints.length === 1 ? "" : "s"), React.createElement("div", {
+  }, "Sprint cadence"), React.createElement("div", {
     className: "muted",
     style: {
       fontSize: 12.5
     }
-  }, "Add, edit, or remove sprints. Click ", React.createElement(Icon, {
-    name: "check",
-    size: 11
-  }), " to set a sprint as ", React.createElement("i", null, "current"), ".")), React.createElement("button", {
-    className: "btn primary",
-    onClick: () => {
-      setAddOpen(true);
-      setEditingId(null);
+  }, "One sprint per number (e.g. ", React.createElement("b", null, "26.3.5"), "), shared by all projects \u2014 the project tab adds the prefix. Set the current sprint and its start once; every other sprint is dated as back-to-back blocks of this many working days (weekends + federal holidays skipped). The calendar fills in from your imported tickets."), React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1.2fr 130px",
+      gap: 10
     }
-  }, React.createElement(Icon, {
-    name: "calplus",
-    size: 14
-  }), " Add sprint")), React.createElement("label", {
+  }, React.createElement("div", {
+    className: "field"
+  }, React.createElement("label", null, "Current sprint #"), React.createElement("input", {
+    value: cfg.current || "",
+    placeholder: "26.3.5",
+    onChange: e => onSprintConfig({
+      current: e.target.value
+    }),
+    style: numStyle
+  })), React.createElement("div", {
+    className: "field"
+  }, React.createElement("label", null, "Its start date"), React.createElement(DatePicker, {
+    value: cfg.currentStart || "",
+    onChange: v => onSprintConfig({
+      currentStart: v
+    }),
+    placeholder: "Pick the start"
+  })), React.createElement("div", {
+    className: "field"
+  }, React.createElement("label", null, "Working days"), React.createElement("input", {
+    type: "number",
+    min: 1,
+    max: 30,
+    value: cfg.workingDays || 10,
+    onChange: e => onSprintConfig({
+      workingDays: Math.max(1, Math.min(30, Math.round(Number(e.target.value) || 10)))
+    }),
+    style: numStyle
+  }))), React.createElement("label", {
     className: "opt-row"
   }, React.createElement("span", null, React.createElement("div", {
     style: {
@@ -3055,7 +3118,7 @@ function SprintCalendarCard({
     style: {
       fontSize: 12
     }
-  }, "Excludes past sprints everywhere \u2014 nav, planner tabs, assignee, and move-to dropdowns. Tickets can't be assigned to a hidden sprint.")), React.createElement("span", {
+  }, "Excludes sprints before the current one from the planner tabs and the move-to menus.")), React.createElement("span", {
     className: "switch",
     "data-on": hidePast,
     onClick: () => setHidePast(!hidePast),
@@ -3065,250 +3128,51 @@ function SprintCalendarCard({
     className: "knob"
   }))), React.createElement("div", {
     className: "sprint-list"
-  }, sprints.map((s, i) => {
-    const isPast = i < currentIdx;
-    const isCurrent = i === currentIdx;
-    const isFuture = i > currentIdx;
-    const isUndated = !s.start || !s.end;
-    if (editingId === s.id) {
-      return React.createElement(SprintEditor, {
-        key: s.id,
-        initial: s,
-        title: "Edit sprint",
-        onCancel: () => setEditingId(null),
-        onSave: patch => {
-          onEditSprint(s.id, patch);
-          setEditingId(null);
-          toast(`Updated ${patch.name || s.name}`);
-        }
-      });
+  }, !cfg.current ? React.createElement("p", {
+    className: "muted",
+    style: {
+      fontSize: 12.5,
+      padding: "4px 0"
     }
+  }, "Enter the current sprint number above to build the calendar.") : sprints.length === 0 ? React.createElement("p", {
+    className: "muted",
+    style: {
+      fontSize: 12.5,
+      padding: "4px 0"
+    }
+  }, "No sprints yet \u2014 import some tickets.") : sprints.map((s, i) => {
+    const rel = i === currentIdx ? "current" : i < currentIdx ? "past" : "future";
+    if (hidePast && rel === "past") return null;
     return React.createElement("div", {
       key: s.id,
       className: "sprint-row",
-      "data-when": isUndated ? "undated" : isCurrent ? "current" : isPast ? "past" : "future"
+      "data-when": rel
     }, React.createElement("span", {
-      className: "sprint-badge " + (isUndated ? "open" : isCurrent ? "now" : isPast ? "past" : "future"),
-      title: isUndated ? "No fixed dates" : isCurrent ? "Current sprint" : isPast ? "Past" : "Upcoming"
-    }, isUndated ? "OPEN" : isCurrent ? "NOW" : isPast ? "PAST" : "NEXT"), React.createElement("span", {
+      className: "sprint-badge " + (rel === "current" ? "now" : rel === "past" ? "past" : "future")
+    }, rel === "current" ? "NOW" : rel === "past" ? "PAST" : "NEXT"), React.createElement("span", {
       className: "sprint-name"
     }, s.name), React.createElement("span", {
       className: "muted sprint-dates"
-    }, isUndated ? "No fixed dates" : fmtRange(s.start, s.end)), React.createElement("div", {
+    }, s.start ? fmtRange(s.start, s.end) : "—"), React.createElement("div", {
       style: {
         flex: 1
       }
-    }), !isCurrent && !isUndated && React.createElement("button", {
+    }), rel !== "current" && React.createElement("button", {
       className: "iconbtn",
-      title: "Set as current",
+      title: "Make this the current sprint",
       style: {
         width: 28,
         height: 28
       },
-      onClick: () => onSetCurrent(i)
+      onClick: () => onSprintConfig({
+        current: s.name,
+        currentStart: s.start || cfg.currentStart
+      })
     }, React.createElement(Icon, {
       name: "check",
       size: 13
-    })), React.createElement("button", {
-      className: "iconbtn",
-      title: "Edit",
-      style: {
-        width: 28,
-        height: 28
-      },
-      onClick: () => {
-        setEditingId(s.id);
-        setAddOpen(false);
-      }
-    }, React.createElement(Icon, {
-      name: "edit",
-      size: 13
-    })), React.createElement("button", {
-      className: "iconbtn",
-      title: "Remove",
-      style: {
-        width: 28,
-        height: 28
-      },
-      onClick: () => setConfirmRm(s),
-      disabled: isCurrent
-    }, React.createElement(Icon, {
-      name: "trash",
-      size: 13
     })));
-  }), addOpen && React.createElement(SprintEditor, {
-    initial: nextSuggested(),
-    title: "New sprint",
-    onCancel: () => setAddOpen(false),
-    onSave: s => {
-      onAddSprint(s);
-      setAddOpen(false);
-    }
-  })), confirmRm && React.createElement("div", {
-    className: "modal-scrim",
-    onClick: () => setConfirmRm(null)
-  }, React.createElement("div", {
-    className: "modal",
-    style: {
-      width: "min(380px, 100%)"
-    },
-    onClick: e => e.stopPropagation()
-  }, React.createElement("div", {
-    className: "modal-head"
-  }, React.createElement("h3", null, "Remove sprint ", confirmRm.name, "?")), React.createElement("div", {
-    className: "modal-body"
-  }, React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 13
-    }
-  }, "Tickets assigned to this sprint will fall back to the backlog. This can't be undone.")), React.createElement("div", {
-    className: "modal-foot"
-  }, React.createElement("button", {
-    className: "btn",
-    onClick: () => setConfirmRm(null)
-  }, "Cancel"), React.createElement("button", {
-    className: "btn",
-    style: {
-      background: "color-mix(in oklch, var(--danger) 18%, var(--surface-2))",
-      borderColor: "var(--danger)",
-      color: "var(--text)"
-    },
-    onClick: () => {
-      onRemoveSprint(confirmRm.id);
-      setConfirmRm(null);
-    }
-  }, "Remove")))));
-}
-function SprintEditor({
-  initial,
-  title,
-  onCancel,
-  onSave
-}) {
-  const [name, setName] = useState(initial.name || "");
-  const [start, setStart] = useState(initial.start || "");
-  const [undated, setUndated] = useState(!!initial.name && !initial.start);
-  const initialDays = useMemo(() => {
-    if (initial.start && initial.end) {
-      return VP.sprintWorkDays({
-        start: initial.start,
-        end: initial.end
-      }).length || 10;
-    }
-    return 10;
-  }, [initial.start, initial.end]);
-  const [days, setDays] = useState(initialDays);
-  const [err, setErr] = useState("");
-  const end = useMemo(() => endDateFromWorkDays(start, Number(days) || 0), [start, days]);
-  const holidayCount = useMemo(() => {
-    if (!start || !end) return 0;
-    return VP.holidaysInRange(start, end).length;
-  }, [start, end]);
-  function commit() {
-    if (!name.trim()) return setErr("Name is required");
-    if (undated) {
-      onSave({
-        name: name.trim(),
-        start: null,
-        end: null
-      });
-      return;
-    }
-    if (!start) return setErr("Pick a start date");
-    if (!days || days < 1) return setErr("Sprint length must be at least 1 day");
-    if (!end) return setErr("Couldn't compute end date — try a different start");
-    onSave({
-      name: name.trim(),
-      start,
-      end
-    });
-  }
-  return React.createElement("div", {
-    className: "sprint-editor"
-  }, React.createElement("div", {
-    className: "se-title"
-  }, title), React.createElement("div", {
-    className: "se-fields" + (undated ? " undated" : "")
-  }, React.createElement("div", {
-    className: "field"
-  }, React.createElement("label", null, "Sprint name"), React.createElement("input", {
-    value: name,
-    onChange: e => {
-      setName(e.target.value);
-      setErr("");
-    },
-    placeholder: "26.3.3",
-    autoFocus: true,
-    style: {
-      fontFamily: "var(--font-mono)",
-      fontWeight: 700
-    }
-  })), !undated && React.createElement(React.Fragment, null, React.createElement("div", {
-    className: "field"
-  }, React.createElement("label", null, "Start date"), React.createElement(DatePicker, {
-    value: start,
-    onChange: v => {
-      setStart(v);
-      setErr("");
-    },
-    placeholder: "Pick start"
   })), React.createElement("div", {
-    className: "field"
-  }, React.createElement("label", null, "Working days"), React.createElement("input", {
-    type: "number",
-    min: 1,
-    max: 60,
-    value: days,
-    onChange: e => {
-      setDays(e.target.value);
-      setErr("");
-    },
-    style: {
-      fontFamily: "var(--font-mono)",
-      fontWeight: 700
-    }
-  })))), React.createElement("label", {
-    className: "se-undated"
-  }, React.createElement("span", {
-    className: "switch",
-    "data-on": undated,
-    onClick: () => {
-      setUndated(u => !u);
-      setErr("");
-    },
-    role: "switch",
-    "aria-checked": undated
-  }, React.createElement("span", {
-    className: "knob"
-  })), React.createElement("span", null, React.createElement("span", {
-    className: "lbl"
-  }, "No fixed dates"), React.createElement("span", {
-    className: "hint"
-  }, "A planning bucket \u2014 capacity falls back to each person's base velocity until you commit a timeframe."))), !undated && React.createElement("div", {
-    className: "se-end"
-  }, React.createElement("span", {
-    className: "lbl"
-  }, "End date (calculated)"), React.createElement("span", {
-    className: "val"
-  }, end ? new Date(end + "T00:00").toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  }) : "—"), holidayCount > 0 && React.createElement("span", {
-    className: "hol-note"
-  }, React.createElement(Icon, {
-    name: "cal",
-    size: 11
-  }), " skipped ", holidayCount, " federal holiday", holidayCount === 1 ? "" : "s")), err && React.createElement("div", {
-    style: {
-      color: "var(--danger)",
-      fontSize: 12,
-      fontWeight: 600,
-      marginTop: 4
-    }
-  }, err), React.createElement("div", {
     className: "se-foot"
   }, React.createElement("div", {
     style: {
@@ -3316,11 +3180,11 @@ function SprintEditor({
     }
   }), React.createElement("button", {
     className: "btn sm",
-    onClick: onCancel
-  }, "Cancel"), React.createElement("button", {
-    className: "btn primary sm",
-    onClick: commit
-  }, "Save sprint")));
+    onClick: onAddNextSprint
+  }, React.createElement(Icon, {
+    name: "calplus",
+    size: 14
+  }), " Add next sprint")));
 }
 function ImportHistoryModal({
   people,
@@ -4056,20 +3920,21 @@ if (Array.isArray(SAVED.leave)) {
 function App() {
   const [project, setProject] = useState(() => SAVED.project || "DX");
   const [view, setView] = useState("planner");
-  const [currentSprintIdx, setCurrentSprintIdx] = useState(() => Number.isInteger(SAVED.currentSprintIdx) ? SAVED.currentSprintIdx : VP.CURRENT_SPRINT_IDX);
-  const [sprintIdx, setSprintIdx] = useState(() => Number.isInteger(SAVED.currentSprintIdx) ? SAVED.currentSprintIdx : VP.CURRENT_SPRINT_IDX);
+  const [sprintIdx, setSprintIdx] = useState(0);
   const [mode, setMode] = useState("single");
   const [hidePast, setHidePast] = useState(() => !!SAVED.hidePast);
   const [tickets, setTickets] = useState(() => (SAVED.tickets || VP.TICKETS).map(x => ({
     ...x,
-    sprints: [...(x.sprints || [])]
+    sprints: (x.sprints || []).map(s => VP.parseSprintNumber(s) || s)
   })));
   const [people, setPeople] = useState(() => (SAVED.people || VP.PEOPLE).map(x => ({
     ...x
   })));
-  const [sprintsList, setSprintsList] = useState(() => (SAVED.sprintsList || VP.SPRINTS).map(s => ({
-    ...s
-  })));
+  const [sprintConfig, setSprintConfig] = useState(() => SAVED.sprintConfig || {
+    current: "",
+    currentStart: "",
+    workingDays: 10
+  });
   const [descTicket, setDescTicket] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [jiraBase, setJiraBase] = useState(() => SAVED.jiraBase != null ? SAVED.jiraBase : "https://jira.example.com");
@@ -4084,12 +3949,31 @@ function App() {
   const dirHandle = useRef(null);
   const writeTimer = useRef(null);
   const fsSupported = !!(window.FSStore && window.FSStore.supported());
+  const sprintsList = useMemo(() => {
+    const nums = [...(sprintConfig.extra || [])];
+    tickets.forEach(t => (t.sprints || []).forEach(s => nums.push(s)));
+    return VP.buildSprintCalendar(nums, sprintConfig);
+  }, [tickets, sprintConfig]);
+  const currentSprintIdx = useMemo(() => {
+    const cur = VP.parseSprintNumber(sprintConfig.current) || sprintConfig.current;
+    const i = sprintsList.findIndex(s => s.name === cur);
+    return i >= 0 ? i : 0;
+  }, [sprintsList, sprintConfig.current]);
+  useEffect(() => {
+    if (sprintIdx >= sprintsList.length) setSprintIdx(Math.max(0, sprintsList.length - 1));
+  }, [sprintsList.length]);
+  const didInitTab = useRef(false);
+  useEffect(() => {
+    if (!didInitTab.current && sprintsList.length) {
+      setSprintIdx(currentSprintIdx);
+      didInitTab.current = true;
+    }
+  }, [sprintsList.length, currentSprintIdx]);
   const snapshot = () => ({
     v: 1,
     people,
     tickets,
-    sprintsList,
-    currentSprintIdx,
+    sprintConfig,
     leave: leaveOverlay,
     jiraBase,
     doneRes,
@@ -4108,7 +3992,7 @@ function App() {
         window.FSStore.write(dirHandle.current, snap).catch(() => {});
       }, 500);
     }
-  }, [people, tickets, sprintsList, currentSprintIdx, leaveOverlay, jiraBase, doneRes, customRes, project, hidePast, folder]);
+  }, [people, tickets, sprintConfig, leaveOverlay, jiraBase, doneRes, customRes, project, hidePast, folder]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -4179,35 +4063,30 @@ function App() {
       points: Math.max(0, Math.min(99, Math.round(Number(pts) || 0)))
     });
   };
-  const bySprintOrder = (a, b) => {
-    if (!a.start && !b.start) return 0;
-    if (!a.start) return 1;
-    if (!b.start) return -1;
-    return a.start.localeCompare(b.start);
-  };
-  const onAddSprint = s => {
-    setSprintsList(arr => {
-      const next = [...arr, {
-        ...s,
-        id: "s" + Date.now()
-      }].sort(bySprintOrder);
-      return next;
-    });
-    toast(`Added sprint ${s.name}`);
-  };
-  const onEditSprint = (id, patch) => {
-    setSprintsList(arr => arr.map(s => s.id === id ? {
-      ...s,
-      ...patch
-    } : s).sort(bySprintOrder));
-  };
-  const onRemoveSprint = id => {
-    setSprintsList(arr => arr.filter(s => s.id !== id));
-    toast("Sprint removed", "info");
-  };
-  const onSetCurrent = idx => {
-    setCurrentSprintIdx(idx);
-    toast(`Current sprint set to ${sprintsList[idx]?.name}`);
+  const onSprintConfig = patch => setSprintConfig(c => ({
+    ...c,
+    ...patch
+  }));
+  const onAddNextSprint = () => {
+    const nums = new Set();
+    tickets.forEach(t => (t.sprints || []).forEach(s => {
+      const p = VP.parseSprintNumber(s);
+      if (p) nums.add(p);
+    }));
+    if (sprintConfig.current) nums.add(VP.parseSprintNumber(sprintConfig.current) || sprintConfig.current);
+    const sorted = [...nums].sort((a, b) => VP.sprintSortKey(a) - VP.sprintSortKey(b));
+    const last = sorted[sorted.length - 1];
+    if (!last) {
+      toast("Set the current sprint first", "info");
+      return;
+    }
+    const m = last.match(/(\d+)\.(\d+)\.(\d+)/);
+    const next = `${m[1]}.${m[2]}.${+m[3] + 1}`;
+    setSprintConfig(c => ({
+      ...c,
+      extra: [...new Set([...(c.extra || []), next])]
+    }));
+    toast(`Added sprint ${next}`);
   };
   const onExportData = () => {
     const payload = {
@@ -4215,8 +4094,7 @@ function App() {
       exportedAt: new Date().toISOString(),
       people,
       tickets,
-      sprintsList,
-      currentSprintIdx,
+      sprintConfig,
       leave: leaveOverlay,
       jiraBase,
       doneRes,
@@ -4244,15 +4122,11 @@ function App() {
     })));
     if (Array.isArray(d.tickets)) setTickets(d.tickets.map(t => ({
       ...t,
-      sprints: [...(t.sprints || [])]
+      sprints: (t.sprints || []).map(s => VP.parseSprintNumber(s) || s)
     })));
-    if (Array.isArray(d.sprintsList)) setSprintsList(d.sprintsList.map(s => ({
-      ...s
-    })));
-    if (Number.isInteger(d.currentSprintIdx)) {
-      setCurrentSprintIdx(d.currentSprintIdx);
-      setSprintIdx(d.currentSprintIdx);
-    }
+    if (d.sprintConfig && typeof d.sprintConfig === "object") setSprintConfig({
+      ...d.sprintConfig
+    });
     const leave = Array.isArray(d.leave) ? d.leave : Array.isArray(d.leaveOverlay) ? d.leaveOverlay : null;
     if (leave) {
       VP.LEAVE.length = 0;
@@ -4277,11 +4151,12 @@ function App() {
     VP.LEAVE.length = 0;
     setPeople([]);
     setTickets([]);
-    setSprintsList(VP.SPRINTS.map(s => ({
-      ...s
-    })));
-    setCurrentSprintIdx(VP.CURRENT_SPRINT_IDX);
-    setSprintIdx(VP.CURRENT_SPRINT_IDX);
+    setSprintConfig({
+      current: "",
+      currentStart: "",
+      workingDays: 10
+    });
+    setSprintIdx(0);
     setLeaveOverlay([]);
     setJiraBase("https://jira.example.com");
     setDoneRes([...VP.DONE_RESOLUTIONS]);
@@ -4298,7 +4173,7 @@ function App() {
       const h = await window.FSStore.connect();
       dirHandle.current = h;
       const existing = await window.FSStore.read(h);
-      if (existing && (existing.people || existing.tickets || existing.sprintsList)) {
+      if (existing && (existing.people || existing.tickets || existing.sprintConfig)) {
         applyData(existing);
         toast(`Connected “${h.name}” · loaded its data`);
       } else {
@@ -4362,18 +4237,6 @@ function App() {
       toast("No tickets found in that export", "err");
       return res;
     }
-    const knownSprintNames = new Set(sprintsList.map(s => s.name));
-    const newSprintNames = res.sprintsSeen.filter(n => !knownSprintNames.has(n));
-    let nextSprints = sprintsList;
-    if (newSprintNames.length) {
-      nextSprints = [...sprintsList, ...newSprintNames.map(n => ({
-        id: "s" + ++_tid,
-        name: n,
-        start: null,
-        end: null
-      }))];
-      setSprintsList(nextSprints);
-    }
     const byName = new Map(people.map(p => [p.name.trim().toLowerCase(), p]));
     const bySid = new Map(people.filter(p => p.sid).map(p => [p.sid.toLowerCase(), p]));
     const resolve = name => {
@@ -4427,7 +4290,7 @@ function App() {
       }));
       return [...map.values()];
     });
-    toast(`Imported ${imported.length} tickets · ${res.inSprint} in a sprint, ${res.backlog} backlog` + (newPeople.length ? ` · +${newPeople.length} people` : "") + (newSprintNames.length ? ` · +${newSprintNames.length} sprints` : ""), "ok");
+    toast(`Imported ${imported.length} tickets · ${res.inSprint} in a sprint, ${res.backlog} backlog` + (newPeople.length ? ` · +${newPeople.length} people` : "") + (res.sprintsSeen.length ? ` · ${res.sprintsSeen.length} sprints` : ""), "ok");
     return res;
   };
   const onImportIcal = text => {
@@ -4639,6 +4502,7 @@ function App() {
     projects: VP.PROJECTS,
     currentProject: project,
     sprints: sprintsList,
+    currentIdx: currentSprintIdx,
     onAdd: onAddPerson,
     onEdit: onEditPerson,
     onRemove: onRemovePerson
@@ -4658,10 +4522,9 @@ function App() {
     onClearImportedLeave: onClearImportedLeave,
     onAddLeave: onAddLeave,
     onRemoveLeave: onRemoveLeave,
-    onAddSprint: onAddSprint,
-    onEditSprint: onEditSprint,
-    onRemoveSprint: onRemoveSprint,
-    onSetCurrent: onSetCurrent,
+    sprintConfig: sprintConfig,
+    onSprintConfig: onSprintConfig,
+    onAddNextSprint: onAddNextSprint,
     toast: toast,
     onExportData: onExportData,
     onImportData: onImportData,

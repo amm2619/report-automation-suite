@@ -322,9 +322,12 @@ function parseBoardHtml(html) {
     const project = VP.projectForKey(key);
     if (!project) continue; // skip header/footer/non-issue rows
 
-    // Sprint: gather all sprint labels across sprint columns; the last is current.
+    // Sprint: gather all sprint labels across sprint columns; the last is the
+    // current one. Store the canonical NUMBER only ("DX 26.3.5" -> "26.3.5") so
+    // every project shares one sprint per number; the project tab supplies the
+    // prefix for display.
     const matches = sprintCols.map((i) => get(i)).join(" , ").match(sprintRe) || [];
-    const sprintName = matches.length ? matches[matches.length - 1].trim() : "";
+    const sprintName = matches.length ? (VP.parseSprintNumber(matches[matches.length - 1]) || "") : "";
     const assigneeName = norm(get(idxAss), "unassigned");
 
     rows.push({

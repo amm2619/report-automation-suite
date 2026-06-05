@@ -224,7 +224,9 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
   useEffect(() => {
     if (hidePast && sprintIdx < currentIdx) setSprintIdx(currentIdx);
   }, [hidePast, sprintIdx, currentIdx, setSprintIdx]);
-  const sprint = sprints[sprintIdx];
+  // Sprints are shared by number; the active project supplies the label prefix.
+  const label = (s) => (s && s.name ? `${project} ${s.name}` : "—");
+  const sprint = sprints[sprintIdx] || sprints[0] || { id: "_none", name: "", start: null, end: null };
   const sprintName = sprint.name;
 
   const projPeople = useMemo(() => people.filter((p) => p.project === project), [people, project]);
@@ -261,7 +263,7 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
             if (hidePast && isPast) return null;
             return (
               <button key={s.id} className="sprint-tab" data-active={i === sprintIdx} data-current={i === currentIdx} data-past={isPast} data-undated={VP.isUndated(s)} onClick={() => setSprintIdx(i)}>
-                {s.name}
+                {label(s)}
               </button>
             );
           })}
@@ -278,8 +280,8 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
           {/* sprint header */}
           <div className="sprint-head">
             <div>
-              <h2>Sprint {sprintName}</h2>
-              <div className="sub">{fmtRange(sprint.start, sprint.end)}</div>
+              <h2>{sprintName ? label(sprint) : "No sprint"}</h2>
+              <div className="sub">{sprintName ? fmtRange(sprint.start, sprint.end) : "Import tickets, then set the current sprint in Settings."}</div>
             </div>
             <div className="div" />
             <div className="metric"><span className="k">Work days</span><span className="v">{undated ? "—" : workDays}</span></div>
@@ -389,7 +391,7 @@ function MultiView({ project, tickets, people, sprints, currentIdx, hidePast, on
         return (
           <div className="mcol" key={s.id}>
             <div className="mcol-head">
-              <div className="nm">{s.name}</div>
+              <div className="nm">{project} {s.name}</div>
               <div className="dt">{fmtRange(s.start, s.end)}</div>
               <div className="bar" style={{ marginTop: 8 }}>
                 <i style={{ width: pct(assigned, cap) + "%", background: over ? "var(--danger)" : PROJ_COLOR[project] }} />

@@ -1,4 +1,4 @@
-/* Settings view + ImportHistoryModal + ImportIcalModal + SprintEditor. */
+/* Settings view + Sprint cadence + import modals + Debug. */
 
 /* ============================================================================
    Settings
@@ -9,7 +9,7 @@ function Settings({
   sprints, currentIdx, people,
   hidePast, setHidePast,
   leaveOverlay, onClearImportedLeave, onAddLeave, onRemoveLeave,
-  onAddSprint, onEditSprint, onRemoveSprint, onSetCurrent,
+  sprintConfig, onSprintConfig, onAddNextSprint,
   toast, onExportData, onImportData, onClearData,
   fsSupported, folder, folderReconnect, onConnectFolder, onReconnectFolder, onDisconnectFolder,
   onOpenImportHistory, onOpenImportTickets, onOpenImportIcal,
@@ -137,17 +137,15 @@ function Settings({
         onRemove={onRemoveLeave}
       />
 
-      {/* Sprint calendar */}
-      <SprintCalendarCard
+      {/* Sprint cadence */}
+      <SprintCadenceCard
         sprints={sprints}
         currentIdx={currentIdx}
+        sprintConfig={sprintConfig}
+        onSprintConfig={onSprintConfig}
+        onAddNextSprint={onAddNextSprint}
         hidePast={hidePast}
         setHidePast={setHidePast}
-        onAddSprint={onAddSprint}
-        onEditSprint={onEditSprint}
-        onRemoveSprint={onRemoveSprint}
-        onSetCurrent={onSetCurrent}
-        toast={toast}
       />
 
       {/* Data — auto-save, folder sync, clear */}
@@ -323,204 +321,81 @@ function ManualLeaveCard({ people, records, onAdd, onRemove }) {
 }
 
 /* ============================================================================
-   Sprint calendar card — add / edit / remove sprints inline
+   Sprint cadence card — one shared sprint per number, dated from one anchor
    ========================================================================== */
-function SprintCalendarCard({ sprints, currentIdx, hidePast, setHidePast, onAddSprint, onEditSprint, onRemoveSprint, onSetCurrent, toast }) {
-  const [addOpen, setAddOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [confirmRm, setConfirmRm] = useState(null);
-
-  // suggest a next sprint name + dates based on the last DATED one
-  const last = [...sprints].reverse().find((s) => s.start && s.end) || sprints[sprints.length - 1];
-  function nextSuggested() {
-    if (!last || !last.end) return { name: "", start: "", end: "" };
-    // bump last segment
-    const parts = last.name.split(".");
-    const tail = parseInt(parts[parts.length - 1], 10);
-    const name = isNaN(tail) ? last.name + ".1" : [...parts.slice(0, -1), tail + 1].join(".");
-    // start = day after last.end, skip weekends
-    const [y, m, d] = last.end.split("-").map(Number);
-    const dt = new Date(y, m - 1, d);
-    dt.setDate(dt.getDate() + 1);
-    while (dt.getDay() === 0 || dt.getDay() === 6) dt.setDate(dt.getDate() + 1);
-    const start = dt.toISOString().slice(0, 10);
-    dt.setDate(dt.getDate() + 11);
-    const end = dt.toISOString().slice(0, 10);
-    return { name, start, end };
-  }
+function SprintCadenceCard({ sprints, currentIdx, sprintConfig, onSprintConfig, onAddNextSprint, hidePast, setHidePast }) {
+  const cfg = sprintConfig || {};
+  const numStyle = { fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13, padding: "9px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)" };
 
   return (
     <div className="person-card settings-card">
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ flex: 1 }}>
-          <div className="section-label" style={{ margin: 0 }}>Sprint calendar · {sprints.length} sprint{sprints.length === 1 ? "" : "s"}</div>
-          <div className="muted" style={{ fontSize: 12.5 }}>Add, edit, or remove sprints. Click <Icon name="check" size={11} /> to set a sprint as <i>current</i>.</div>
+      <div className="section-label" style={{ margin: 0 }}>Sprint cadence</div>
+      <div className="muted" style={{ fontSize: 12.5 }}>
+        One sprint per number (e.g. <b>26.3.5</b>), shared by all projects — the project tab adds the prefix.
+        Set the current sprint and its start once; every other sprint is dated as back-to-back blocks of this many
+        working days (weekends + federal holidays skipped). The calendar fills in from your imported tickets.
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr 130px", gap: 10 }}>
+        <div className="field">
+          <label>Current sprint #</label>
+          <input value={cfg.current || ""} placeholder="26.3.5"
+            onChange={(e) => onSprintConfig({ current: e.target.value })} style={numStyle} />
         </div>
-        <button className="btn primary" onClick={() => { setAddOpen(true); setEditingId(null); }}>
-          <Icon name="calplus" size={14} /> Add sprint
-        </button>
+        <div className="field">
+          <label>Its start date</label>
+          <DatePicker value={cfg.currentStart || ""} onChange={(v) => onSprintConfig({ currentStart: v })} placeholder="Pick the start" />
+        </div>
+        <div className="field">
+          <label>Working days</label>
+          <input type="number" min={1} max={30} value={cfg.workingDays || 10}
+            onChange={(e) => onSprintConfig({ workingDays: Math.max(1, Math.min(30, Math.round(Number(e.target.value) || 10))) })}
+            style={numStyle} />
+        </div>
       </div>
 
       {/* Hide past sprints toggle */}
       <label className="opt-row">
         <span>
           <div style={{ fontWeight: 700, fontSize: 13 }}>Hide past sprints</div>
-          <div className="muted" style={{ fontSize: 12 }}>Excludes past sprints everywhere — nav, planner tabs, assignee, and move-to dropdowns. Tickets can't be assigned to a hidden sprint.</div>
+          <div className="muted" style={{ fontSize: 12 }}>Excludes sprints before the current one from the planner tabs and the move-to menus.</div>
         </span>
         <span className="switch" data-on={hidePast} onClick={() => setHidePast(!hidePast)} role="switch" aria-checked={hidePast}>
           <span className="knob" />
         </span>
       </label>
 
+      {/* Derived calendar (read-only) */}
       <div className="sprint-list">
-        {sprints.map((s, i) => {
-          const isPast = i < currentIdx;
-          const isCurrent = i === currentIdx;
-          const isFuture = i > currentIdx;
-          const isUndated = !s.start || !s.end;
-          if (editingId === s.id) {
-            return (
-              <SprintEditor
-                key={s.id}
-                initial={s}
-                title="Edit sprint"
-                onCancel={() => setEditingId(null)}
-                onSave={(patch) => { onEditSprint(s.id, patch); setEditingId(null); toast(`Updated ${patch.name || s.name}`); }}
-              />
-            );
-          }
+        {!cfg.current ? (
+          <p className="muted" style={{ fontSize: 12.5, padding: "4px 0" }}>Enter the current sprint number above to build the calendar.</p>
+        ) : sprints.length === 0 ? (
+          <p className="muted" style={{ fontSize: 12.5, padding: "4px 0" }}>No sprints yet — import some tickets.</p>
+        ) : sprints.map((s, i) => {
+          const rel = i === currentIdx ? "current" : i < currentIdx ? "past" : "future";
+          if (hidePast && rel === "past") return null;
           return (
-            <div key={s.id} className="sprint-row" data-when={isUndated ? "undated" : isCurrent ? "current" : isPast ? "past" : "future"}>
-              <span className={"sprint-badge " + (isUndated ? "open" : isCurrent ? "now" : isPast ? "past" : "future")} title={isUndated ? "No fixed dates" : isCurrent ? "Current sprint" : isPast ? "Past" : "Upcoming"}>
-                {isUndated ? "OPEN" : isCurrent ? "NOW" : isPast ? "PAST" : "NEXT"}
+            <div key={s.id} className="sprint-row" data-when={rel}>
+              <span className={"sprint-badge " + (rel === "current" ? "now" : rel === "past" ? "past" : "future")}>
+                {rel === "current" ? "NOW" : rel === "past" ? "PAST" : "NEXT"}
               </span>
               <span className="sprint-name">{s.name}</span>
-              <span className="muted sprint-dates">{isUndated ? "No fixed dates" : fmtRange(s.start, s.end)}</span>
+              <span className="muted sprint-dates">{s.start ? fmtRange(s.start, s.end) : "—"}</span>
               <div style={{ flex: 1 }} />
-              {!isCurrent && !isUndated && (
-                <button className="iconbtn" title="Set as current" style={{ width: 28, height: 28 }} onClick={() => onSetCurrent(i)}>
+              {rel !== "current" && (
+                <button className="iconbtn" title="Make this the current sprint" style={{ width: 28, height: 28 }}
+                  onClick={() => onSprintConfig({ current: s.name, currentStart: s.start || cfg.currentStart })}>
                   <Icon name="check" size={13} />
                 </button>
               )}
-              <button className="iconbtn" title="Edit" style={{ width: 28, height: 28 }} onClick={() => { setEditingId(s.id); setAddOpen(false); }}>
-                <Icon name="edit" size={13} />
-              </button>
-              <button className="iconbtn" title="Remove" style={{ width: 28, height: 28 }} onClick={() => setConfirmRm(s)} disabled={isCurrent}>
-                <Icon name="trash" size={13} />
-              </button>
             </div>
           );
         })}
-
-        {addOpen && (
-          <SprintEditor
-            initial={nextSuggested()}
-            title="New sprint"
-            onCancel={() => setAddOpen(false)}
-            onSave={(s) => { onAddSprint(s); setAddOpen(false); }}
-          />
-        )}
       </div>
 
-      {confirmRm && (
-        <div className="modal-scrim" onClick={() => setConfirmRm(null)}>
-          <div className="modal" style={{ width: "min(380px, 100%)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head"><h3>Remove sprint {confirmRm.name}?</h3></div>
-            <div className="modal-body">
-              <div className="muted" style={{ fontSize: 13 }}>Tickets assigned to this sprint will fall back to the backlog. This can't be undone.</div>
-            </div>
-            <div className="modal-foot">
-              <button className="btn" onClick={() => setConfirmRm(null)}>Cancel</button>
-              <button className="btn" style={{ background: "color-mix(in oklch, var(--danger) 18%, var(--surface-2))", borderColor: "var(--danger)", color: "var(--text)" }}
-                onClick={() => { onRemoveSprint(confirmRm.id); setConfirmRm(null); }}>Remove</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* Inline editor for add / edit sprint — Start + working-days -> auto end */
-function SprintEditor({ initial, title, onCancel, onSave }) {
-  const [name, setName] = useState(initial.name || "");
-  const [start, setStart] = useState(initial.start || "");
-  // "Undated" sprint = a planning bucket with no committed timeframe.
-  // Default on when editing a sprint that already has no dates.
-  const [undated, setUndated] = useState(!!initial.name && !initial.start);
-  // derive starting day-count from initial range (if editing), else 10
-  const initialDays = useMemo(() => {
-    if (initial.start && initial.end) {
-      return VP.sprintWorkDays({ start: initial.start, end: initial.end }).length || 10;
-    }
-    return 10;
-  }, [initial.start, initial.end]);
-  const [days, setDays] = useState(initialDays);
-  const [err, setErr] = useState("");
-
-  const end = useMemo(() => endDateFromWorkDays(start, Number(days) || 0), [start, days]);
-  const holidayCount = useMemo(() => {
-    if (!start || !end) return 0;
-    return VP.holidaysInRange(start, end).length;
-  }, [start, end]);
-
-  function commit() {
-    if (!name.trim()) return setErr("Name is required");
-    if (undated) { onSave({ name: name.trim(), start: null, end: null }); return; }
-    if (!start) return setErr("Pick a start date");
-    if (!days || days < 1) return setErr("Sprint length must be at least 1 day");
-    if (!end) return setErr("Couldn't compute end date — try a different start");
-    onSave({ name: name.trim(), start, end });
-  }
-
-  return (
-    <div className="sprint-editor">
-      <div className="se-title">{title}</div>
-      <div className={"se-fields" + (undated ? " undated" : "")}>
-        <div className="field">
-          <label>Sprint name</label>
-          <input value={name} onChange={(e) => { setName(e.target.value); setErr(""); }} placeholder="26.3.3" autoFocus
-            style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }} />
-        </div>
-        {!undated && (
-          <React.Fragment>
-            <div className="field">
-              <label>Start date</label>
-              <DatePicker value={start} onChange={(v) => { setStart(v); setErr(""); }} placeholder="Pick start" />
-            </div>
-            <div className="field">
-              <label>Working days</label>
-              <input type="number" min={1} max={60} value={days}
-                onChange={(e) => { setDays(e.target.value); setErr(""); }}
-                style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }} />
-            </div>
-          </React.Fragment>
-        )}
-      </div>
-
-      {/* No-fixed-dates toggle */}
-      <label className="se-undated">
-        <span className="switch" data-on={undated} onClick={() => { setUndated((u) => !u); setErr(""); }} role="switch" aria-checked={undated}>
-          <span className="knob" />
-        </span>
-        <span>
-          <span className="lbl">No fixed dates</span>
-          <span className="hint">A planning bucket — capacity falls back to each person's base velocity until you commit a timeframe.</span>
-        </span>
-      </label>
-
-      {!undated && (
-        <div className="se-end">
-          <span className="lbl">End date (calculated)</span>
-          <span className="val">{end ? new Date(end + "T00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "—"}</span>
-          {holidayCount > 0 && <span className="hol-note"><Icon name="cal" size={11} /> skipped {holidayCount} federal holiday{holidayCount === 1 ? "" : "s"}</span>}
-        </div>
-      )}
-      {err && <div style={{ color: "var(--danger)", fontSize: 12, fontWeight: 600, marginTop: 4 }}>{err}</div>}
       <div className="se-foot">
         <div style={{ flex: 1 }} />
-        <button className="btn sm" onClick={onCancel}>Cancel</button>
-        <button className="btn primary sm" onClick={commit}>Save sprint</button>
+        <button className="btn sm" onClick={onAddNextSprint}><Icon name="calplus" size={14} /> Add next sprint</button>
       </div>
     </div>
   );

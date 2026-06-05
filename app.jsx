@@ -14,13 +14,16 @@ function App() {
   // ---- app state (hydrated from the saved snapshot when present) ----
   const [project, setProject] = useState(() => SAVED.project || "DX");
   const [view, setView] = useState("planner");
-  const [currentSprintIdx, setCurrentSprintIdx] = useState(() => Number.isInteger(SAVED.currentSprintIdx) ? SAVED.currentSprintIdx : VP.CURRENT_SPRINT_IDX);
-  const [sprintIdx, setSprintIdx] = useState(() => Number.isInteger(SAVED.currentSprintIdx) ? SAVED.currentSprintIdx : VP.CURRENT_SPRINT_IDX);
+  const [sprintIdx, setSprintIdx] = useState(0);   // which sprint TAB is selected
   const [mode, setMode] = useState("single");
   const [hidePast, setHidePast] = useState(() => !!SAVED.hidePast);
-  const [tickets, setTickets] = useState(() => (SAVED.tickets || VP.TICKETS).map((x) => ({ ...x, sprints: [...(x.sprints || [])] })));
+  // Normalize any prefixed sprint label on older tickets down to its number.
+  const [tickets, setTickets] = useState(() => (SAVED.tickets || VP.TICKETS).map((x) => ({
+    ...x, sprints: (x.sprints || []).map((s) => VP.parseSprintNumber(s) || s),
+  })));
   const [people, setPeople] = useState(() => (SAVED.people || VP.PEOPLE).map((x) => ({ ...x })));
-  const [sprintsList, setSprintsList] = useState(() => (SAVED.sprintsList || VP.SPRINTS).map((s) => ({ ...s })));
+  // Sprint cadence anchor; the calendar is derived from this + the tickets.
+  const [sprintConfig, setSprintConfig] = useState(() => SAVED.sprintConfig || { current: "", currentStart: "", workingDays: 10 });
   const [descTicket, setDescTicket] = useState(null);
   const [toasts, setToasts] = useState([]);
 
@@ -40,7 +43,28 @@ function App() {
   const writeTimer = useRef(null);
   const fsSupported = !!(window.FSStore && window.FSStore.supported());
 
-  const snapshot = () => ({ v: 1, people, tickets, sprintsList, currentSprintIdx, leave: leaveOverlay, jiraBase, doneRes, customRes, project, hidePast });
+  // ---- derived sprint calendar (one shared sprint per number, anchor-dated) --
+  const sprintsList = useMemo(() => {
+    const nums = [...(sprintConfig.extra || [])];
+    tickets.forEach((t) => (t.sprints || []).forEach((s) => nums.push(s)));
+    return VP.buildSprintCalendar(nums, sprintConfig);
+  }, [tickets, sprintConfig]);
+  const currentSprintIdx = useMemo(() => {
+    const cur = VP.parseSprintNumber(sprintConfig.current) || sprintConfig.current;
+    const i = sprintsList.findIndex((s) => s.name === cur);
+    return i >= 0 ? i : 0;
+  }, [sprintsList, sprintConfig.current]);
+  // Keep the selected tab in range as the calendar changes.
+  useEffect(() => {
+    if (sprintIdx >= sprintsList.length) setSprintIdx(Math.max(0, sprintsList.length - 1));
+  }, [sprintsList.length]); // eslint-disable-line
+  // Open on the current sprint the first time the calendar is available.
+  const didInitTab = useRef(false);
+  useEffect(() => {
+    if (!didInitTab.current && sprintsList.length) { setSprintIdx(currentSprintIdx); didInitTab.current = true; }
+  }, [sprintsList.length, currentSprintIdx]);
+
+  const snapshot = () => ({ v: 1, people, tickets, sprintConfig, leave: leaveOverlay, jiraBase, doneRes, customRes, project, hidePast });
 
   // ---- persistence: write the full data snapshot whenever it changes ----
   useEffect(() => {
@@ -51,7 +75,7 @@ function App() {
       const snap = snapshot();
       writeTimer.current = setTimeout(() => { window.FSStore.write(dirHandle.current, snap).catch(() => {}); }, 500);
     }
-  }, [people, tickets, sprintsList, currentSprintIdx, leaveOverlay, jiraBase, doneRes, customRes, project, hidePast, folder]);
+  }, [people, tickets, sprintConfig, leaveOverlay, jiraBase, doneRes, customRes, project, hidePast, folder]);
 
   // ---- on load: reconnect a previously chosen folder ----
   useEffect(() => {
@@ -97,36 +121,30 @@ function App() {
   const onBacklog = (ticket) => { patchTicket(ticket.id, { sprints: [] }); toast(`${ticket.key} returned to backlog`, "info"); };
   const onPoints = (ticket, pts) => { patchTicket(ticket.id, { points: Math.max(0, Math.min(99, Math.round(Number(pts) || 0))) }); };
 
-  // ---- sprint actions ----
-  // Sort dated sprints chronologically; undated sprints (no timeframe) always last.
-  const bySprintOrder = (a, b) => {
-    if (!a.start && !b.start) return 0;
-    if (!a.start) return 1;
-    if (!b.start) return -1;
-    return a.start.localeCompare(b.start);
+  // ---- sprint cadence (the whole calendar derives from this) ----
+  const onSprintConfig = (patch) => setSprintConfig((c) => ({ ...c, ...patch }));
+  // Add the next sprint number after the latest one (within the quarter), so you
+  // can plan a sprint before any tickets land in it.
+  const onAddNextSprint = () => {
+    const nums = new Set();
+    tickets.forEach((t) => (t.sprints || []).forEach((s) => { const p = VP.parseSprintNumber(s); if (p) nums.add(p); }));
+    if (sprintConfig.current) nums.add(VP.parseSprintNumber(sprintConfig.current) || sprintConfig.current);
+    const sorted = [...nums].sort((a, b) => VP.sprintSortKey(a) - VP.sprintSortKey(b));
+    const last = sorted[sorted.length - 1];
+    if (!last) { toast("Set the current sprint first", "info"); return; }
+    const m = last.match(/(\d+)\.(\d+)\.(\d+)/);
+    const next = `${m[1]}.${m[2]}.${+m[3] + 1}`;
+    // Park a hidden placeholder ticket-free sprint by nudging config so the
+    // calendar includes it: we keep an explicit "extra" list.
+    setSprintConfig((c) => ({ ...c, extra: [...new Set([...(c.extra || []), next])] }));
+    toast(`Added sprint ${next}`);
   };
-  const onAddSprint = (s) => {
-    setSprintsList((arr) => {
-      const next = [...arr, { ...s, id: "s" + Date.now() }].sort(bySprintOrder);
-      // keep currentSprintIdx pointing at the same sprint id
-      return next;
-    });
-    toast(`Added sprint ${s.name}`);
-  };
-  const onEditSprint = (id, patch) => {
-    setSprintsList((arr) => arr.map((s) => s.id === id ? { ...s, ...patch } : s).sort(bySprintOrder));
-  };
-  const onRemoveSprint = (id) => {
-    setSprintsList((arr) => arr.filter((s) => s.id !== id));
-    toast("Sprint removed", "info");
-  };
-  const onSetCurrent = (idx) => { setCurrentSprintIdx(idx); toast(`Current sprint set to ${sprintsList[idx]?.name}`); };
 
   // ---- settings actions ----
   // Save the entire workspace (people, tickets, sprints, leave, settings) to a
   // JSON file you can keep in a folder and re-import later.
   const onExportData = () => {
-    const payload = { version: 1, exportedAt: new Date().toISOString(), people, tickets, sprintsList, currentSprintIdx, leave: leaveOverlay, jiraBase, doneRes, customRes, project, hidePast };
+    const payload = { version: 1, exportedAt: new Date().toISOString(), people, tickets, sprintConfig, leave: leaveOverlay, jiraBase, doneRes, customRes, project, hidePast };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -139,9 +157,8 @@ function App() {
   const applyData = (d) => {
     if (!d || typeof d !== "object") return;
     if (Array.isArray(d.people)) setPeople(d.people.map((p) => ({ ...p })));
-    if (Array.isArray(d.tickets)) setTickets(d.tickets.map((t) => ({ ...t, sprints: [...(t.sprints || [])] })));
-    if (Array.isArray(d.sprintsList)) setSprintsList(d.sprintsList.map((s) => ({ ...s })));
-    if (Number.isInteger(d.currentSprintIdx)) { setCurrentSprintIdx(d.currentSprintIdx); setSprintIdx(d.currentSprintIdx); }
+    if (Array.isArray(d.tickets)) setTickets(d.tickets.map((t) => ({ ...t, sprints: (t.sprints || []).map((s) => VP.parseSprintNumber(s) || s) })));
+    if (d.sprintConfig && typeof d.sprintConfig === "object") setSprintConfig({ ...d.sprintConfig });
     const leave = Array.isArray(d.leave) ? d.leave : (Array.isArray(d.leaveOverlay) ? d.leaveOverlay : null);
     if (leave) { VP.LEAVE.length = 0; VP.LEAVE.push(...leave); setLeaveOverlay(leave); }
     if (typeof d.jiraBase === "string") setJiraBase(d.jiraBase);
@@ -159,9 +176,8 @@ function App() {
     VP.LEAVE.length = 0;
     setPeople([]);
     setTickets([]);
-    setSprintsList(VP.SPRINTS.map((s) => ({ ...s })));
-    setCurrentSprintIdx(VP.CURRENT_SPRINT_IDX);
-    setSprintIdx(VP.CURRENT_SPRINT_IDX);
+    setSprintConfig({ current: "", currentStart: "", workingDays: 10 });
+    setSprintIdx(0);
     setLeaveOverlay([]);
     setJiraBase("https://jira.example.com");
     setDoneRes([...VP.DONE_RESOLUTIONS]);
@@ -178,7 +194,7 @@ function App() {
       const h = await window.FSStore.connect();
       dirHandle.current = h;
       const existing = await window.FSStore.read(h);
-      if (existing && (existing.people || existing.tickets || existing.sprintsList)) {
+      if (existing && (existing.people || existing.tickets || existing.sprintConfig)) {
         applyData(existing);
         toast(`Connected “${h.name}” · loaded its data`);
       } else {
@@ -221,23 +237,14 @@ function App() {
     return result;
   };
   // Import the backlog + in-sprint board from a Jira HTML export. Populates
-  // people from the assignees (creating any that are new), creates any sprints
-  // the export references but the calendar doesn't have yet, then upserts the
-  // tickets by key.
+  // people from the assignees (creating any that are new), then upserts the
+  // tickets by key. The sprint calendar derives automatically from the sprint
+  // numbers on the imported tickets.
   const onImportTickets = (html) => {
     const res = parseBoardHtml(html);
     if (!res.rowCount) { toast("No tickets found in that export", "err"); return res; }
 
-    // 1) Sprints — add an undated sprint for any referenced sprint we don't have.
-    const knownSprintNames = new Set(sprintsList.map((s) => s.name));
-    const newSprintNames = res.sprintsSeen.filter((n) => !knownSprintNames.has(n));
-    let nextSprints = sprintsList;
-    if (newSprintNames.length) {
-      nextSprints = [...sprintsList, ...newSprintNames.map((n) => ({ id: "s" + (++_tid), name: n, start: null, end: null }))];
-      setSprintsList(nextSprints);
-    }
-
-    // 2) People — match assignees to the roster by name/sid; create the rest,
+    // People — match assignees to the roster by name/sid; create the rest,
     //    inferring each new person's project from the tickets they own.
     const byName = new Map(people.map((p) => [p.name.trim().toLowerCase(), p]));
     const bySid = new Map(people.filter((p) => p.sid).map((p) => [p.sid.toLowerCase(), p]));
@@ -285,7 +292,7 @@ function App() {
 
     toast(`Imported ${imported.length} tickets · ${res.inSprint} in a sprint, ${res.backlog} backlog` +
       (newPeople.length ? ` · +${newPeople.length} people` : "") +
-      (newSprintNames.length ? ` · +${newSprintNames.length} sprints` : ""), "ok");
+      (res.sprintsSeen.length ? ` · ${res.sprintsSeen.length} sprints` : ""), "ok");
     return res;
   };
   const onImportIcal = (text) => {
@@ -419,6 +426,7 @@ function App() {
         )}
         {view === "team" && (
           <Team people={peopleV} projects={VP.PROJECTS} currentProject={project} sprints={sprintsList}
+            currentIdx={currentSprintIdx}
             onAdd={onAddPerson} onEdit={onEditPerson} onRemove={onRemovePerson} />
         )}
         {view === "settings" && (
@@ -428,7 +436,7 @@ function App() {
             hidePast={hidePast} setHidePast={setHidePast}
             leaveOverlay={leaveOverlay} onClearImportedLeave={onClearImportedLeave}
             onAddLeave={onAddLeave} onRemoveLeave={onRemoveLeave}
-            onAddSprint={onAddSprint} onEditSprint={onEditSprint} onRemoveSprint={onRemoveSprint} onSetCurrent={onSetCurrent}
+            sprintConfig={sprintConfig} onSprintConfig={onSprintConfig} onAddNextSprint={onAddNextSprint}
             toast={toast}
             onExportData={onExportData} onImportData={onImportData} onClearData={onClearData}
             fsSupported={fsSupported} folder={folder} folderReconnect={folderReconnect}

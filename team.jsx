@@ -100,13 +100,14 @@ function PersonModal({ person, project, existingNames, projects, onSave, onClose
   );
 }
 
-function Team({ people, projects, currentProject, sprints, onAdd, onEdit, onRemove }) {
+function Team({ people, projects, currentProject, sprints, currentIdx, onAdd, onEdit, onRemove }) {
   const [modal, setModal] = useState(null); // null | {person?}
   const [addProj, setAddProj] = useState(currentProject);
   const [tab, setTab] = useState("cards"); // 'cards' | 'velocity'
   const total = people.length;
 
-  const pastSprints = sprints.slice(0, VP.CURRENT_SPRINT_IDX).reverse();
+  const cur = Number.isInteger(currentIdx) ? currentIdx : sprints.length;
+  const pastSprints = sprints.slice(0, cur).reverse();
   const cols = pastSprints.slice(0, 4);
 
   return (
