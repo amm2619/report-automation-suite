@@ -300,7 +300,10 @@ function parseBoardHtml(html) {
   headerClasses.forEach((c, i) => { if (CF.sprint && c.includes(CF.sprint.toLowerCase())) sprintCols.push(i); });
   headers.forEach((h, i) => { if ((h === "sprint" || h.startsWith("sprint")) && !sprintCols.includes(i)) sprintCols.push(i); });
 
-  const sprintRe = /\b\d{2,4}\.\d+\.\d+\b/g;
+  // Keep the FULL sprint label including any team prefix, so "LX 26.3.6" stays
+  // distinct from "DX 26.3.6" instead of both collapsing to "26.3.6". Captures
+  // optional leading words before the NN.N.N number.
+  const sprintRe = /(?:[A-Za-z][\w-]*\s+)*\d{2,4}\.\d+\.\d+/g;
   // Jira renders an empty assignee/resolution as "Unassigned"/"Unresolved".
   const norm = (s, blank) => { const v = (s || "").trim(); return v.toLowerCase() === blank ? "" : v; };
 
@@ -319,9 +322,9 @@ function parseBoardHtml(html) {
     const project = VP.projectForKey(key);
     if (!project) continue; // skip header/footer/non-issue rows
 
-    // Sprint: gather all "NN.N.N" matches across sprint columns; the last is current.
-    const matches = sprintCols.map((i) => get(i)).join(" ").match(sprintRe) || [];
-    const sprintName = matches.length ? matches[matches.length - 1] : "";
+    // Sprint: gather all sprint labels across sprint columns; the last is current.
+    const matches = sprintCols.map((i) => get(i)).join(" , ").match(sprintRe) || [];
+    const sprintName = matches.length ? matches[matches.length - 1].trim() : "";
     const assigneeName = norm(get(idxAss), "unassigned");
 
     rows.push({

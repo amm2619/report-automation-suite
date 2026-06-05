@@ -151,10 +151,12 @@
   // { [personId]: number[] } ordered chronologically; one entry per such sprint
   // the person landed work in. This replaces the static seed at runtime whenever
   // the board has completed work; otherwise the person's stored history is used.
-  function deriveHistory(tickets, doneResolutions, sprints, currentIdx) {
+  function deriveHistory(tickets, doneResolutions, sprints /* , currentIdx */) {
     const done = new Set((doneResolutions || []).map((r) => r.toLowerCase()));
-    const idxByName = {};
-    (sprints || []).forEach((s, i) => { idxByName[s.name] = i; });
+    // Calendar order is used only to order each person's series; sprints we
+    // haven't seen in the calendar sort to the end.
+    const order = {};
+    (sprints || []).forEach((s, i) => { order[s.name] = i; });
     const acc = {}; // personId -> { sprintName: points }
     for (const t of tickets || []) {
       if (!t.assignee) continue;
@@ -162,15 +164,18 @@
       const pts = Number(t.points) || 0;
       if (pts <= 0) continue;
       for (const sn of (t.sprints || [])) {
-        const i = idxByName[sn];
-        if (i === undefined || i >= currentIdx) continue; // only past, dated sprints
+        if (!sn) continue; // backlog tickets (no sprint) can't be attributed
         (acc[t.assignee] = acc[t.assignee] || {});
         acc[t.assignee][sn] = (acc[t.assignee][sn] || 0) + pts;
       }
     }
     const out = {};
     for (const [pid, bySprint] of Object.entries(acc)) {
-      const names = Object.keys(bySprint).sort((a, b) => idxByName[a] - idxByName[b]);
+      const names = Object.keys(bySprint).sort((a, b) => {
+        const ai = a in order ? order[a] : 1e9;
+        const bi = b in order ? order[b] : 1e9;
+        return ai - bi || a.localeCompare(b);
+      });
       out[pid] = names.map((n) => bySprint[n]);
     }
     return out;

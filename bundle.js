@@ -157,10 +157,12 @@
   // { [personId]: number[] } ordered chronologically; one entry per such sprint
   // the person landed work in. This replaces the static seed at runtime whenever
   // the board has completed work; otherwise the person's stored history is used.
-  function deriveHistory(tickets, doneResolutions, sprints, currentIdx) {
+  function deriveHistory(tickets, doneResolutions, sprints /* , currentIdx */) {
     const done = new Set((doneResolutions || []).map((r) => r.toLowerCase()));
-    const idxByName = {};
-    (sprints || []).forEach((s, i) => { idxByName[s.name] = i; });
+    // Calendar order is used only to order each person's series; sprints we
+    // haven't seen in the calendar sort to the end.
+    const order = {};
+    (sprints || []).forEach((s, i) => { order[s.name] = i; });
     const acc = {}; // personId -> { sprintName: points }
     for (const t of tickets || []) {
       if (!t.assignee) continue;
@@ -168,15 +170,18 @@
       const pts = Number(t.points) || 0;
       if (pts <= 0) continue;
       for (const sn of (t.sprints || [])) {
-        const i = idxByName[sn];
-        if (i === undefined || i >= currentIdx) continue; // only past, dated sprints
+        if (!sn) continue; // backlog tickets (no sprint) can't be attributed
         (acc[t.assignee] = acc[t.assignee] || {});
         acc[t.assignee][sn] = (acc[t.assignee][sn] || 0) + pts;
       }
     }
     const out = {};
     for (const [pid, bySprint] of Object.entries(acc)) {
-      const names = Object.keys(bySprint).sort((a, b) => idxByName[a] - idxByName[b]);
+      const names = Object.keys(bySprint).sort((a, b) => {
+        const ai = a in order ? order[a] : 1e9;
+        const bi = b in order ? order[b] : 1e9;
+        return ai - bi || a.localeCompare(b);
+      });
       out[pid] = names.map((n) => bySprint[n]);
     }
     return out;
@@ -773,7 +778,7 @@ function parseBoardHtml(html) {
   headers.forEach((h, i) => {
     if ((h === "sprint" || h.startsWith("sprint")) && !sprintCols.includes(i)) sprintCols.push(i);
   });
-  const sprintRe = /\b\d{2,4}\.\d+\.\d+\b/g;
+  const sprintRe = /(?:[A-Za-z][\w-]*\s+)*\d{2,4}\.\d+\.\d+/g;
   const norm = (s, blank) => {
     const v = (s || "").trim();
     return v.toLowerCase() === blank ? "" : v;
@@ -796,8 +801,8 @@ function parseBoardHtml(html) {
     key = key.trim();
     const project = VP.projectForKey(key);
     if (!project) continue;
-    const matches = sprintCols.map(i => get(i)).join(" ").match(sprintRe) || [];
-    const sprintName = matches.length ? matches[matches.length - 1] : "";
+    const matches = sprintCols.map(i => get(i)).join(" , ").match(sprintRe) || [];
+    const sprintName = matches.length ? matches[matches.length - 1].trim() : "";
     const assigneeName = norm(get(idxAss), "unassigned");
     rows.push({
       key,
@@ -3798,11 +3803,238 @@ function ImportTicketsModal({
     onClick: commit
   }, "Import ", preview?.rowCount ? `${preview.rowCount} ticket${preview.rowCount === 1 ? "" : "s"}` : ""))));
 }
+function DebugView({
+  tickets,
+  people,
+  sprints,
+  currentIdx,
+  doneRes
+}) {
+  const [q, setQ] = useState("");
+  const doneSet = new Set((doneRes || []).map(r => r.toLowerCase()));
+  const idxByName = {};
+  sprints.forEach((s, i) => {
+    idxByName[s.name] = i;
+  });
+  const personById = id => people.find(p => p.id === id);
+  const isDone = t => !!(t.resolution && doneSet.has(t.resolution.toLowerCase()));
+  function contribution(t) {
+    if (!t.assignee) return {
+      ok: false,
+      why: "no assignee"
+    };
+    if (!isDone(t)) return {
+      ok: false,
+      why: t.resolution ? `resolution "${t.resolution}" not in Done list` : "no resolution"
+    };
+    const pts = Number(t.points) || 0;
+    if (pts <= 0) return {
+      ok: false,
+      why: "points ≤ 0"
+    };
+    const sps = (t.sprints || []).filter(Boolean);
+    if (!sps.length) return {
+      ok: false,
+      why: "no sprint (backlog)"
+    };
+    return {
+      ok: true,
+      why: `counts in ${sps.join(", ")}`,
+      pts
+    };
+  }
+  const derived = VP.deriveHistory(tickets, doneRes, sprints, currentIdx);
+  const groups = new Map();
+  for (const t of tickets) {
+    const k = t.assignee || "_none";
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(t);
+  }
+  const ordered = [...groups.entries()].map(([id, ts]) => ({
+    id,
+    person: id === "_none" ? null : personById(id),
+    tickets: ts
+  })).sort((a, b) => a.id === "_none" ? 1 : b.id === "_none" ? -1 : (a.person?.name || a.id).localeCompare(b.person?.name || b.id));
+  const ql = q.trim().toLowerCase();
+  const match = g => !ql || (g.person?.name || "unassigned").toLowerCase().includes(ql) || (g.person?.sid || "").toLowerCase().includes(ql);
+  const cell = {
+    padding: "4px 8px",
+    borderBottom: "1px solid var(--border)",
+    fontSize: 12,
+    whiteSpace: "nowrap"
+  };
+  const head = {
+    ...cell,
+    color: "var(--text-faint)",
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    fontSize: 10,
+    position: "sticky",
+    top: 0,
+    background: "var(--surface-2)"
+  };
+  return React.createElement("div", {
+    className: "wrap"
+  }, React.createElement("div", {
+    className: "team-head"
+  }, React.createElement("div", null, React.createElement("h2", null, "Debug"), React.createElement("div", {
+    className: "sub"
+  }, "How each ticket is parsed and what feeds velocity. Velocity counts ", React.createElement("b", null, "Done"), " tickets with ", React.createElement("b", null, "points > 0"), " assigned to a person, in a sprint ", React.createElement("b", null, "before the current one"), ".")), React.createElement("input", {
+    value: q,
+    onChange: e => setQ(e.target.value),
+    placeholder: "filter by name / sid\u2026",
+    style: {
+      fontSize: 13,
+      padding: "8px 11px",
+      borderRadius: 9,
+      border: "1px solid var(--border)",
+      background: "var(--surface-2)",
+      color: "var(--text)",
+      minWidth: 200
+    }
+  })), React.createElement("div", {
+    className: "person-card settings-card",
+    style: {
+      marginBottom: 16
+    }
+  }, React.createElement("div", {
+    className: "section-label",
+    style: {
+      margin: 0
+    }
+  }, "Sprints in the calendar (", sprints.length, ") \xB7 current = index ", currentIdx), React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 6
+    }
+  }, sprints.map((s, i) => {
+    const rel = i === currentIdx ? "current" : i < currentIdx ? "past" : "future";
+    const color = rel === "current" ? "var(--good)" : rel === "past" ? "var(--text-faint)" : "var(--accent)";
+    return React.createElement("span", {
+      key: s.id,
+      className: "res-chip",
+      title: `index ${i} · ${rel}${VP.isUndated(s) ? " · undated" : ""}`,
+      style: {
+        borderColor: color,
+        color
+      }
+    }, React.createElement("span", {
+      style: {
+        fontFamily: "var(--font-mono)"
+      }
+    }, i, ": ", s.name || "(unnamed)"));
+  })), React.createElement("div", {
+    className: "muted",
+    style: {
+      fontSize: 11.5
+    }
+  }, "Velocity counts a person's completed (Done, points>0) work in ", React.createElement("b", null, "every"), " sprint listed here \u2014 duplicate / merged names here are the thing to watch for.")), ordered.filter(match).map(g => {
+    const series = g.id !== "_none" ? derived[g.id] || [] : [];
+    const sum = series.reduce((a, b) => a + b, 0);
+    const avg = series.length ? sum / series.length : 0;
+    const usesGoal = series.length < 2;
+    const totalPts = g.tickets.reduce((a, t) => a + (Number(t.points) || 0), 0);
+    const sorted = [...g.tickets].sort((a, b) => a.key.localeCompare(b.key));
+    return React.createElement("div", {
+      className: "person-card",
+      key: g.id,
+      style: {
+        marginBottom: 14
+      }
+    }, React.createElement("div", {
+      className: "pc-head",
+      style: {
+        justifyContent: "space-between"
+      }
+    }, React.createElement("div", null, React.createElement("div", {
+      className: "pc-name"
+    }, g.person ? g.person.name : "Unassigned"), React.createElement("div", {
+      className: "pc-sid"
+    }, g.person ? `${g.person.project} · ${g.person.type} · sid: ${g.person.sid || "—"} · goal ${g.person.goal || 0}` : "no person")), React.createElement("div", {
+      style: {
+        textAlign: "right",
+        fontFamily: "var(--font-mono)",
+        fontSize: 12
+      }
+    }, React.createElement("div", null, React.createElement("b", {
+      style: {
+        fontSize: 16
+      }
+    }, g.id !== "_none" ? usesGoal ? g.person?.goal || 0 : Math.round(avg) : "—"), " velocity ", g.id !== "_none" && usesGoal ? "(goal)" : ""), React.createElement("div", {
+      className: "muted"
+    }, "series [", series.join(", "), "] \xB7 ", g.tickets.length, " tickets \xB7 ", totalPts, " pts total"))), React.createElement("div", {
+      style: {
+        overflowX: "auto",
+        marginTop: 8
+      }
+    }, React.createElement("table", {
+      style: {
+        borderCollapse: "collapse",
+        width: "100%"
+      }
+    }, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", {
+      style: head
+    }, "Key"), React.createElement("th", {
+      style: head
+    }, "Pts"), React.createElement("th", {
+      style: head
+    }, "Sprint(s)"), React.createElement("th", {
+      style: head
+    }, "Resolution"), React.createElement("th", {
+      style: head
+    }, "Feeds velocity?"), React.createElement("th", {
+      style: {
+        ...head,
+        whiteSpace: "normal"
+      }
+    }, "Summary"))), React.createElement("tbody", null, sorted.map(t => {
+      const c = contribution(t);
+      return React.createElement("tr", {
+        key: t.id
+      }, React.createElement("td", {
+        style: {
+          ...cell,
+          fontFamily: "var(--font-mono)",
+          color: PROJ_COLOR[VP.projectForKey(t.key)] || "var(--text)"
+        }
+      }, t.key), React.createElement("td", {
+        style: {
+          ...cell,
+          fontFamily: "var(--font-mono)",
+          textAlign: "right",
+          fontWeight: 700
+        }
+      }, t.points), React.createElement("td", {
+        style: {
+          ...cell,
+          fontFamily: "var(--font-mono)"
+        }
+      }, (t.sprints || []).join(", ") || "—"), React.createElement("td", {
+        style: cell
+      }, t.resolution || "—"), React.createElement("td", {
+        style: {
+          ...cell,
+          color: c.ok ? "var(--good)" : "var(--text-faint)"
+        }
+      }, c.ok ? `✓ ${c.why}` : `✗ ${c.why}`), React.createElement("td", {
+        style: {
+          ...cell,
+          whiteSpace: "normal",
+          color: "var(--text-dim)",
+          maxWidth: 360
+        }
+      }, t.summary));
+    })))));
+  }));
+}
 Object.assign(window, {
   Settings,
   ImportHistoryModal,
   ImportTicketsModal,
-  ImportIcalModal
+  ImportIcalModal,
+  DebugView
 });
 
 /* ===== app.jsx ===== */
@@ -4305,6 +4537,10 @@ function App() {
     id: "settings",
     label: "Settings",
     icon: "gear"
+  }, {
+    id: "debug",
+    label: "Debug",
+    icon: "board"
   }];
   return React.createElement("div", {
     className: "app"
@@ -4439,6 +4675,12 @@ function App() {
     onOpenImportHistory: () => setShowImportHtml(true),
     onOpenImportTickets: () => setShowImportTickets(true),
     onOpenImportIcal: () => setShowImportIcal(true)
+  }), view === "debug" && React.createElement(DebugView, {
+    tickets: tickets,
+    people: people,
+    sprints: sprintsList,
+    currentIdx: currentSprintIdx,
+    doneRes: doneRes
   })), descTicket && React.createElement(DescPanel, {
     ticket: tickets.find(t => t.id === descTicket.id) || descTicket,
     people: peopleV,
