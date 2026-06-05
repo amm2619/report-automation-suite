@@ -829,4 +829,124 @@ function ImportTicketsModal({ people, sprints, onClose, onImport }) {
   );
 }
 
-Object.assign(window, { Settings, ImportHistoryModal, ImportTicketsModal, ImportIcalModal });
+/* ============================================================================
+   Debug — shows exactly how every ticket is read and what feeds velocity.
+   ========================================================================== */
+function DebugView({ tickets, people, sprints, currentIdx, doneRes }) {
+  const [q, setQ] = useState("");
+  const doneSet = new Set((doneRes || []).map((r) => r.toLowerCase()));
+  const idxByName = {}; sprints.forEach((s, i) => { idxByName[s.name] = i; });
+  const personById = (id) => people.find((p) => p.id === id);
+  const isDone = (t) => !!(t.resolution && doneSet.has(t.resolution.toLowerCase()));
+
+  // Why a ticket does / doesn't feed velocity, mirroring deriveHistory exactly.
+  function contribution(t) {
+    if (!t.assignee) return { ok: false, why: "no assignee" };
+    if (!isDone(t)) return { ok: false, why: t.resolution ? `resolution "${t.resolution}" not in Done list` : "no resolution" };
+    const pts = Number(t.points) || 0;
+    if (pts <= 0) return { ok: false, why: "points ≤ 0" };
+    const sps = (t.sprints || []).filter(Boolean);
+    if (!sps.length) return { ok: false, why: "no sprint (backlog)" };
+    return { ok: true, why: `counts in ${sps.join(", ")}`, pts };
+  }
+
+  const derived = VP.deriveHistory(tickets, doneRes, sprints, currentIdx);
+
+  // Group tickets by assignee (people first, then an Unassigned bucket).
+  const groups = new Map();
+  for (const t of tickets) {
+    const k = t.assignee || "_none";
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(t);
+  }
+  const ordered = [...groups.entries()]
+    .map(([id, ts]) => ({ id, person: id === "_none" ? null : personById(id), tickets: ts }))
+    .sort((a, b) => (a.id === "_none" ? 1 : b.id === "_none" ? -1 : (a.person?.name || a.id).localeCompare(b.person?.name || b.id)));
+
+  const ql = q.trim().toLowerCase();
+  const match = (g) => !ql || (g.person?.name || "unassigned").toLowerCase().includes(ql) || (g.person?.sid || "").toLowerCase().includes(ql);
+
+  const cell = { padding: "4px 8px", borderBottom: "1px solid var(--border)", fontSize: 12, whiteSpace: "nowrap" };
+  const head = { ...cell, color: "var(--text-faint)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 10, position: "sticky", top: 0, background: "var(--surface-2)" };
+
+  return (
+    <div className="wrap">
+      <div className="team-head">
+        <div>
+          <h2>Debug</h2>
+          <div className="sub">How each ticket is parsed and what feeds velocity. Velocity counts <b>Done</b> tickets with <b>points &gt; 0</b> assigned to a person, in a sprint <b>before the current one</b>.</div>
+        </div>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="filter by name / sid…"
+          style={{ fontSize: 13, padding: "8px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", minWidth: 200 }} />
+      </div>
+
+      {/* Sprint calendar overview */}
+      <div className="person-card settings-card" style={{ marginBottom: 16 }}>
+        <div className="section-label" style={{ margin: 0 }}>Sprints in the calendar ({sprints.length}) · current = index {currentIdx}</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {sprints.map((s, i) => {
+            const rel = i === currentIdx ? "current" : i < currentIdx ? "past" : "future";
+            const color = rel === "current" ? "var(--good)" : rel === "past" ? "var(--text-faint)" : "var(--accent)";
+            return (
+              <span key={s.id} className="res-chip" title={`index ${i} · ${rel}${VP.isUndated(s) ? " · undated" : ""}`}
+                style={{ borderColor: color, color }}>
+                <span style={{ fontFamily: "var(--font-mono)" }}>{i}: {s.name || "(unnamed)"}</span>
+              </span>
+            );
+          })}
+        </div>
+        <div className="muted" style={{ fontSize: 11.5 }}>Velocity counts a person's completed (Done, points&gt;0) work in <b>every</b> sprint listed here — duplicate / merged names here are the thing to watch for.</div>
+      </div>
+
+      {/* Per-assignee breakdown */}
+      {ordered.filter(match).map((g) => {
+        const series = g.id !== "_none" ? (derived[g.id] || []) : [];
+        const sum = series.reduce((a, b) => a + b, 0);
+        const avg = series.length ? sum / series.length : 0;
+        const usesGoal = series.length < 2;
+        const totalPts = g.tickets.reduce((a, t) => a + (Number(t.points) || 0), 0);
+        const sorted = [...g.tickets].sort((a, b) => a.key.localeCompare(b.key));
+        return (
+          <div className="person-card" key={g.id} style={{ marginBottom: 14 }}>
+            <div className="pc-head" style={{ justifyContent: "space-between" }}>
+              <div>
+                <div className="pc-name">{g.person ? g.person.name : "Unassigned"}</div>
+                <div className="pc-sid">{g.person ? `${g.person.project} · ${g.person.type} · sid: ${g.person.sid || "—"} · goal ${g.person.goal || 0}` : "no person"}</div>
+              </div>
+              <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: 12 }}>
+                <div><b style={{ fontSize: 16 }}>{g.id !== "_none" ? (usesGoal ? (g.person?.goal || 0) : Math.round(avg)) : "—"}</b> velocity {g.id !== "_none" && usesGoal ? "(goal)" : ""}</div>
+                <div className="muted">series [{series.join(", ")}] · {g.tickets.length} tickets · {totalPts} pts total</div>
+              </div>
+            </div>
+            <div style={{ overflowX: "auto", marginTop: 8 }}>
+              <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                <thead><tr>
+                  <th style={head}>Key</th><th style={head}>Pts</th><th style={head}>Sprint(s)</th>
+                  <th style={head}>Resolution</th><th style={head}>Feeds velocity?</th>
+                  <th style={{ ...head, whiteSpace: "normal" }}>Summary</th>
+                </tr></thead>
+                <tbody>
+                  {sorted.map((t) => {
+                    const c = contribution(t);
+                    return (
+                      <tr key={t.id}>
+                        <td style={{ ...cell, fontFamily: "var(--font-mono)", color: PROJ_COLOR[VP.projectForKey(t.key)] || "var(--text)" }}>{t.key}</td>
+                        <td style={{ ...cell, fontFamily: "var(--font-mono)", textAlign: "right", fontWeight: 700 }}>{t.points}</td>
+                        <td style={{ ...cell, fontFamily: "var(--font-mono)" }}>{(t.sprints || []).join(", ") || "—"}</td>
+                        <td style={cell}>{t.resolution || "—"}</td>
+                        <td style={{ ...cell, color: c.ok ? "var(--good)" : "var(--text-faint)" }}>{c.ok ? `✓ ${c.why}` : `✗ ${c.why}`}</td>
+                        <td style={{ ...cell, whiteSpace: "normal", color: "var(--text-dim)", maxWidth: 360 }}>{t.summary}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+Object.assign(window, { Settings, ImportHistoryModal, ImportTicketsModal, ImportIcalModal, DebugView });

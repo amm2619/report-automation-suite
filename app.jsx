@@ -367,6 +367,7 @@ function App() {
     { id: "planner", label: "Planner", icon: "board" },
     { id: "team", label: "Team", icon: "users" },
     { id: "settings", label: "Settings", icon: "gear" },
+    { id: "debug", label: "Debug", icon: "board" },
   ];
 
   return (
@@ -435,6 +436,10 @@ function App() {
             onOpenImportHistory={() => setShowImportHtml(true)}
             onOpenImportTickets={() => setShowImportTickets(true)}
             onOpenImportIcal={() => setShowImportIcal(true)} />
+        )}
+        {view === "debug" && (
+          <DebugView tickets={tickets} people={people} sprints={sprintsList}
+            currentIdx={currentSprintIdx} doneRes={doneRes} />
         )}
       </main>
 
