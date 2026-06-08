@@ -2,6 +2,8 @@
 
 function pct(n, d) { return d > 0 ? Math.min(100, Math.round((n / d) * 100)) : 0; }
 
+const isDone = (t) => t.resolution && VP.DONE_RESOLUTIONS.includes(t.resolution);
+
 /* ---- capacity card ---- */
 function CapCard({ person, assigned, cap, wfhUsed, holidays }) {
   const color = PROJ_COLOR[person.project];
@@ -99,7 +101,7 @@ function AssignPop({ ticket, people, onPick, onClose }) {
 }
 
 /* ---- move-to-sprint popover ---- */
-function MovePop({ ticket, sprints, curName, currentIdx, hidePast, onMove, onBacklog, onClose }) {
+function MovePop({ ticket, sprints, currentIdx, hidePast, onMove, onBacklog, onClose }) {
   const ref = useRef(null);
   useClickOutside(ref, onClose);
   return (
@@ -123,7 +125,7 @@ function MovePop({ ticket, sprints, curName, currentIdx, hidePast, onMove, onBac
 }
 
 /* ---- ticket row ---- */
-function TicketRow({ ticket, people, jiraBase, sprints, curName, currentIdx, hidePast, openPop, setOpenPop, onAssign, onWfh, onMove, onBacklog, onPoints, onOpenDesc, variant = "sprint" }) {
+function TicketRow({ ticket, people, jiraBase, sprints, currentIdx, hidePast, openPop, setOpenPop, onAssign, onWfh, onMove, onBacklog, onPoints, onOpenDesc, variant = "sprint" }) {
   const proj = VP.projectForKey(ticket.key);
   const color = PROJ_COLOR[proj];
   const assignee = people.find((p) => p.id === ticket.assignee);
@@ -171,7 +173,7 @@ function TicketRow({ ticket, people, jiraBase, sprints, curName, currentIdx, hid
           <button className="iconbtn" style={{ width: 30, height: 30 }} onClick={() => setOpenPop(popM ? null : { id: ticket.id, type: "move" })} aria-label="Move ticket">
             <Icon name="dots" size={16} />
           </button>
-          {popM && <MovePop ticket={ticket} sprints={sprints} curName={curName} currentIdx={currentIdx} hidePast={hidePast} onClose={() => setOpenPop(null)}
+          {popM && <MovePop ticket={ticket} sprints={sprints} currentIdx={currentIdx} hidePast={hidePast} onClose={() => setOpenPop(null)}
             onMove={(nm) => { onMove(ticket, nm); setOpenPop(null); }} onBacklog={() => { onBacklog(ticket); setOpenPop(null); }} />}
         </div>
       </div>
@@ -228,7 +230,6 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
   const sprintName = sprint.name;
 
   const projPeople = useMemo(() => people.filter((p) => p.project === project), [people, project]);
-  const isDone = (t) => t.resolution && VP.DONE_RESOLUTIONS.includes(t.resolution);
 
   // tickets in this project + sprint (active work)
   const inSprint = useMemo(() => tickets.filter((t) => VP.projectForKey(t.key) === project && !isDone(t) && t.sprints.includes(sprintName)), [tickets, project, sprintName]);
@@ -342,9 +343,9 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
                     )}
                   </div>
                   {!collapsed && list.map((t) => (
-                    <TicketRow key={t.id} ticket={t} people={projPeople} jiraBase={jiraBase} sprints={sprints} curName={sprintName} currentIdx={currentIdx} hidePast={hidePast}
+                    <TicketRow key={t.id} ticket={t} people={projPeople} jiraBase={jiraBase} sprints={sprints} currentIdx={currentIdx} hidePast={hidePast}
                       openPop={openPop} setOpenPop={setOpenPop} onAssign={onAssign} onWfh={onWfh}
-                      onMove={(tk, nm) => onMove(tk, nm)} onBacklog={onBacklog} onPoints={onPoints} onOpenDesc={onOpenDesc} />
+                      onMove={onMove} onBacklog={onBacklog} onPoints={onPoints} onOpenDesc={onOpenDesc} />
                   ))}
                 </div>
               );
@@ -357,10 +358,10 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
               <div className="section-label">Backlog · assignment candidates · {backlog.length}</div>
               <div className="tickets">
                 {backlog.map((t) => (
-                  <TicketRow key={t.id} ticket={t} people={projPeople} jiraBase={jiraBase} sprints={sprints} curName={sprintName} currentIdx={currentIdx} hidePast={hidePast}
+                  <TicketRow key={t.id} ticket={t} people={projPeople} jiraBase={jiraBase} sprints={sprints} currentIdx={currentIdx} hidePast={hidePast}
                     openPop={openPop} setOpenPop={setOpenPop}
                     onAssign={(tk, pid) => onAssign(tk, pid, sprintName)} onWfh={onWfh}
-                    onMove={(tk, nm) => onMove(tk, nm)} onBacklog={onBacklog} onPoints={onPoints} onOpenDesc={onOpenDesc}
+                    onMove={onMove} onBacklog={onBacklog} onPoints={onPoints} onOpenDesc={onOpenDesc}
                     variant="backlog" />
                 ))}
               </div>
@@ -376,7 +377,6 @@ function Planner({ project, tickets, people, sprints, sprintIdx, setSprintIdx, m
 
 /* ---- multi sprint columns ---- */
 function MultiView({ project, tickets, people, sprints, currentIdx, hidePast, onOpenDesc }) {
-  const isDone = (t) => t.resolution && VP.DONE_RESOLUTIONS.includes(t.resolution);
   const projPeople = people.filter((p) => p.project === project);
   return (
     <div className="multi-cols">
