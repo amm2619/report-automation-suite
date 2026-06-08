@@ -1192,6 +1192,7 @@ window.DescPanel = DescPanel;
 function pct(n, d) {
   return d > 0 ? Math.min(100, Math.round(n / d * 100)) : 0;
 }
+const isDone = t => t.resolution && VP.DONE_RESOLUTIONS.includes(t.resolution);
 function CapCard({
   person,
   assigned,
@@ -1350,7 +1351,6 @@ function AssignPop({
 function MovePop({
   ticket,
   sprints,
-  curName,
   currentIdx,
   hidePast,
   onMove,
@@ -1403,7 +1403,6 @@ function TicketRow({
   people,
   jiraBase,
   sprints,
-  curName,
   currentIdx,
   hidePast,
   openPop,
@@ -1518,7 +1517,6 @@ function TicketRow({
   })), popM && React.createElement(MovePop, {
     ticket: ticket,
     sprints: sprints,
-    curName: curName,
     currentIdx: currentIdx,
     hidePast: hidePast,
     onClose: () => setOpenPop(null),
@@ -1602,7 +1600,6 @@ function Planner({
   const sprint = sprints[sprintIdx];
   const sprintName = sprint.name;
   const projPeople = useMemo(() => people.filter(p => p.project === project), [people, project]);
-  const isDone = t => t.resolution && VP.DONE_RESOLUTIONS.includes(t.resolution);
   const inSprint = useMemo(() => tickets.filter(t => VP.projectForKey(t.key) === project && !isDone(t) && t.sprints.includes(sprintName)), [tickets, project, sprintName]);
   const backlog = useMemo(() => tickets.filter(t => VP.projectForKey(t.key) === project && !isDone(t) && t.sprints.length === 0), [tickets, project]);
   const assignedBy = useMemo(() => {
@@ -1817,14 +1814,13 @@ function Planner({
       people: projPeople,
       jiraBase: jiraBase,
       sprints: sprints,
-      curName: sprintName,
       currentIdx: currentIdx,
       hidePast: hidePast,
       openPop: openPop,
       setOpenPop: setOpenPop,
       onAssign: onAssign,
       onWfh: onWfh,
-      onMove: (tk, nm) => onMove(tk, nm),
+      onMove: onMove,
       onBacklog: onBacklog,
       onPoints: onPoints,
       onOpenDesc: onOpenDesc
@@ -1839,14 +1835,13 @@ function Planner({
     people: projPeople,
     jiraBase: jiraBase,
     sprints: sprints,
-    curName: sprintName,
     currentIdx: currentIdx,
     hidePast: hidePast,
     openPop: openPop,
     setOpenPop: setOpenPop,
     onAssign: (tk, pid) => onAssign(tk, pid, sprintName),
     onWfh: onWfh,
-    onMove: (tk, nm) => onMove(tk, nm),
+    onMove: onMove,
     onBacklog: onBacklog,
     onPoints: onPoints,
     onOpenDesc: onOpenDesc,
@@ -1871,7 +1866,6 @@ function MultiView({
   hidePast,
   onOpenDesc
 }) {
-  const isDone = t => t.resolution && VP.DONE_RESOLUTIONS.includes(t.resolution);
   const projPeople = people.filter(p => p.project === project);
   return React.createElement("div", {
     className: "multi-cols"
