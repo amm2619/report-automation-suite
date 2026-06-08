@@ -14,13 +14,20 @@ function App() {
   // ---- app state (hydrated from the saved snapshot when present) ----
   const [project, setProject] = useState(() => SAVED.project || "DX");
   const [view, setView] = useState("planner");
-  const [currentSprintIdx, setCurrentSprintIdx] = useState(() => Number.isInteger(SAVED.currentSprintIdx) ? SAVED.currentSprintIdx : VP.CURRENT_SPRINT_IDX);
-  const [sprintIdx, setSprintIdx] = useState(() => Number.isInteger(SAVED.currentSprintIdx) ? SAVED.currentSprintIdx : VP.CURRENT_SPRINT_IDX);
-  const [mode, setMode] = useState("single");
-  const [hidePast, setHidePast] = useState(() => !!SAVED.hidePast);
-  const [tickets, setTickets] = useState(() => (SAVED.tickets || VP.TICKETS).map((x) => ({ ...x, sprints: [...(x.sprints || [])] })));
+  // Normalize any prefixed sprint label on older tickets down to its number.
+  const [tickets, setTickets] = useState(() => (SAVED.tickets || VP.TICKETS).map((x) => ({
+    ...x, sprints: (x.sprints || []).map((s) => VP.parseSprintNumber(s) || s),
+  })));
   const [people, setPeople] = useState(() => (SAVED.people || VP.PEOPLE).map((x) => ({ ...x })));
-  const [sprintsList, setSprintsList] = useState(() => (SAVED.sprintsList || VP.SPRINTS).map((s) => ({ ...s })));
+  // Shared sprint settings (the whole org runs one cadence; product tabs just
+  // filter the view). pastSprintDays = length of a past sprint for the
+  // points/day math; pastSprintCount = 0 means auto-detect from the data;
+  // upcoming = the sprint we're planning (typed working days + date range).
+  const [velCfg, setVelCfg] = useState(() => ({
+    pastSprintDays: 10, pastSprintCount: 0,
+    upcoming: { workingDays: 10, start: "", end: "" },
+    ...(SAVED.velCfg || {}),
+  }));
   const [descTicket, setDescTicket] = useState(null);
   const [toasts, setToasts] = useState([]);
 
@@ -40,7 +47,43 @@ function App() {
   const writeTimer = useRef(null);
   const fsSupported = !!(window.FSStore && window.FSStore.supported());
 
-  const snapshot = () => ({ v: 1, people, tickets, sprintsList, currentSprintIdx, leave: leaveOverlay, jiraBase, doneRes, customRes, project, hidePast });
+  // ---- shared sprint calendar (the distinct sprint numbers seen on tickets) --
+  // All products run the same cadence, so the calendar is just the sorted set
+  // of completed sprint numbers across every ticket; the product tab filters
+  // the view. The one upcoming sprint we're planning lives in velCfg, not here.
+  const sprintsList = useMemo(() => {
+    const nums = [];
+    tickets.forEach((t) => (t.sprints || []).forEach((s) => nums.push(s)));
+    return VP.buildSprintCalendar(nums, {});
+  }, [tickets]);
+  // Past = sprints that already have completed work; the upcoming sprint's
+  // tickets aren't done, so it never lands here. Deriving the auto name from
+  // completed sprints keeps it stable once you start pulling tickets in.
+  const pastSprintNames = useMemo(() => {
+    const done = new Set(doneRes.map((r) => String(r).toLowerCase()));
+    const set = new Set();
+    tickets.forEach((t) => {
+      if (t.resolution && done.has(String(t.resolution).toLowerCase())) {
+        (t.sprints || []).forEach((s) => { const n = VP.parseSprintNumber(s) || s; if (n) set.add(n); });
+      }
+    });
+    return [...set].sort((a, b) => VP.sprintSortKey(a) - VP.sprintSortKey(b));
+  }, [tickets, doneRes]);
+  // The sprint we're planning: whatever you typed, else the next number after
+  // the latest completed one.
+  const upcomingName = (velCfg.upcoming && velCfg.upcoming.name && velCfg.upcoming.name.trim())
+    || VP.nextSprintName(pastSprintNames);
+  const currentSprintIdx = pastSprintNames.length;
+  // Resolve the shared config the calc actually uses (auto-fill the past-sprint
+  // count from the data when it isn't pinned in settings).
+  const velCfgResolved = useMemo(() => ({
+    pastSprintDays: velCfg.pastSprintDays || 10,
+    pastSprintCount: velCfg.pastSprintCount > 0 ? velCfg.pastSprintCount : pastSprintNames.length,
+    upcoming: { ...(velCfg.upcoming || { workingDays: 10, start: "", end: "" }), name: upcomingName },
+  }), [velCfg, pastSprintNames.length, upcomingName]);
+  const onVelCfg = (patch) => setVelCfg((c) => ({ ...c, ...patch }));
+
+  const snapshot = () => ({ v: 1, people, tickets, velCfg, leave: leaveOverlay, jiraBase, doneRes, customRes, project });
 
   // ---- persistence: write the full data snapshot whenever it changes ----
   useEffect(() => {
@@ -51,7 +94,7 @@ function App() {
       const snap = snapshot();
       writeTimer.current = setTimeout(() => { window.FSStore.write(dirHandle.current, snap).catch(() => {}); }, 500);
     }
-  }, [people, tickets, sprintsList, currentSprintIdx, leaveOverlay, jiraBase, doneRes, customRes, project, hidePast, folder]);
+  }, [people, tickets, velCfg, leaveOverlay, jiraBase, doneRes, customRes, project, folder]);
 
   // ---- on load: reconnect a previously chosen folder ----
   useEffect(() => {
@@ -97,36 +140,11 @@ function App() {
   const onBacklog = (ticket) => { patchTicket(ticket.id, { sprints: [] }); toast(`${ticket.key} returned to backlog`, "info"); };
   const onPoints = (ticket, pts) => { patchTicket(ticket.id, { points: Math.max(0, Math.min(99, Math.round(Number(pts) || 0))) }); };
 
-  // ---- sprint actions ----
-  // Sort dated sprints chronologically; undated sprints (no timeframe) always last.
-  const bySprintOrder = (a, b) => {
-    if (!a.start && !b.start) return 0;
-    if (!a.start) return 1;
-    if (!b.start) return -1;
-    return a.start.localeCompare(b.start);
-  };
-  const onAddSprint = (s) => {
-    setSprintsList((arr) => {
-      const next = [...arr, { ...s, id: "s" + Date.now() }].sort(bySprintOrder);
-      // keep currentSprintIdx pointing at the same sprint id
-      return next;
-    });
-    toast(`Added sprint ${s.name}`);
-  };
-  const onEditSprint = (id, patch) => {
-    setSprintsList((arr) => arr.map((s) => s.id === id ? { ...s, ...patch } : s).sort(bySprintOrder));
-  };
-  const onRemoveSprint = (id) => {
-    setSprintsList((arr) => arr.filter((s) => s.id !== id));
-    toast("Sprint removed", "info");
-  };
-  const onSetCurrent = (idx) => { setCurrentSprintIdx(idx); toast(`Current sprint set to ${sprintsList[idx]?.name}`); };
-
   // ---- settings actions ----
   // Save the entire workspace (people, tickets, sprints, leave, settings) to a
   // JSON file you can keep in a folder and re-import later.
   const onExportData = () => {
-    const payload = { version: 1, exportedAt: new Date().toISOString(), people, tickets, sprintsList, currentSprintIdx, leave: leaveOverlay, jiraBase, doneRes, customRes, project, hidePast };
+    const payload = { version: 1, exportedAt: new Date().toISOString(), people, tickets, velCfg, leave: leaveOverlay, jiraBase, doneRes, customRes, project };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -139,16 +157,14 @@ function App() {
   const applyData = (d) => {
     if (!d || typeof d !== "object") return;
     if (Array.isArray(d.people)) setPeople(d.people.map((p) => ({ ...p })));
-    if (Array.isArray(d.tickets)) setTickets(d.tickets.map((t) => ({ ...t, sprints: [...(t.sprints || [])] })));
-    if (Array.isArray(d.sprintsList)) setSprintsList(d.sprintsList.map((s) => ({ ...s })));
-    if (Number.isInteger(d.currentSprintIdx)) { setCurrentSprintIdx(d.currentSprintIdx); setSprintIdx(d.currentSprintIdx); }
+    if (Array.isArray(d.tickets)) setTickets(d.tickets.map((t) => ({ ...t, sprints: (t.sprints || []).map((s) => VP.parseSprintNumber(s) || s) })));
+    if (d.velCfg && typeof d.velCfg === "object") setVelCfg((c) => ({ ...c, ...d.velCfg }));
     const leave = Array.isArray(d.leave) ? d.leave : (Array.isArray(d.leaveOverlay) ? d.leaveOverlay : null);
     if (leave) { VP.LEAVE.length = 0; VP.LEAVE.push(...leave); setLeaveOverlay(leave); }
     if (typeof d.jiraBase === "string") setJiraBase(d.jiraBase);
     if (Array.isArray(d.doneRes)) setDoneRes(d.doneRes);
     if (Array.isArray(d.customRes)) setCustomRes(d.customRes);
     if (typeof d.project === "string") setProject(d.project);
-    if (typeof d.hidePast === "boolean") setHidePast(d.hidePast);
   };
   const onImportData = (txt) => {
     try { applyData(JSON.parse(txt)); toast("Data imported"); }
@@ -159,15 +175,12 @@ function App() {
     VP.LEAVE.length = 0;
     setPeople([]);
     setTickets([]);
-    setSprintsList(VP.SPRINTS.map((s) => ({ ...s })));
-    setCurrentSprintIdx(VP.CURRENT_SPRINT_IDX);
-    setSprintIdx(VP.CURRENT_SPRINT_IDX);
+    setVelCfg({ pastSprintDays: 10, pastSprintCount: 0, upcoming: { workingDays: 10, start: "", end: "", name: "" } });
     setLeaveOverlay([]);
     setJiraBase("https://jira.example.com");
     setDoneRes([...VP.DONE_RESOLUTIONS]);
     setCustomRes([]);
     setProject("DX");
-    setHidePast(false);
     try { localStorage.removeItem(PERSIST_KEY); } catch (_) {}
     toast("All data cleared", "info");
   };
@@ -178,7 +191,7 @@ function App() {
       const h = await window.FSStore.connect();
       dirHandle.current = h;
       const existing = await window.FSStore.read(h);
-      if (existing && (existing.people || existing.tickets || existing.sprintsList)) {
+      if (existing && (existing.people || existing.tickets || existing.velCfg)) {
         applyData(existing);
         toast(`Connected “${h.name}” · loaded its data`);
       } else {
@@ -221,23 +234,14 @@ function App() {
     return result;
   };
   // Import the backlog + in-sprint board from a Jira HTML export. Populates
-  // people from the assignees (creating any that are new), creates any sprints
-  // the export references but the calendar doesn't have yet, then upserts the
-  // tickets by key.
+  // people from the assignees (creating any that are new), then upserts the
+  // tickets by key. The sprint calendar derives automatically from the sprint
+  // numbers on the imported tickets.
   const onImportTickets = (html) => {
     const res = parseBoardHtml(html);
     if (!res.rowCount) { toast("No tickets found in that export", "err"); return res; }
 
-    // 1) Sprints — add an undated sprint for any referenced sprint we don't have.
-    const knownSprintNames = new Set(sprintsList.map((s) => s.name));
-    const newSprintNames = res.sprintsSeen.filter((n) => !knownSprintNames.has(n));
-    let nextSprints = sprintsList;
-    if (newSprintNames.length) {
-      nextSprints = [...sprintsList, ...newSprintNames.map((n) => ({ id: "s" + (++_tid), name: n, start: null, end: null }))];
-      setSprintsList(nextSprints);
-    }
-
-    // 2) People — match assignees to the roster by name/sid; create the rest,
+    // People — match assignees to the roster by name/sid; create the rest,
     //    inferring each new person's project from the tickets they own.
     const byName = new Map(people.map((p) => [p.name.trim().toLowerCase(), p]));
     const bySid = new Map(people.filter((p) => p.sid).map((p) => [p.sid.toLowerCase(), p]));
@@ -285,7 +289,7 @@ function App() {
 
     toast(`Imported ${imported.length} tickets · ${res.inSprint} in a sprint, ${res.backlog} backlog` +
       (newPeople.length ? ` · +${newPeople.length} people` : "") +
-      (newSprintNames.length ? ` · +${newSprintNames.length} sprints` : ""), "ok");
+      (res.sprintsSeen.length ? ` · ${res.sprintsSeen.length} sprints` : ""), "ok");
     return res;
   };
   const onImportIcal = (text) => {
@@ -409,26 +413,24 @@ function App() {
       {/* content */}
       <main className="content">
         {view === "planner" && (
-          <Planner project={project} tickets={tickets} people={peopleV} sprints={sprintsList}
-            sprintIdx={sprintIdx} setSprintIdx={setSprintIdx} mode={mode} setMode={setMode}
-            hidePast={hidePast}
-            jiraBase={jiraBase} currentIdx={currentSprintIdx}
+          <Planner project={project} tickets={tickets} people={peopleV}
+            velCfg={velCfgResolved} jiraBase={jiraBase}
             onAssign={onAssign} onWfh={onWfh} onMove={onMove} onBacklog={onBacklog}
             onPoints={onPoints} onOpenDesc={setDescTicket}
             onOpenImportTickets={() => setShowImportTickets(true)} />
         )}
         {view === "team" && (
           <Team people={peopleV} projects={VP.PROJECTS} currentProject={project} sprints={sprintsList}
+            currentIdx={currentSprintIdx} velCfg={velCfgResolved}
             onAdd={onAddPerson} onEdit={onEditPerson} onRemove={onRemovePerson} />
         )}
         {view === "settings" && (
           <Settings jiraBase={jiraBase} setJiraBase={setJiraBase}
             doneRes={doneRes} setDoneRes={setDoneRes} customRes={customRes} setCustomRes={setCustomRes}
-            sprints={sprintsList} currentIdx={currentSprintIdx} people={people}
-            hidePast={hidePast} setHidePast={setHidePast}
+            sprints={sprintsList} people={people}
             leaveOverlay={leaveOverlay} onClearImportedLeave={onClearImportedLeave}
             onAddLeave={onAddLeave} onRemoveLeave={onRemoveLeave}
-            onAddSprint={onAddSprint} onEditSprint={onEditSprint} onRemoveSprint={onRemoveSprint} onSetCurrent={onSetCurrent}
+            velCfg={velCfg} velCfgResolved={velCfgResolved} onVelCfg={onVelCfg}
             toast={toast}
             onExportData={onExportData} onImportData={onImportData} onClearData={onClearData}
             fsSupported={fsSupported} folder={folder} folderReconnect={folderReconnect}
@@ -450,7 +452,6 @@ function App() {
           people={peopleV}
           sprints={sprintsList}
           currentIdx={currentSprintIdx}
-          hidePast={hidePast}
           jiraBase={jiraBase}
           onClose={() => setDescTicket(null)}
           onAssign={onAssign}

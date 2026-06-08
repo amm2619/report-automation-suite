@@ -125,6 +125,77 @@
   // ---- undated sprints: a planning bucket with no committed timeframe ----
   function isUndated(sprint) { return !sprint || !sprint.start || !sprint.end; }
 
+  // ---- sprint numbering ("YY.Q.N") -------------------------------------------
+  // A sprint's identity is its number; any project prefix ("DX 26.3.5") is just
+  // a label. parseSprintNumber pulls the canonical "26.3.5" out of any string.
+  function parseSprintNumber(s) {
+    const m = String(s || "").match(/(\d{2,4})\.(\d+)\.(\d+)/);
+    return m ? `${m[1]}.${m[2]}.${m[3]}` : null;
+  }
+  // Sortable key so 26.3.6 < 26.4.1 and 26.3.2 < 26.3.10.
+  function sprintSortKey(num) {
+    const m = String(num || "").match(/(\d+)\.(\d+)\.(\d+)/);
+    return m ? (+m[1]) * 1e6 + (+m[2]) * 1e3 + (+m[3]) : Infinity;
+  }
+  // Suggest the sprint after the latest one in a list (bump the last segment),
+  // so a freshly planned sprint gets a name that won't collide with history.
+  function nextSprintName(names) {
+    const nums = (names || []).map(parseSprintNumber).filter(Boolean);
+    if (!nums.length) return "";
+    const latest = nums.sort((a, b) => sprintSortKey(a) - sprintSortKey(b)).pop();
+    const m = latest.match(/(\d+)\.(\d+)\.(\d+)/);
+    return `${m[1]}.${m[2]}.${+m[3] + 1}`;
+  }
+  function isWorkingDay(dt) {
+    const g = dt.getDay();
+    if (g === 0 || g === 6) return false;
+    return !holidaysInRange(fmtISO(dt), fmtISO(dt)).length;
+  }
+  // Date that is `n` working days from `iso` (n<0 walks backward). n=0 returns
+  // the next working day on/after iso.
+  function shiftWorkingDays(iso, n) {
+    const d = parseISO(iso);
+    while (!isWorkingDay(d)) d.setDate(d.getDate() + 1); // snap onto a work day
+    const step = n >= 0 ? 1 : -1;
+    let remaining = Math.abs(n);
+    while (remaining > 0) {
+      d.setDate(d.getDate() + step);
+      if (isWorkingDay(d)) remaining--;
+    }
+    return fmtISO(d);
+  }
+
+  /*
+   * Build the shared sprint calendar from a cadence anchor. One sprint per
+   * number; all projects share it. Sprints are contiguous blocks of
+   * `workingDays` working days (weekends + federal holidays skipped), anchored
+   * so that `config.current` starts on `config.currentStart`.
+   *
+   * config = { current:"26.3.5", currentStart:"2026-05-27", workingDays:10 }
+   * numbers = the distinct sprint numbers to place (e.g. from imported tickets).
+   * Returns [{ id, name:"26.3.5", start, end }] sorted ascending; undated when
+   * the anchor isn't set.
+   */
+  function buildSprintCalendar(numbers, config) {
+    const cfg = config || {};
+    const W = Math.max(1, +cfg.workingDays || 10);
+    const set = new Set();
+    (numbers || []).forEach((n) => { const p = parseSprintNumber(n); if (p) set.add(p); });
+    if (cfg.current) set.add(parseSprintNumber(cfg.current) || cfg.current);
+    const sorted = [...set].sort((a, b) => sprintSortKey(a) - sprintSortKey(b));
+    const anchorIdx = sorted.indexOf(parseSprintNumber(cfg.current) || cfg.current);
+
+    return sorted.map((name, i) => {
+      let start = null, end = null;
+      if (cfg.currentStart && anchorIdx >= 0) {
+        // offset in sprints from the anchor → offset in working days.
+        start = shiftWorkingDays(cfg.currentStart, (i - anchorIdx) * W);
+        end = shiftWorkingDays(start, W - 1);
+      }
+      return { id: "sp_" + name, name, start, end };
+    });
+  }
+
   // ---- work days in a sprint ----
   function sprintWorkDays(sprint) {
     if (isUndated(sprint)) return [];
@@ -192,6 +263,44 @@
     return LEAVE.filter((l) => l.sid === sid && work.has(l.date));
   }
 
+  /*
+   * Projected velocity for the upcoming sprint — the by-hand method, automated:
+   *
+   *   avg points / sprint = total completed points / number of past sprints
+   *                         (all past sprints count; a sprint with no completed
+   *                          work counts as 0)
+   *   points / day        = avg / pastSprintDays   (past sprints were 2-week=10;
+   *                                                  configurable for monthly)
+   *   available days      = upcoming working days you type
+   *                          − federal holidays in the upcoming date range
+   *                          − this person's leave in that range (from the
+   *                            leave calendar — looked up for you)
+   *   velocity            = points/day × available days
+   *
+   * cfg = { pastSprintDays, pastSprintCount, upcoming:{ workingDays, start, end } }
+   */
+  function projectedVelocity(person, cfg) {
+    cfg = cfg || {};
+    const up = cfg.upcoming || {};
+    const pastDays = Math.max(1, +cfg.pastSprintDays || 10);
+    const hist = person.history || [];
+    // Divide by the whole past window (all sprints), not just the ones the
+    // person logged work in — zeros drag the average down, as intended.
+    const sprintCount = Math.max(1, +cfg.pastSprintCount || hist.length || 1);
+    const totalPts = hist.reduce((a, b) => a + b, 0);
+    const avgPerSprint = totalPts / sprintCount;
+    const pointsPerDay = avgPerSprint / pastDays;
+
+    const gross = Math.max(0, Math.round(+up.workingDays || 0));
+    const dated = up.start && up.end;
+    const holidays = dated ? holidaysInRange(up.start, up.end).length : 0;
+    const leave = dated ? leaveDaysInSprint(person.sid, { start: up.start, end: up.end }) : 0;
+    const available = Math.max(0, gross - holidays - leave);
+    const velocity = Math.round(pointsPerDay * available);
+
+    return { totalPts, sprintCount, avgPerSprint, pointsPerDay, pastDays, gross, holidays, leave, available, velocity, dated };
+  }
+
   // ---- contractor WFH budget: <=2 days per calendar week with >=1 work day --
   function wfhBudget(person, sprint) {
     if (person.type !== "contractor") return null;
@@ -244,7 +353,9 @@
     projectForKey,
     // calc
     isUndated,
+    parseSprintNumber, sprintSortKey, nextSprintName, shiftWorkingDays, buildSprintCalendar,
     sprintWorkDays, holidaysInRange, velocity, baseVelocity, deriveHistory,
+    projectedVelocity,
     leaveDaysInSprint, leaveRecords, wfhBudget, capacity,
     parseISO, fmtISO, eachDay,
   };

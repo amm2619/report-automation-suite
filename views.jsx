@@ -1,4 +1,4 @@
-/* Settings view + ImportHistoryModal + ImportIcalModal + SprintEditor. */
+/* Settings view + Sprint cadence + import modals + Debug. */
 
 /* ============================================================================
    Settings
@@ -6,10 +6,9 @@
 function Settings({
   jiraBase, setJiraBase,
   doneRes, setDoneRes, customRes, setCustomRes,
-  sprints, currentIdx, people,
-  hidePast, setHidePast,
+  sprints, people,
   leaveOverlay, onClearImportedLeave, onAddLeave, onRemoveLeave,
-  onAddSprint, onEditSprint, onRemoveSprint, onSetCurrent,
+  velCfg, velCfgResolved, onVelCfg,
   toast, onExportData, onImportData, onClearData,
   fsSupported, folder, folderReconnect, onConnectFolder, onReconnectFolder, onDisconnectFolder,
   onOpenImportHistory, onOpenImportTickets, onOpenImportIcal,
@@ -137,17 +136,12 @@ function Settings({
         onRemove={onRemoveLeave}
       />
 
-      {/* Sprint calendar */}
-      <SprintCalendarCard
+      {/* Sprint & velocity settings (shared across all products) */}
+      <SprintSettingsCard
         sprints={sprints}
-        currentIdx={currentIdx}
-        hidePast={hidePast}
-        setHidePast={setHidePast}
-        onAddSprint={onAddSprint}
-        onEditSprint={onEditSprint}
-        onRemoveSprint={onRemoveSprint}
-        onSetCurrent={onSetCurrent}
-        toast={toast}
+        velCfg={velCfg}
+        velCfgResolved={velCfgResolved}
+        onVelCfg={onVelCfg}
       />
 
       {/* Data — auto-save, folder sync, clear */}
@@ -323,204 +317,80 @@ function ManualLeaveCard({ people, records, onAdd, onRemove }) {
 }
 
 /* ============================================================================
-   Sprint calendar card — add / edit / remove sprints inline
+   Sprint & velocity settings — shared across every product (one cadence)
    ========================================================================== */
-function SprintCalendarCard({ sprints, currentIdx, hidePast, setHidePast, onAddSprint, onEditSprint, onRemoveSprint, onSetCurrent, toast }) {
-  const [addOpen, setAddOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [confirmRm, setConfirmRm] = useState(null);
+function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg }) {
+  const cfg = velCfg || {};
+  const up = cfg.upcoming || {};
+  const resolvedUp = (velCfgResolved && velCfgResolved.upcoming) || {};
+  const usedCount = velCfgResolved ? velCfgResolved.pastSprintCount : sprints.length;
+  // Past sprints = the detected numbers minus the one we're planning.
+  const detected = sprints.filter((s) => s.name !== resolvedUp.name).length;
+  const numStyle = { fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14, padding: "9px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", width: "100%", boxSizing: "border-box" };
 
-  // suggest a next sprint name + dates based on the last DATED one
-  const last = [...sprints].reverse().find((s) => s.start && s.end) || sprints[sprints.length - 1];
-  function nextSuggested() {
-    if (!last || !last.end) return { name: "", start: "", end: "" };
-    // bump last segment
-    const parts = last.name.split(".");
-    const tail = parseInt(parts[parts.length - 1], 10);
-    const name = isNaN(tail) ? last.name + ".1" : [...parts.slice(0, -1), tail + 1].join(".");
-    // start = day after last.end, skip weekends
-    const [y, m, d] = last.end.split("-").map(Number);
-    const dt = new Date(y, m - 1, d);
-    dt.setDate(dt.getDate() + 1);
-    while (dt.getDay() === 0 || dt.getDay() === 6) dt.setDate(dt.getDate() + 1);
-    const start = dt.toISOString().slice(0, 10);
-    dt.setDate(dt.getDate() + 11);
-    const end = dt.toISOString().slice(0, 10);
-    return { name, start, end };
-  }
+  const setUp = (patch) => onVelCfg({ upcoming: { ...up, ...patch } });
+  const holidays = (up.start && up.end) ? VP.holidaysInRange(up.start, up.end) : [];
 
   return (
     <div className="person-card settings-card">
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ flex: 1 }}>
-          <div className="section-label" style={{ margin: 0 }}>Sprint calendar · {sprints.length} sprint{sprints.length === 1 ? "" : "s"}</div>
-          <div className="muted" style={{ fontSize: 12.5 }}>Add, edit, or remove sprints. Click <Icon name="check" size={11} /> to set a sprint as <i>current</i>.</div>
+      <div className="section-label" style={{ margin: 0 }}>Sprint &amp; velocity</div>
+      <div className="muted" style={{ fontSize: 12.5 }}>
+        One cadence for the whole team — these settings are shared across every product; the product tabs just filter
+        the view. Velocity per person = <b>(avg points per past sprint ÷ past-sprint length)</b> × <b>(upcoming working
+        days − federal holidays − that person's leave)</b>. Holidays and each person's leave are pulled automatically.
+      </div>
+
+      {/* Past sprints → points/day basis */}
+      <div className="section-label" style={{ marginTop: 14, marginBottom: 6, fontSize: 11.5 }}>Past sprints (history basis)</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div className="field">
+          <label>Past sprint length (working days)</label>
+          <input type="number" min={1} max={40} value={cfg.pastSprintDays || 10}
+            onChange={(e) => onVelCfg({ pastSprintDays: Math.max(1, Math.min(40, Math.round(Number(e.target.value) || 10))) })}
+            style={numStyle} />
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>Divides the average to get points/day. Past sprints were 2-week = 10.</div>
         </div>
-        <button className="btn primary" onClick={() => { setAddOpen(true); setEditingId(null); }}>
-          <Icon name="calplus" size={14} /> Add sprint
-        </button>
-      </div>
-
-      {/* Hide past sprints toggle */}
-      <label className="opt-row">
-        <span>
-          <div style={{ fontWeight: 700, fontSize: 13 }}>Hide past sprints</div>
-          <div className="muted" style={{ fontSize: 12 }}>Excludes past sprints everywhere — nav, planner tabs, assignee, and move-to dropdowns. Tickets can't be assigned to a hidden sprint.</div>
-        </span>
-        <span className="switch" data-on={hidePast} onClick={() => setHidePast(!hidePast)} role="switch" aria-checked={hidePast}>
-          <span className="knob" />
-        </span>
-      </label>
-
-      <div className="sprint-list">
-        {sprints.map((s, i) => {
-          const isPast = i < currentIdx;
-          const isCurrent = i === currentIdx;
-          const isFuture = i > currentIdx;
-          const isUndated = !s.start || !s.end;
-          if (editingId === s.id) {
-            return (
-              <SprintEditor
-                key={s.id}
-                initial={s}
-                title="Edit sprint"
-                onCancel={() => setEditingId(null)}
-                onSave={(patch) => { onEditSprint(s.id, patch); setEditingId(null); toast(`Updated ${patch.name || s.name}`); }}
-              />
-            );
-          }
-          return (
-            <div key={s.id} className="sprint-row" data-when={isUndated ? "undated" : isCurrent ? "current" : isPast ? "past" : "future"}>
-              <span className={"sprint-badge " + (isUndated ? "open" : isCurrent ? "now" : isPast ? "past" : "future")} title={isUndated ? "No fixed dates" : isCurrent ? "Current sprint" : isPast ? "Past" : "Upcoming"}>
-                {isUndated ? "OPEN" : isCurrent ? "NOW" : isPast ? "PAST" : "NEXT"}
-              </span>
-              <span className="sprint-name">{s.name}</span>
-              <span className="muted sprint-dates">{isUndated ? "No fixed dates" : fmtRange(s.start, s.end)}</span>
-              <div style={{ flex: 1 }} />
-              {!isCurrent && !isUndated && (
-                <button className="iconbtn" title="Set as current" style={{ width: 28, height: 28 }} onClick={() => onSetCurrent(i)}>
-                  <Icon name="check" size={13} />
-                </button>
-              )}
-              <button className="iconbtn" title="Edit" style={{ width: 28, height: 28 }} onClick={() => { setEditingId(s.id); setAddOpen(false); }}>
-                <Icon name="edit" size={13} />
-              </button>
-              <button className="iconbtn" title="Remove" style={{ width: 28, height: 28 }} onClick={() => setConfirmRm(s)} disabled={isCurrent}>
-                <Icon name="trash" size={13} />
-              </button>
-            </div>
-          );
-        })}
-
-        {addOpen && (
-          <SprintEditor
-            initial={nextSuggested()}
-            title="New sprint"
-            onCancel={() => setAddOpen(false)}
-            onSave={(s) => { onAddSprint(s); setAddOpen(false); }}
-          />
-        )}
-      </div>
-
-      {confirmRm && (
-        <div className="modal-scrim" onClick={() => setConfirmRm(null)}>
-          <div className="modal" style={{ width: "min(380px, 100%)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head"><h3>Remove sprint {confirmRm.name}?</h3></div>
-            <div className="modal-body">
-              <div className="muted" style={{ fontSize: 13 }}>Tickets assigned to this sprint will fall back to the backlog. This can't be undone.</div>
-            </div>
-            <div className="modal-foot">
-              <button className="btn" onClick={() => setConfirmRm(null)}>Cancel</button>
-              <button className="btn" style={{ background: "color-mix(in oklch, var(--danger) 18%, var(--surface-2))", borderColor: "var(--danger)", color: "var(--text)" }}
-                onClick={() => { onRemoveSprint(confirmRm.id); setConfirmRm(null); }}>Remove</button>
-            </div>
+        <div className="field">
+          <label>Sprints to average over</label>
+          <input type="number" min={0} max={60} value={cfg.pastSprintCount || 0}
+            onChange={(e) => onVelCfg({ pastSprintCount: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
+            style={numStyle} />
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
+            0 = auto. Using <b>{usedCount || "—"}</b> ({detected} detected from your tickets). Empty sprints count as 0.
           </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-/* Inline editor for add / edit sprint — Start + working-days -> auto end */
-function SprintEditor({ initial, title, onCancel, onSave }) {
-  const [name, setName] = useState(initial.name || "");
-  const [start, setStart] = useState(initial.start || "");
-  // "Undated" sprint = a planning bucket with no committed timeframe.
-  // Default on when editing a sprint that already has no dates.
-  const [undated, setUndated] = useState(!!initial.name && !initial.start);
-  // derive starting day-count from initial range (if editing), else 10
-  const initialDays = useMemo(() => {
-    if (initial.start && initial.end) {
-      return VP.sprintWorkDays({ start: initial.start, end: initial.end }).length || 10;
-    }
-    return 10;
-  }, [initial.start, initial.end]);
-  const [days, setDays] = useState(initialDays);
-  const [err, setErr] = useState("");
-
-  const end = useMemo(() => endDateFromWorkDays(start, Number(days) || 0), [start, days]);
-  const holidayCount = useMemo(() => {
-    if (!start || !end) return 0;
-    return VP.holidaysInRange(start, end).length;
-  }, [start, end]);
-
-  function commit() {
-    if (!name.trim()) return setErr("Name is required");
-    if (undated) { onSave({ name: name.trim(), start: null, end: null }); return; }
-    if (!start) return setErr("Pick a start date");
-    if (!days || days < 1) return setErr("Sprint length must be at least 1 day");
-    if (!end) return setErr("Couldn't compute end date — try a different start");
-    onSave({ name: name.trim(), start, end });
-  }
-
-  return (
-    <div className="sprint-editor">
-      <div className="se-title">{title}</div>
-      <div className={"se-fields" + (undated ? " undated" : "")}>
-        <div className="field">
-          <label>Sprint name</label>
-          <input value={name} onChange={(e) => { setName(e.target.value); setErr(""); }} placeholder="26.3.3" autoFocus
-            style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }} />
-        </div>
-        {!undated && (
-          <React.Fragment>
-            <div className="field">
-              <label>Start date</label>
-              <DatePicker value={start} onChange={(v) => { setStart(v); setErr(""); }} placeholder="Pick start" />
-            </div>
-            <div className="field">
-              <label>Working days</label>
-              <input type="number" min={1} max={60} value={days}
-                onChange={(e) => { setDays(e.target.value); setErr(""); }}
-                style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }} />
-            </div>
-          </React.Fragment>
-        )}
       </div>
 
-      {/* No-fixed-dates toggle */}
-      <label className="se-undated">
-        <span className="switch" data-on={undated} onClick={() => { setUndated((u) => !u); setErr(""); }} role="switch" aria-checked={undated}>
-          <span className="knob" />
-        </span>
-        <span>
-          <span className="lbl">No fixed dates</span>
-          <span className="hint">A planning bucket — capacity falls back to each person's base velocity until you commit a timeframe.</span>
-        </span>
-      </label>
-
-      {!undated && (
-        <div className="se-end">
-          <span className="lbl">End date (calculated)</span>
-          <span className="val">{end ? new Date(end + "T00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "—"}</span>
-          {holidayCount > 0 && <span className="hol-note"><Icon name="cal" size={11} /> skipped {holidayCount} federal holiday{holidayCount === 1 ? "" : "s"}</span>}
+      {/* Upcoming sprint → available days */}
+      <div className="section-label" style={{ marginTop: 16, marginBottom: 6, fontSize: 11.5 }}>Upcoming sprint (the one you're planning)</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 1fr 1fr", gap: 10 }}>
+        <div className="field">
+          <label>Sprint #</label>
+          <input value={up.name || ""} placeholder={resolvedUp.name || "26.4.1"}
+            onChange={(e) => setUp({ name: e.target.value })} style={numStyle} />
         </div>
-      )}
-      {err && <div style={{ color: "var(--danger)", fontSize: 12, fontWeight: 600, marginTop: 4 }}>{err}</div>}
-      <div className="se-foot">
-        <div style={{ flex: 1 }} />
-        <button className="btn sm" onClick={onCancel}>Cancel</button>
-        <button className="btn primary sm" onClick={commit}>Save sprint</button>
+        <div className="field">
+          <label>Working days</label>
+          <input type="number" min={0} max={40} value={up.workingDays || 0}
+            onChange={(e) => setUp({ workingDays: Math.max(0, Math.min(40, Math.round(Number(e.target.value) || 0))) })}
+            style={numStyle} />
+        </div>
+        <div className="field">
+          <label>Start date</label>
+          <DatePicker value={up.start || ""} onChange={(v) => setUp({ start: v })} placeholder="Pick start" />
+        </div>
+        <div className="field">
+          <label>End date</label>
+          <DatePicker value={up.end || ""} onChange={(v) => setUp({ end: v })} placeholder="Pick end" />
+        </div>
+      </div>
+      <div className="muted" style={{ fontSize: 12 }}>
+        Planning <b>{resolvedUp.name || "—"}</b>{!up.name && resolvedUp.name ? " (auto, next after your latest sprint)" : ""}.{" "}
+        {up.start && up.end ? (
+          holidays.length
+            ? <span>{holidays.length} federal holiday{holidays.length > 1 ? "s" : ""} in range ({holidays.map(fmtDate).join(", ")}) — subtracted for everyone. Leave is subtracted per person.</span>
+            : <span>No federal holidays in range. Leave is subtracted per person from the leave calendar.</span>
+        ) : <span>Pick the start and end dates so holidays and leave can be detected.</span>}
       </div>
     </div>
   );

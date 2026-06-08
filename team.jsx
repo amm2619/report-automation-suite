@@ -100,22 +100,23 @@ function PersonModal({ person, project, existingNames, projects, onSave, onClose
   );
 }
 
-function Team({ people, projects, currentProject, sprints, onAdd, onEdit, onRemove }) {
+function Team({ people, projects, currentProject, sprints, currentIdx, velCfg, onAdd, onEdit, onRemove }) {
   const [modal, setModal] = useState(null); // null | {person?}
   const [addProj, setAddProj] = useState(currentProject);
   const [tab, setTab] = useState("cards"); // 'cards' | 'velocity'
   const total = people.length;
 
-  const pastSprints = sprints.slice(0, VP.CURRENT_SPRINT_IDX).reverse();
-  const cols = pastSprints.slice(0, 4);
+  // One team in view at a time — scope to the active product tab.
+  const shown = projects.filter((p) => p.id === currentProject);
+  const scopedTotal = people.filter((p) => p.project === currentProject).length;
 
   return (
     <div className="wrap">
       <div className="team-head">
         <div>
-          <h2>Team</h2>
+          <h2>Team · {currentProject}</h2>
           <div className="sub">
-            {total} people across {projects.length} projects ·{" "}
+            {scopedTotal} {scopedTotal === 1 ? "person" : "people"} ·{" "}
             {tab === "cards"
               ? "auto-created from ticket assignees on import"
               : "per-person velocity from completed historical tickets"}
@@ -132,13 +133,12 @@ function Team({ people, projects, currentProject, sprints, onAdd, onEdit, onRemo
         </div>
       </div>
 
-      {projects.map((proj) => {
+      {shown.map((proj) => {
         const list = people.filter((p) => p.project === proj.id);
         const color = PROJ_COLOR[proj.id];
-        const withHist = list.filter((p) => p.history && p.history.length);
-        const teamAvg = withHist.length
-          ? withHist.reduce((s, p) => s + VP.velocity(p).average, 0) / withHist.length
-          : 0;
+        const vrows = list.map((p) => ({ p, pv: VP.projectedVelocity(p, velCfg) }))
+          .sort((a, b) => b.pv.velocity - a.pv.velocity);
+        const teamVel = vrows.reduce((s, r) => s + r.pv.velocity, 0);
 
         return (
           <section className="team-section" key={proj.id}>
@@ -148,8 +148,8 @@ function Team({ people, projects, currentProject, sprints, onAdd, onEdit, onRemo
               <span className="count">{list.length} {list.length === 1 ? "person" : "people"}</span>
               <div style={{ flex: 1 }} />
               {tab === "velocity" ? (
-                <span className="chip" title="Team average velocity">
-                  team avg <b style={{ fontFamily: "var(--font-mono)", marginLeft: 4 }}>{teamAvg ? teamAvg.toFixed(1) : "—"}</b>
+                <span className="chip" title="Projected team velocity for the upcoming sprint">
+                  team velocity <b style={{ fontFamily: "var(--font-mono)", marginLeft: 4 }}>{teamVel || "—"}</b>
                 </span>
               ) : (
                 <button className="btn sm" onClick={() => { setAddProj(proj.id); setModal({ project: proj.id }); }}>
@@ -167,10 +167,7 @@ function Team({ people, projects, currentProject, sprints, onAdd, onEdit, onRemo
                 ))}
               </div>
             ) : (
-              <VelocityTable
-                rows={list.map((p) => ({ p, v: VP.velocity(p) })).sort((a, b) => b.v.average - a.v.average)}
-                cols={cols}
-              />
+              <VelocityTable rows={vrows} />
             )}
           </section>
         );
@@ -188,18 +185,22 @@ function Team({ people, projects, currentProject, sprints, onAdd, onEdit, onRemo
   );
 }
 
-/* ---- Velocity table (per-team) ---- */
-function VelocityTable({ rows, cols }) {
+/* ---- Velocity table (per-team) — mirrors the by-hand calc, column by column:
+   avg/sprint → points/day → upcoming available days → projected velocity. ---- */
+function VelocityTable({ rows }) {
   return (
     <div className="tickets v-table" style={{ overflowX: "auto" }}>
-      <div className="v-grid" style={{ gridTemplateColumns: `220px 64px 72px repeat(${cols.length}, 1fr)`, minWidth: 600 }}>
+      <div className="v-grid" style={{ gridTemplateColumns: `1fr 80px 84px 92px 96px`, minWidth: 520 }}>
         <div className="v-head">Person</div>
-        <div className="v-head align-r">Avg</div>
-        <div className="v-head align-r">Sprints</div>
-        {cols.map((s) => <div key={s.id} className="v-head align-r" style={{ fontFamily: "var(--font-mono)" }}>{s.name}</div>)}
+        <div className="v-head align-r" title="Total completed points ÷ number of past sprints (empty sprints count as 0)">Avg / sprint</div>
+        <div className="v-head align-r" title="Avg ÷ past sprint length">Points / day</div>
+        <div className="v-head align-r" title="Upcoming working days − holidays − leave">Avail days</div>
+        <div className="v-head align-r" title="Points/day × available days — projected velocity for the upcoming sprint">Velocity</div>
 
-        {rows.map(({ p, v }, ri) => {
-          const hist = [...v.perSprint].reverse();
+        {rows.map(({ p, pv }, ri) => {
+          const availTip = `${pv.gross} working days − ${pv.holidays} holiday${pv.holidays === 1 ? "" : "s"} − ${pv.leave} leave = ${pv.available}`;
+          const avgTip = `${pv.totalPts} pts ÷ ${pv.sprintCount} sprints = ${pv.avgPerSprint.toFixed(2)}`;
+          const ppdTip = `${pv.avgPerSprint.toFixed(2)} ÷ ${pv.pastDays} days = ${pv.pointsPerDay.toFixed(2)}`;
           return (
             <React.Fragment key={p.id}>
               <div className="v-cell person-cell" data-row={ri}>
@@ -209,13 +210,10 @@ function VelocityTable({ rows, cols }) {
                   <div className="sid">{p.sid}</div>
                 </div>
               </div>
-              <div className="v-cell align-r num strong" data-row={ri}>{v.count ? v.average.toFixed(1) : "—"}</div>
-              <div className="v-cell align-r num dim" data-row={ri}>{v.count}</div>
-              {cols.map((s, ci) => (
-                <div key={s.id} className="v-cell align-r num" data-row={ri} data-empty={hist[ci] == null}>
-                  {hist[ci] != null ? hist[ci] : "·"}
-                </div>
-              ))}
+              <div className="v-cell align-r num" data-row={ri} title={avgTip}>{pv.totalPts ? pv.avgPerSprint.toFixed(1) : "—"}</div>
+              <div className="v-cell align-r num dim" data-row={ri} title={ppdTip}>{pv.totalPts ? pv.pointsPerDay.toFixed(2) : "—"}</div>
+              <div className="v-cell align-r num dim" data-row={ri} title={availTip}>{pv.available}</div>
+              <div className="v-cell align-r num strong" data-row={ri}>{pv.totalPts ? pv.velocity : "—"}</div>
             </React.Fragment>
           );
         })}
