@@ -1,4 +1,4 @@
-/* Planner view: single + multi sprint. */
+/* Planner view: the single upcoming sprint. */
 
 function pct(n, d) { return d > 0 ? Math.min(100, Math.round((n / d) * 100)) : 0; }
 
@@ -174,13 +174,6 @@ function TicketRow({ ticket, people, jiraBase, upcomingName, openPop, setOpenPop
   );
 }
 
-/* group tickets by epic (used for backlog) */
-function byEpic(list) {
-  const groups = {};
-  list.forEach((t) => { (groups[t.epic || "—"] = groups[t.epic || "—"] || []).push(t); });
-  return Object.entries(groups);
-}
-
 /* group tickets by assignee (used for in-sprint planning view).
    Returns ordered groups: assigned people sorted by name, then Unassigned. */
 function byAssignee(list, people) {
@@ -256,7 +249,6 @@ function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, 
 
   return (
     <div className="wrap">
-        <React.Fragment>
           {/* sprint header */}
           <div className="sprint-head">
             <div>
@@ -326,7 +318,7 @@ function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, 
                   {!collapsed && list.map((t) => (
                     <TicketRow key={t.id} ticket={t} people={projPeople} jiraBase={jiraBase} upcomingName={upcomingName}
                       openPop={openPop} setOpenPop={setOpenPop} onAssign={onAssign} onWfh={onWfh}
-                      onMove={(tk, nm) => onMove(tk, nm)} onBacklog={onBacklog} onPoints={onPoints} onOpenDesc={onOpenDesc} />
+                      onMove={onMove} onBacklog={onBacklog} onPoints={onPoints} onOpenDesc={onOpenDesc} />
                   ))}
                 </div>
               );
@@ -342,13 +334,12 @@ function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, 
                   <TicketRow key={t.id} ticket={t} people={projPeople} jiraBase={jiraBase} upcomingName={upcomingName}
                     openPop={openPop} setOpenPop={setOpenPop}
                     onAssign={(tk, pid) => onAssign(tk, pid, upcomingName)} onWfh={onWfh}
-                    onMove={(tk, nm) => onMove(tk, nm)} onBacklog={onBacklog} onPoints={onPoints} onOpenDesc={onOpenDesc}
+                    onMove={onMove} onBacklog={onBacklog} onPoints={onPoints} onOpenDesc={onOpenDesc}
                     variant="backlog" />
                 ))}
               </div>
             </React.Fragment>
           )}
-        </React.Fragment>
     </div>
   );
 }

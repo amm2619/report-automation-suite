@@ -1622,13 +1622,6 @@ function TicketRow({
     }
   }))));
 }
-function byEpic(list) {
-  const groups = {};
-  list.forEach(t => {
-    (groups[t.epic || "—"] = groups[t.epic || "—"] || []).push(t);
-  });
-  return Object.entries(groups);
-}
 function byAssignee(list, people) {
   const groups = new Map();
   list.forEach(t => {
@@ -1727,7 +1720,7 @@ function Planner({
   const totalCap = caps.reduce((a, c) => a + c.cap.adjusted, 0);
   return React.createElement("div", {
     className: "wrap"
-  }, React.createElement(React.Fragment, null, React.createElement("div", {
+  }, React.createElement("div", {
     className: "sprint-head"
   }, React.createElement("div", null, React.createElement("h2", null, label), React.createElement("div", {
     className: "sub"
@@ -1890,7 +1883,7 @@ function Planner({
       setOpenPop: setOpenPop,
       onAssign: onAssign,
       onWfh: onWfh,
-      onMove: (tk, nm) => onMove(tk, nm),
+      onMove: onMove,
       onBacklog: onBacklog,
       onPoints: onPoints,
       onOpenDesc: onOpenDesc
@@ -1909,12 +1902,12 @@ function Planner({
     setOpenPop: setOpenPop,
     onAssign: (tk, pid) => onAssign(tk, pid, upcomingName),
     onWfh: onWfh,
-    onMove: (tk, nm) => onMove(tk, nm),
+    onMove: onMove,
     onBacklog: onBacklog,
     onPoints: onPoints,
     onOpenDesc: onOpenDesc,
     variant: "backlog"
-  }))))));
+  })))));
 }
 window.Planner = Planner;
 
