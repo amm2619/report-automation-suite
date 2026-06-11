@@ -61,7 +61,7 @@ function Settings({
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div className="section-label" style={{ margin: 0 }}>Tickets · Jira HTML import</div>
-            <div className="muted" style={{ fontSize: 12.5 }}>
+            <div className="muted" style={{ fontSize: 16 }}>
               Import the backlog and in-sprint tickets from a Jira issue-navigator <b>Export · HTML</b>.
               People are created from the assignees, and any sprint the export references is added to the calendar.
               Use <b>Velocity history</b> to seed each person's rolling average from completed tickets.
@@ -74,14 +74,14 @@ function Settings({
 
       <div className="person-card settings-card" style={{ marginBottom: 16 }}>
         <div className="section-label" style={{ margin: 0 }}>Jira base URL</div>
-        <div className="muted" style={{ fontSize: 12.5 }}>Makes ticket keys clickable <span style={{ fontFamily: "var(--font-mono)" }}>…/browse/KEY</span> links.</div>
+        <div className="muted" style={{ fontSize: 16 }}>Makes ticket keys clickable <span style={{ fontFamily: "var(--font-mono)" }}>…/browse/KEY</span> links.</div>
         <input value={jiraBase} onChange={(e) => setJiraBase(e.target.value)} placeholder="https://jira.example.com"
-          style={{ fontFamily: "var(--font-mono)", fontSize: 13, padding: "9px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)" }} />
+          style={{ fontFamily: "var(--font-mono)", fontSize: 16, padding: "9px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)" }} />
       </div>
 
       <div className="person-card settings-card" style={{ marginBottom: 16 }}>
         <div className="section-label" style={{ margin: 0 }}>Done resolutions</div>
-        <div className="muted" style={{ fontSize: 12.5 }}>Which resolutions count as completed when computing velocity. Add custom strings to match your Jira instance.</div>
+        <div className="muted" style={{ fontSize: 16 }}>Which resolutions count as completed when computing velocity. Add custom strings to match your Jira instance.</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {allRes.map((r) => {
             const on = doneRes.includes(r);
@@ -116,7 +116,7 @@ function Settings({
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div className="section-label" style={{ margin: 0 }}>Leave calendar · iCal import</div>
-            <div className="muted" style={{ fontSize: 12.5 }}>
+            <div className="muted" style={{ fontSize: 16 }}>
               Drop a .ics export from your team calendar — OOO / PTO / leave events get matched to people and subtracted from sprint capacity.
               {importedLeaveCount > 0 && <> · <b style={{ color: "var(--good)" }}>{importedLeaveCount} day{importedLeaveCount === 1 ? "" : "s"} loaded</b></>}
             </div>
@@ -149,7 +149,7 @@ function Settings({
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div className="section-label" style={{ margin: 0 }}>Data</div>
-            <div className="muted" style={{ fontSize: 12.5 }}>
+            <div className="muted" style={{ fontSize: 16 }}>
               Everything you import or edit is saved automatically in this browser and restored on refresh.
               Use <b>Export data</b> (top right) to keep a one-off copy. Clearing wipes the workspace back to empty.
             </div>
@@ -163,23 +163,23 @@ function Settings({
         {/* Folder auto-save */}
         <div className="opt-row" style={{ cursor: "default", alignItems: "center" }}>
           <span>
-            <div style={{ fontWeight: 700, fontSize: 13 }}>Auto-save to a folder</div>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>Auto-save to a folder</div>
             {!fsSupported ? (
-              <div className="muted" style={{ fontSize: 12 }}>
+              <div className="muted" style={{ fontSize: 16 }}>
                 Needs Chrome/Edge served over <span style={{ fontFamily: "var(--font-mono)" }}>http://localhost</span> (run <span style={{ fontFamily: "var(--font-mono)" }}>npm start</span>). Export/Import still works everywhere.
               </div>
             ) : folder ? (
               folderReconnect ? (
-                <div className="muted" style={{ fontSize: 12 }}>
+                <div className="muted" style={{ fontSize: 16 }}>
                   Linked to <b>{folder.name}</b> — reconnect to resume writing <span style={{ fontFamily: "var(--font-mono)" }}>velocity-data.json</span>.
                 </div>
               ) : (
-                <div className="muted" style={{ fontSize: 12 }}>
+                <div className="muted" style={{ fontSize: 16 }}>
                   Auto-saving to <b>{folder.name}</b><span style={{ fontFamily: "var(--font-mono)" }}>/velocity-data.json</span>.
                 </div>
               )
             ) : (
-              <div className="muted" style={{ fontSize: 12 }}>
+              <div className="muted" style={{ fontSize: 16 }}>
                 Pick a folder once; the app keeps <span style={{ fontFamily: "var(--font-mono)" }}>velocity-data.json</span> there in sync.
               </div>
             )}
@@ -202,7 +202,7 @@ function Settings({
           <div className="modal" style={{ width: "min(400px, 100%)" }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-head"><h3>Clear all data?</h3></div>
             <div className="modal-body">
-              <div className="muted" style={{ fontSize: 13 }}>
+              <div className="muted" style={{ fontSize: 16 }}>
                 This removes all people, tickets, leave, and resets the sprint calendar and settings.
                 Export first if you want to keep a copy. This can't be undone.
               </div>
@@ -253,7 +253,7 @@ function ManualLeaveCard({ people, records, onAdd, onRemove }) {
   return (
     <div className="person-card settings-card" style={{ marginBottom: 16 }}>
       <div className="section-label" style={{ margin: 0 }}>Manual leave</div>
-      <div className="muted" style={{ fontSize: 12.5 }}>
+      <div className="muted" style={{ fontSize: 16 }}>
         Add ad-hoc leave days for anyone with a SID set in the Team tab. These are kept separate from iCal-imported leave and survive Clear.
       </div>
 
@@ -273,7 +273,7 @@ function ManualLeaveCard({ people, records, onAdd, onRemove }) {
           <DatePicker value={date} onChange={setDate} placeholder="Pick a date" />
         </div>
         <label className="opt-row" style={{ cursor: "pointer", padding: "10px 11px", alignSelf: "end" }}>
-          <span style={{ fontSize: 12, fontWeight: 700 }}>Half day</span>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>Half day</span>
           <span className="switch" data-on={half} onClick={(e) => { e.stopPropagation(); setHalf(!half); }} role="switch" aria-checked={half}>
             <span className="knob" />
           </span>
@@ -284,7 +284,7 @@ function ManualLeaveCard({ people, records, onAdd, onRemove }) {
       </div>
 
       {withSid.length === 0 && (
-        <div className="muted" style={{ fontSize: 12 }}>
+        <div className="muted" style={{ fontSize: 16 }}>
           Nobody has a SID yet — open the Team tab, edit a person, and fill in their SID.
         </div>
       )}
@@ -293,15 +293,15 @@ function ManualLeaveCard({ people, records, onAdd, onRemove }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 6 }}>
           {grouped.map(({ sid: s, person, records: list }) => (
             <div key={s} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-              <div style={{ minWidth: 140, fontSize: 13 }}>
+              <div style={{ minWidth: 140, fontSize: 16 }}>
                 <div style={{ fontWeight: 700 }}>{person ? person.name : s}</div>
-                <div className="muted" style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>{s}</div>
+                <div className="muted" style={{ fontFamily: "var(--font-mono)", fontSize: 16 }}>{s}</div>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, flex: 1 }}>
                 {list.map((r) => (
                   <span key={r.sid + "|" + r.date} className="res-chip" data-on="true" title={r.frac === 0.5 ? "Half day" : "Full day"}>
                     <span style={{ fontFamily: "var(--font-mono)" }}>{r.date}</span>
-                    {r.frac === 0.5 && <span style={{ fontSize: 10, fontWeight: 800, opacity: 0.7 }}>·½</span>}
+                    {r.frac === 0.5 && <span style={{ fontSize: 16, fontWeight: 800, opacity: 0.7 }}>·½</span>}
                     <button className="x" onClick={() => onRemove(r.sid, r.date)} title="Remove" aria-label="Remove">
                       <Icon name="x" size={11} />
                     </button>
@@ -327,7 +327,7 @@ function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg }) {
   const usedCount = velCfgResolved ? velCfgResolved.pastSprintCount : sprints.length;
   // Past sprints = the detected numbers minus the one we're planning.
   const detected = sprints.filter((s) => s.name !== resolvedUp.name).length;
-  const numStyle = { fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14, padding: "9px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", width: "100%", boxSizing: "border-box" };
+  const numStyle = { fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 16, padding: "9px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", width: "100%", boxSizing: "border-box" };
   const roStyle = { ...numStyle, background: "var(--surface)", color: "var(--text-dim)", display: "flex", alignItems: "center", gap: 6, minHeight: 38, boxSizing: "border-box" };
 
   // End date is always derived: pick a duration (working days) + a start date and
@@ -375,35 +375,35 @@ function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg }) {
   return (
     <div className="person-card settings-card">
       <div className="section-label" style={{ margin: 0 }}>Sprint &amp; velocity</div>
-      <div className="muted" style={{ fontSize: 12.5 }}>
+      <div className="muted" style={{ fontSize: 16 }}>
         One cadence for the whole team — these settings are shared across every product; the product tabs just filter
         the view. Velocity per person = <b>(avg points per past sprint ÷ past-sprint length)</b> × <b>(upcoming working
         days − federal holidays − that person's leave)</b>. Holidays and each person's leave are pulled automatically.
       </div>
 
       {/* Past sprints → points/day basis */}
-      <div className="section-label" style={{ marginTop: 14, marginBottom: 6, fontSize: 11.5 }}>Past sprints (history basis)</div>
+      <div className="section-label" style={{ marginTop: 14, marginBottom: 6, fontSize: 16 }}>Past sprints (history basis)</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <div className="field">
           <label>Past sprint length (working days)</label>
           <input type="number" min={1} max={40} value={cfg.pastSprintDays || 10}
             onChange={(e) => onVelCfg({ pastSprintDays: Math.max(1, Math.min(40, Math.round(Number(e.target.value) || 10))) })}
             style={numStyle} />
-          <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>Divides the average to get points/day. Past sprints were 2-week = 10.</div>
+          <div className="muted" style={{ fontSize: 16, marginTop: 4 }}>Divides the average to get points/day. Past sprints were 2-week = 10.</div>
         </div>
         <div className="field">
           <label>Sprints to average over</label>
           <input type="number" min={0} max={60} value={cfg.pastSprintCount || 0}
             onChange={(e) => onVelCfg({ pastSprintCount: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
             style={numStyle} />
-          <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
+          <div className="muted" style={{ fontSize: 16, marginTop: 4 }}>
             0 = auto. Using <b>{usedCount || "—"}</b> ({detected} detected from your tickets). Empty sprints count as 0.
           </div>
         </div>
       </div>
 
       {/* Upcoming sprint → available days */}
-      <div className="section-label" style={{ marginTop: 16, marginBottom: 6, fontSize: 11.5 }}>Upcoming sprint (the one you're planning)</div>
+      <div className="section-label" style={{ marginTop: 16, marginBottom: 6, fontSize: 16 }}>Upcoming sprint (the one you're planning)</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 1fr 1fr", gap: 10 }}>
         <div className="field">
           <label>Sprint #</label>
@@ -428,7 +428,7 @@ function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg }) {
           </div>
         </div>
       </div>
-      <div className="muted" style={{ fontSize: 12 }}>
+      <div className="muted" style={{ fontSize: 16 }}>
         Planning <b>{resolvedUp.name || "—"}</b>{!up.name && resolvedUp.name ? " (auto, next after your latest sprint)" : ""}.{" "}
         {up.start && up.end ? (
           holidays.length
@@ -438,11 +438,11 @@ function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg }) {
       </div>
 
       {/* Future sprints — plan ahead; their points never count toward velocity */}
-      <div className="section-label" style={{ marginTop: 18, marginBottom: 6, fontSize: 11.5, display: "flex", alignItems: "center", gap: 8 }}>
+      <div className="section-label" style={{ marginTop: 18, marginBottom: 6, fontSize: 16, display: "flex", alignItems: "center", gap: 8 }}>
         <span>Future sprints (planning ahead)</span>
         <button className="btn sm" onClick={addFuture}><Icon name="plus" size={12} /> Add sprint</button>
       </div>
-      <div className="muted" style={{ fontSize: 11.5, marginBottom: future.length ? 8 : 0 }}>
+      <div className="muted" style={{ fontSize: 16, marginBottom: future.length ? 8 : 0 }}>
         Queue sprints you're planning beyond the upcoming one. Each end date is calculated from its start and working days.
         Points you assign into these sprints are <b>not</b> counted toward velocity.
       </div>
@@ -477,15 +477,15 @@ function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg }) {
       ))}
 
       {/* Historical sprint calendar — every past sprint with its computed dates */}
-      <div className="section-label" style={{ marginTop: 18, marginBottom: 6, fontSize: 11.5 }}>All historical sprints ({datedPast.length})</div>
+      <div className="section-label" style={{ marginTop: 18, marginBottom: 6, fontSize: 16 }}>All historical sprints ({datedPast.length})</div>
       {datedPast.length === 0 ? (
-        <div className="muted" style={{ fontSize: 11.5 }}>No historical sprints yet — import tickets to populate the calendar.</div>
+        <div className="muted" style={{ fontSize: 16 }}>No historical sprints yet — import tickets to populate the calendar.</div>
       ) : (
         <React.Fragment>
-          {!up.start && <div className="muted" style={{ fontSize: 11.5, marginBottom: 6 }}>Set the upcoming sprint's start date to back-calculate each historical date range.</div>}
+          {!up.start && <div className="muted" style={{ fontSize: 16, marginBottom: 6 }}>Set the upcoming sprint's start date to back-calculate each historical date range.</div>}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {datedPast.map((s) => (
-              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12.5, padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
+              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 16, padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
                 <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, minWidth: 80 }}>{s.name}</span>
                 <span className="muted" style={{ fontFamily: "var(--font-mono)" }}>{s.start && s.end ? fmtRange(s.start, s.end) : "—"}</span>
               </div>
@@ -542,7 +542,7 @@ function ImportHistoryModal({ people, doneRes, onClose, onImport }) {
           <button className="iconbtn" onClick={onClose}><Icon name="x" size={16} /></button>
         </div>
         <div className="modal-body">
-          <div className="muted" style={{ fontSize: 12.5, marginTop: -4 }}>
+          <div className="muted" style={{ fontSize: 16, marginTop: -4 }}>
             In Jira, run an issue-navigator query for completed tickets across the sprints you want to seed, then choose <b>Export · HTML</b>.
             Drop the file here (or paste its contents) — we'll bucket points per assignee per sprint and store them as starting velocity.
           </div>
@@ -551,7 +551,7 @@ function ImportHistoryModal({ people, doneRes, onClose, onImport }) {
             <Icon name="download" size={18} />
             <div>
               <div style={{ fontWeight: 700 }}>{fileName ? fileName : "Choose an HTML export…"}</div>
-              <div className="muted" style={{ fontSize: 12 }}>or paste the HTML below</div>
+              <div className="muted" style={{ fontSize: 16 }}>or paste the HTML below</div>
             </div>
             <input ref={fileRef} type="file" accept=".html,.htm,text/html" onChange={onFile} style={{ display: "none" }} />
           </div>
@@ -562,7 +562,7 @@ function ImportHistoryModal({ people, doneRes, onClose, onImport }) {
             placeholder="<html>…paste Jira export here…</html>"
             spellCheck={false}
             style={{
-              fontFamily: "var(--font-mono)", fontSize: 12, padding: 11, borderRadius: 9, minHeight: 140,
+              fontFamily: "var(--font-mono)", fontSize: 16, padding: 11, borderRadius: 9, minHeight: 140,
               border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", resize: "vertical",
             }} />
 
@@ -574,10 +574,10 @@ function ImportHistoryModal({ people, doneRes, onClose, onImport }) {
                   <div className="metric"><span className="k">People matched</span><span className="v">{peopleHit}</span></div>
                   <div className="metric"><span className="k">Sprints</span><span className="v">{preview.sprints.length}</span></div>
                   <div style={{ flex: 1 }} />
-                  <div className="muted" style={{ fontSize: 11.5, fontFamily: "var(--font-mono)" }}>{preview.sprints.slice(0, 6).join(" · ")}</div>
+                  <div className="muted" style={{ fontSize: 16, fontFamily: "var(--font-mono)" }}>{preview.sprints.slice(0, 6).join(" · ")}</div>
                 </React.Fragment>
               ) : (
-                <div className="muted" style={{ fontSize: 12.5 }}>No matching rows yet — make sure the export contains assignee, points, and a sprint label.</div>
+                <div className="muted" style={{ fontSize: 16 }}>No matching rows yet — make sure the export contains assignee, points, and a sprint label.</div>
               )}
             </div>
           )}
@@ -636,7 +636,7 @@ function ImportIcalModal({ people, onClose, onImport }) {
           <button className="iconbtn" onClick={onClose}><Icon name="x" size={16} /></button>
         </div>
         <div className="modal-body">
-          <div className="muted" style={{ fontSize: 12.5, marginTop: -4 }}>
+          <div className="muted" style={{ fontSize: 16, marginTop: -4 }}>
             Export your team's leave calendar as iCalendar (.ics) — typically from Google Calendar (<i>Settings → Export</i>) or your HRIS.
             We match events to people by attendee or summary text, then subtract those days from sprint capacity.
           </div>
@@ -645,7 +645,7 @@ function ImportIcalModal({ people, onClose, onImport }) {
             <Icon name="cal" size={18} />
             <div>
               <div style={{ fontWeight: 700 }}>{fileName ? fileName : "Choose a .ics file…"}</div>
-              <div className="muted" style={{ fontSize: 12 }}>or paste the calendar contents below</div>
+              <div className="muted" style={{ fontSize: 16 }}>or paste the calendar contents below</div>
             </div>
             <input ref={fileRef} type="file" accept=".ics,text/calendar" onChange={onFile} style={{ display: "none" }} />
           </div>
@@ -656,7 +656,7 @@ function ImportIcalModal({ people, onClose, onImport }) {
             placeholder="BEGIN:VCALENDAR…END:VCALENDAR"
             spellCheck={false}
             style={{
-              fontFamily: "var(--font-mono)", fontSize: 12, padding: 11, borderRadius: 9, minHeight: 140,
+              fontFamily: "var(--font-mono)", fontSize: 16, padding: 11, borderRadius: 9, minHeight: 140,
               border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", resize: "vertical",
             }} />
 
@@ -667,10 +667,10 @@ function ImportIcalModal({ people, onClose, onImport }) {
                   <div className="metric"><span className="k">Leave days</span><span className="v">{preview.eventCount}</span></div>
                   <div className="metric"><span className="k">People matched</span><span className="v">{preview.peopleHit}</span></div>
                   <div style={{ flex: 1 }} />
-                  <div className="muted" style={{ fontSize: 11.5 }}>Weekends are skipped automatically.</div>
+                  <div className="muted" style={{ fontSize: 16 }}>Weekends are skipped automatically.</div>
                 </React.Fragment>
               ) : (
-                <div className="muted" style={{ fontSize: 12.5 }}>No matching events — names in attendees or event titles need to match a team member.</div>
+                <div className="muted" style={{ fontSize: 16 }}>No matching events — names in attendees or event titles need to match a team member.</div>
               )}
             </div>
           )}
@@ -744,7 +744,7 @@ function ImportTicketsModal({ people, sprints, onClose, onImport }) {
           <button className="iconbtn" onClick={onClose}><Icon name="x" size={16} /></button>
         </div>
         <div className="modal-body">
-          <div className="muted" style={{ fontSize: 12.5, marginTop: -4 }}>
+          <div className="muted" style={{ fontSize: 16, marginTop: -4 }}>
             In Jira, run an issue-navigator query for the tickets you want on the board, then choose <b>Export · HTML</b>.
             Drop the file here (or paste it) — we read Key, Summary, Assignee, Sprint, Epic, Story Points, and Description.
             Tickets with a sprint land in that sprint; the rest go to the backlog. <b>People are created from the assignees.</b>
@@ -754,7 +754,7 @@ function ImportTicketsModal({ people, sprints, onClose, onImport }) {
             <Icon name="download" size={18} />
             <div>
               <div style={{ fontWeight: 700 }}>{fileName ? fileName : "Choose an HTML export…"}</div>
-              <div className="muted" style={{ fontSize: 12 }}>or paste the HTML below</div>
+              <div className="muted" style={{ fontSize: 16 }}>or paste the HTML below</div>
             </div>
             <input ref={fileRef} type="file" accept=".html,.htm,text/html" onChange={onFile} style={{ display: "none" }} />
           </div>
@@ -765,7 +765,7 @@ function ImportTicketsModal({ people, sprints, onClose, onImport }) {
             placeholder="<html>…paste Jira export here…</html>"
             spellCheck={false}
             style={{
-              fontFamily: "var(--font-mono)", fontSize: 12, padding: 11, borderRadius: 9, minHeight: 140,
+              fontFamily: "var(--font-mono)", fontSize: 16, padding: 11, borderRadius: 9, minHeight: 140,
               border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", resize: "vertical",
             }} />
 
@@ -779,12 +779,12 @@ function ImportTicketsModal({ people, sprints, onClose, onImport }) {
                   <div className="metric"><span className="k">New people</span><span className="v">{known.newPeople}</span></div>
                   <div className="metric"><span className="k">New sprints</span><span className="v">{known.newSprints}</span></div>
                   <div style={{ flex: 1 }} />
-                  <div className="muted" style={{ fontSize: 11.5, fontFamily: "var(--font-mono)" }}>
+                  <div className="muted" style={{ fontSize: 16, fontFamily: "var(--font-mono)" }}>
                     {["DX", "LX", "RC"].filter((p) => preview.projects[p]).map((p) => `${p} ${preview.projects[p]}`).join(" · ")}
                   </div>
                 </React.Fragment>
               ) : (
-                <div className="muted" style={{ fontSize: 12.5 }}>No tickets found — the export needs a table with a Key column (DX-…, LX-…, RCR-…).</div>
+                <div className="muted" style={{ fontSize: 16 }}>No tickets found — the export needs a table with a Key column (DX-…, LX-…, RCR-…).</div>
               )}
             </div>
           )}
@@ -803,7 +803,7 @@ function ImportTicketsModal({ people, sprints, onClose, onImport }) {
 /* ============================================================================
    Debug — shows exactly how every ticket is read and what feeds velocity.
    ========================================================================== */
-function DebugView({ tickets, people, sprints, currentIdx, doneRes, project, plannedSprints, onToggleExclude }) {
+function DebugView({ tickets, people, sprints, currentIdx, doneRes, project, plannedSprints, onVelocityOverride }) {
   const [q, setQ] = useState("");
   // Row sort, shared across every person's table. Click a column header to sort.
   const [sort, setSort] = useState({ key: "ticket", dir: 1 });
@@ -820,14 +820,20 @@ function DebugView({ tickets, people, sprints, currentIdx, doneRes, project, pla
     [tickets, project]
   );
 
-  // Why a ticket does / doesn't feed velocity, mirroring deriveHistory exactly.
+  // Why a ticket does / doesn't feed velocity, mirroring deriveHistoryDetail.
   function contribution(t) {
+    const ov = VP.velocityOverride(t); // null | "include" | "exclude"
     if (!t.assignee) return { ok: false, why: "no assignee" };
-    if (t.excludeFromVelocity) return { ok: false, why: "excluded from velocity" };
-    if (!isDone(t)) return { ok: false, why: t.resolution ? `resolution "${t.resolution}" not in Done list` : "no resolution" };
+    if (ov === "exclude") return { ok: false, why: "excluded from velocity" };
     const pts = Number(t.points) || 0;
-    if (pts <= 0) return { ok: false, why: "points ≤ 0" };
     const sps = (t.sprints || []).filter(Boolean);
+    if (ov === "include") {
+      if (pts <= 0) return { ok: false, why: "force-added, but points ≤ 0" };
+      if (!sps.length) return { ok: false, why: "force-added, but no sprint to attribute" };
+      return { ok: true, why: `force-added in ${sps.join(", ")}`, pts };
+    }
+    if (!isDone(t)) return { ok: false, why: t.resolution ? `resolution "${t.resolution}" not in Done list` : "no resolution" };
+    if (pts <= 0) return { ok: false, why: "points ≤ 0" };
     if (!sps.length) return { ok: false, why: "no sprint (backlog)" };
     const counted = sps.filter((s) => !plannedSet.has(String(s)));
     if (!counted.length) return { ok: false, why: `sprint ${sps.join(", ")} still being planned` };
@@ -872,8 +878,8 @@ function DebugView({ tickets, people, sprints, currentIdx, doneRes, project, pla
   const ql = q.trim().toLowerCase();
   const match = (g) => !ql || (g.person?.name || "unassigned").toLowerCase().includes(ql) || (g.person?.sid || "").toLowerCase().includes(ql);
 
-  const cell = { padding: "4px 8px", borderBottom: "1px solid var(--border)", fontSize: 12, whiteSpace: "nowrap" };
-  const head = { ...cell, color: "var(--text-faint)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 10, position: "sticky", top: 0, background: "var(--surface-2)" };
+  const cell = { padding: "4px 8px", borderBottom: "1px solid var(--border)", fontSize: 16, whiteSpace: "nowrap" };
+  const head = { ...cell, color: "var(--text-faint)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 16, position: "sticky", top: 0, background: "var(--surface-2)" };
   const sortHead = (key) => ({ ...head, cursor: "pointer", color: sort.key === key ? "var(--text)" : "var(--text-faint)", userSelect: "none" });
 
   return (
@@ -884,7 +890,7 @@ function DebugView({ tickets, people, sprints, currentIdx, doneRes, project, pla
           <div className="sub">How each <b>{project}</b> ticket is parsed and what feeds velocity. Velocity counts <b>Done</b> tickets with <b>points &gt; 0</b> assigned to a person, in a sprint that isn't being planned and isn't excluded.</div>
         </div>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="filter by name / sid…"
-          style={{ fontSize: 13, padding: "8px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", minWidth: 200 }} />
+          style={{ fontSize: 16, padding: "8px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", minWidth: 200 }} />
       </div>
 
       {/* Sprint calendar overview */}
@@ -903,17 +909,17 @@ function DebugView({ tickets, people, sprints, currentIdx, doneRes, project, pla
             );
           })}
         </div>
-        <div className="muted" style={{ fontSize: 11.5 }}>Velocity counts a person's completed (Done, points&gt;0) work in every past sprint — sprints still being planned (in <b style={{ color: "var(--rc)" }}>red</b>) and tickets marked excluded never count.</div>
+        <div className="muted" style={{ fontSize: 16 }}>Velocity counts a person's completed (Done, points&gt;0) work in every past sprint — sprints still being planned (in <b style={{ color: "var(--rc)" }}>red</b>) and tickets marked excluded never count.</div>
       </div>
 
       {/* Group ordering control */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <span className="muted" style={{ fontSize: 12, fontWeight: 700 }}>Order people by</span>
+        <span className="muted" style={{ fontSize: 16, fontWeight: 700 }}>Order people by</span>
         <div className="mode-toggle" role="tablist" aria-label="Order people">
           <button data-active={groupSort === "person"} onClick={() => setGroupSort("person")}>Person</button>
           <button data-active={groupSort === "velocity"} onClick={() => setGroupSort("velocity")}>Velocity</button>
         </div>
-        <span className="muted" style={{ fontSize: 11.5 }}>Click a column header below to sort rows by ticket, pts, or sprints.</span>
+        <span className="muted" style={{ fontSize: 16 }}>Click a column header below to sort rows by ticket, pts, or sprints.</span>
       </div>
 
       {/* Per-assignee breakdown */}
@@ -931,7 +937,7 @@ function DebugView({ tickets, people, sprints, currentIdx, doneRes, project, pla
                 <div className="pc-name">{g.person ? g.person.name : "Unassigned"}</div>
                 <div className="pc-sid">{g.person ? `${g.person.project} · ${g.person.type} · sid: ${g.person.sid || "—"} · goal ${g.person.goal || 0}` : "no person"}</div>
               </div>
-              <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: 12 }}>
+              <div style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontSize: 16 }}>
                 <div><b style={{ fontSize: 16 }}>{g.id !== "_none" ? (usesGoal ? (g.person?.goal || 0) : Math.round(avg)) : "—"}</b> velocity {g.id !== "_none" && usesGoal ? "(goal)" : ""}</div>
                 <div className="muted">series [{series.join(", ")}] · {g.tickets.length} tickets · {totalPts} pts total</div>
               </div>
@@ -943,23 +949,26 @@ function DebugView({ tickets, people, sprints, currentIdx, doneRes, project, pla
                   <th style={sortHead("pts")} onClick={() => toggleSort("pts")}>Pts{arrow("pts")}</th>
                   <th style={sortHead("sprints")} onClick={() => toggleSort("sprints")}>Sprint(s){arrow("sprints")}</th>
                   <th style={head}>Resolution</th><th style={head}>Feeds velocity?</th>
-                  <th style={head}>Exclude</th>
+                  <th style={{ ...head, textAlign: "center" }}>Velocity</th>
                   <th style={{ ...head, whiteSpace: "normal" }}>Summary</th>
                 </tr></thead>
                 <tbody>
                   {sorted.map((t) => {
                     const c = contribution(t);
+                    const ov = VP.velocityOverride(t);
                     return (
-                      <tr key={t.id} style={t.excludeFromVelocity ? { opacity: 0.55 } : null}>
+                      <tr key={t.id} style={ov === "exclude" ? { opacity: 0.55 } : null}>
                         <td style={{ ...cell, fontFamily: "var(--font-mono)", color: PROJ_COLOR[VP.projectForKey(t.key)] || "var(--text)" }}>{t.key}</td>
                         <td style={{ ...cell, fontFamily: "var(--font-mono)", textAlign: "right", fontWeight: 700 }}>{t.points}</td>
                         <td style={{ ...cell, fontFamily: "var(--font-mono)" }}>{(t.sprints || []).join(", ") || "—"}</td>
                         <td style={cell}>{t.resolution || "—"}</td>
                         <td style={{ ...cell, color: c.ok ? "var(--good)" : "var(--text-faint)" }}>{c.ok ? `✓ ${c.why}` : `✗ ${c.why}`}</td>
                         <td style={{ ...cell, textAlign: "center" }}>
-                          <span className="switch" data-on={!!t.excludeFromVelocity} onClick={() => onToggleExclude && onToggleExclude(t.id)} role="switch" aria-checked={!!t.excludeFromVelocity} title="Exclude this ticket from velocity" style={{ cursor: "pointer", display: "inline-block", verticalAlign: "middle" }}>
-                            <span className="knob" />
-                          </span>
+                          <div className="seg vel-seg" onClick={(e) => e.stopPropagation()}>
+                            <button data-on={!ov} onClick={() => onVelocityOverride(t.id, null)} title="Follow the automatic rules">Auto</button>
+                            <button data-on={ov === "include"} onClick={() => onVelocityOverride(t.id, "include")} title="Always count this ticket toward velocity">Add</button>
+                            <button data-on={ov === "exclude"} onClick={() => onVelocityOverride(t.id, "exclude")} title="Never count this ticket toward velocity">Excl</button>
+                          </div>
                         </td>
                         <td style={{ ...cell, whiteSpace: "normal", color: "var(--text-dim)", maxWidth: 360 }}>{t.summary}</td>
                       </tr>
@@ -972,7 +981,7 @@ function DebugView({ tickets, people, sprints, currentIdx, doneRes, project, pla
         );
       })}
       {ordered.filter(match).length === 0 && (
-        <div className="empty-state" style={{ padding: 28, fontSize: 13 }}>No {project} tickets to show.</div>
+        <div className="empty-state" style={{ padding: 28, fontSize: 16 }}>No {project} tickets to show.</div>
       )}
     </div>
   );

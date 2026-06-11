@@ -228,11 +228,21 @@
   // { [personId]: number[] } ordered chronologically; one entry per such sprint
   // the person landed work in. This replaces the static seed at runtime whenever
   // the board has completed work; otherwise the person's stored history is used.
+  // Per-ticket velocity override: "include" forces a ticket into velocity even
+  // if it isn't Done or sits in a sprint we're still planning; "exclude" keeps
+  // it out regardless. Absent → follow the automatic rules. (The older
+  // `excludeFromVelocity` boolean maps to "exclude".)
+  function velocityOverride(t) {
+    if (t.velocityOverride === "include" || t.velocityOverride === "exclude") return t.velocityOverride;
+    if (t.excludeFromVelocity) return "exclude";
+    return null;
+  }
+
   // Detailed variant: same rules as deriveHistory, but each person's series is
   // a list of { name, points } so the UI can show which sprint each value came
-  // from. opts.excludeSprints (sprint names) and per-ticket
-  // `excludeFromVelocity` are honored — points in a sprint we're still planning,
-  // or on a ticket the user explicitly excluded, never feed velocity.
+  // from. opts.excludeSprints (sprint names) and each ticket's velocity override
+  // are honored — points in a sprint we're still planning, or on a ticket the
+  // user excluded, never feed velocity; force-included tickets always do.
   function deriveHistoryDetail(tickets, doneResolutions, sprints, opts) {
     opts = opts || {};
     const exclude = new Set((opts.excludeSprints || []).map((s) => String(s)));
@@ -244,13 +254,15 @@
     const acc = {}; // personId -> { sprintName: points }
     for (const t of tickets || []) {
       if (!t.assignee) continue;
-      if (t.excludeFromVelocity) continue; // user-excluded from velocity
-      if (!t.resolution || !done.has(t.resolution.toLowerCase())) continue;
+      const ov = velocityOverride(t);
+      if (ov === "exclude") continue; // user-excluded from velocity
+      const isDone = !!(t.resolution && done.has(t.resolution.toLowerCase()));
+      if (ov !== "include" && !isDone) continue; // not forced and not Done
       const pts = Number(t.points) || 0;
       if (pts <= 0) continue;
       for (const sn of (t.sprints || [])) {
         if (!sn) continue; // backlog tickets (no sprint) can't be attributed
-        if (exclude.has(String(sn))) continue; // a sprint still being planned
+        if (ov !== "include" && exclude.has(String(sn))) continue; // a sprint still being planned
         (acc[t.assignee] = acc[t.assignee] || {});
         acc[t.assignee][sn] = (acc[t.assignee][sn] || 0) + pts;
       }
@@ -375,7 +387,7 @@
     // calc
     isUndated,
     parseSprintNumber, sprintSortKey, nextSprintName, shiftWorkingDays, buildSprintCalendar,
-    sprintWorkDays, holidaysInRange, velocity, baseVelocity, deriveHistory, deriveHistoryDetail,
+    sprintWorkDays, holidaysInRange, velocity, baseVelocity, deriveHistory, deriveHistoryDetail, velocityOverride,
     projectedVelocity,
     leaveDaysInSprint, leaveRecords, wfhBudget, capacity,
     parseISO, fmtISO, eachDay,
@@ -1260,7 +1272,7 @@ function DescPanel({
   }, "Epic"), React.createElement("span", {
     className: "v",
     style: {
-      fontSize: 13,
+      fontSize: 16,
       fontFamily: "var(--font-sans)"
     }
   }, ticket.epic)), React.createElement(MetaPicker, {
@@ -1302,7 +1314,7 @@ function DescPanel({
       style: {
         fontFamily: o.key === "_backlog" ? "var(--font-sans)" : "var(--font-mono)",
         fontWeight: 700,
-        fontSize: 12
+        fontSize: 16
       }
     }, o.label),
     onPick: handleSprint,
@@ -1427,7 +1439,7 @@ function CapCard({
   })), React.createElement("span", {
     style: {
       fontFamily: "var(--font-mono)",
-      fontSize: 11,
+      fontSize: 16,
       color: wfhOver ? "var(--danger)" : "var(--text-faint)"
     }
   }, wfhUsed, "/", cap.wfhPoints)));
@@ -1862,7 +1874,7 @@ function Planner({
         width: 22,
         height: 22,
         borderRadius: 7,
-        fontSize: 10
+        fontSize: 16
       }
     }), React.createElement("span", {
       className: "nm nm-link",
@@ -1896,7 +1908,7 @@ function Planner({
         width: 22,
         height: 22,
         borderRadius: 7,
-        fontSize: 10,
+        fontSize: 16,
         background: "var(--surface-3)",
         color: "var(--text-faint)"
       }
@@ -2143,7 +2155,7 @@ function PersonModal({
     style: {
       color: "var(--danger)",
       fontWeight: 600,
-      fontSize: 12
+      fontSize: 16
     }
   }, err)), React.createElement("div", {
     className: "modal-foot"
@@ -2253,7 +2265,7 @@ function Team({
       className: "empty-state",
       style: {
         padding: 28,
-        fontSize: 13
+        fontSize: 16
       }
     }, "No people on ", proj.id, " yet.") : tab === "cards" ? React.createElement("div", {
       className: "team-grid"
@@ -2401,7 +2413,7 @@ function VelocityTable({
     }, s.points))))) : React.createElement("div", {
       className: "v-expand-inner muted",
       style: {
-        fontSize: 12
+        fontSize: 16
       }
     }, "No completed sprints feeding velocity yet \u2014 using ", p.goal ? `goal (${p.goal})` : "no data", ".")));
   })));
@@ -2539,7 +2551,7 @@ function Settings({
   }, "Tickets \xB7 Jira HTML import"), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12.5
+      fontSize: 16
     }
   }, "Import the backlog and in-sprint tickets from a Jira issue-navigator ", React.createElement("b", null, "Export \xB7 HTML"), ". People are created from the assignees, and any sprint the export references is added to the calendar. Use ", React.createElement("b", null, "Velocity history"), " to seed each person's rolling average from completed tickets.")), React.createElement("button", {
     className: "btn",
@@ -2566,7 +2578,7 @@ function Settings({
   }, "Jira base URL"), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12.5
+      fontSize: 16
     }
   }, "Makes ticket keys clickable ", React.createElement("span", {
     style: {
@@ -2578,7 +2590,7 @@ function Settings({
     placeholder: "https://jira.example.com",
     style: {
       fontFamily: "var(--font-mono)",
-      fontSize: 13,
+      fontSize: 16,
       padding: "9px 11px",
       borderRadius: 9,
       border: "1px solid var(--border)",
@@ -2598,7 +2610,7 @@ function Settings({
   }, "Done resolutions"), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12.5
+      fontSize: 16
     }
   }, "Which resolutions count as completed when computing velocity. Add custom strings to match your Jira instance."), React.createElement("div", {
     style: {
@@ -2673,7 +2685,7 @@ function Settings({
   }, "Leave calendar \xB7 iCal import"), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12.5
+      fontSize: 16
     }
   }, "Drop a .ics export from your team calendar \u2014 OOO / PTO / leave events get matched to people and subtracted from sprint capacity.", importedLeaveCount > 0 && React.createElement(React.Fragment, null, " \xB7 ", React.createElement("b", {
     style: {
@@ -2721,7 +2733,7 @@ function Settings({
   }, "Data"), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12.5
+      fontSize: 16
     }
   }, "Everything you import or edit is saved automatically in this browser and restored on refresh. Use ", React.createElement("b", null, "Export data"), " (top right) to keep a one-off copy. Clearing wipes the workspace back to empty.")), React.createElement("button", {
     className: "btn",
@@ -2742,12 +2754,12 @@ function Settings({
   }, React.createElement("span", null, React.createElement("div", {
     style: {
       fontWeight: 700,
-      fontSize: 13
+      fontSize: 16
     }
   }, "Auto-save to a folder"), !fsSupported ? React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12
+      fontSize: 16
     }
   }, "Needs Chrome/Edge served over ", React.createElement("span", {
     style: {
@@ -2760,7 +2772,7 @@ function Settings({
   }, "npm start"), "). Export/Import still works everywhere.") : folder ? folderReconnect ? React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12
+      fontSize: 16
     }
   }, "Linked to ", React.createElement("b", null, folder.name), " \u2014 reconnect to resume writing ", React.createElement("span", {
     style: {
@@ -2769,7 +2781,7 @@ function Settings({
   }, "velocity-data.json"), ".") : React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12
+      fontSize: 16
     }
   }, "Auto-saving to ", React.createElement("b", null, folder.name), React.createElement("span", {
     style: {
@@ -2778,7 +2790,7 @@ function Settings({
   }, "/velocity-data.json"), ".") : React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12
+      fontSize: 16
     }
   }, "Pick a folder once; the app keeps ", React.createElement("span", {
     style: {
@@ -2817,7 +2829,7 @@ function Settings({
   }, React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 13
+      fontSize: 16
     }
   }, "This removes all people, tickets, leave, and resets the sprint calendar and settings. Export first if you want to keep a copy. This can't be undone.")), React.createElement("div", {
     className: "modal-foot"
@@ -2879,7 +2891,7 @@ function ManualLeaveCard({
   }, "Manual leave"), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12.5
+      fontSize: 16
     }
   }, "Add ad-hoc leave days for anyone with a SID set in the Team tab. These are kept separate from iCal-imported leave and survive Clear."), React.createElement("div", {
     style: {
@@ -2923,7 +2935,7 @@ function ManualLeaveCard({
     }
   }, React.createElement("span", {
     style: {
-      fontSize: 12,
+      fontSize: 16,
       fontWeight: 700
     }
   }, "Half day"), React.createElement("span", {
@@ -2950,7 +2962,7 @@ function ManualLeaveCard({
   }), " Add")), withSid.length === 0 && React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12
+      fontSize: 16
     }
   }, "Nobody has a SID yet \u2014 open the Team tab, edit a person, and fill in their SID."), grouped.length > 0 && React.createElement("div", {
     style: {
@@ -2973,7 +2985,7 @@ function ManualLeaveCard({
   }, React.createElement("div", {
     style: {
       minWidth: 140,
-      fontSize: 13
+      fontSize: 16
     }
   }, React.createElement("div", {
     style: {
@@ -2983,7 +2995,7 @@ function ManualLeaveCard({
     className: "muted",
     style: {
       fontFamily: "var(--font-mono)",
-      fontSize: 11
+      fontSize: 16
     }
   }, s)), React.createElement("div", {
     style: {
@@ -3003,7 +3015,7 @@ function ManualLeaveCard({
     }
   }, r.date), r.frac === 0.5 && React.createElement("span", {
     style: {
-      fontSize: 10,
+      fontSize: 16,
       fontWeight: 800,
       opacity: 0.7
     }
@@ -3032,7 +3044,7 @@ function SprintSettingsCard({
   const numStyle = {
     fontFamily: "var(--font-mono)",
     fontWeight: 700,
-    fontSize: 14,
+    fontSize: 16,
     padding: "9px 11px",
     borderRadius: 9,
     border: "1px solid var(--border)",
@@ -3108,14 +3120,14 @@ function SprintSettingsCard({
   }, "Sprint & velocity"), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12.5
+      fontSize: 16
     }
   }, "One cadence for the whole team \u2014 these settings are shared across every product; the product tabs just filter the view. Velocity per person = ", React.createElement("b", null, "(avg points per past sprint \xF7 past-sprint length)"), " \xD7 ", React.createElement("b", null, "(upcoming working days \u2212 federal holidays \u2212 that person's leave)"), ". Holidays and each person's leave are pulled automatically."), React.createElement("div", {
     className: "section-label",
     style: {
       marginTop: 14,
       marginBottom: 6,
-      fontSize: 11.5
+      fontSize: 16
     }
   }, "Past sprints (history basis)"), React.createElement("div", {
     style: {
@@ -3137,7 +3149,7 @@ function SprintSettingsCard({
   }), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 11.5,
+      fontSize: 16,
       marginTop: 4
     }
   }, "Divides the average to get points/day. Past sprints were 2-week = 10.")), React.createElement("div", {
@@ -3154,7 +3166,7 @@ function SprintSettingsCard({
   }), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 11.5,
+      fontSize: 16,
       marginTop: 4
     }
   }, "0 = auto. Using ", React.createElement("b", null, usedCount || "—"), " (", detected, " detected from your tickets). Empty sprints count as 0."))), React.createElement("div", {
@@ -3162,7 +3174,7 @@ function SprintSettingsCard({
     style: {
       marginTop: 16,
       marginBottom: 6,
-      fontSize: 11.5
+      fontSize: 16
     }
   }, "Upcoming sprint (the one you're planning)"), React.createElement("div", {
     style: {
@@ -3218,14 +3230,14 @@ function SprintSettingsCard({
   }, up.end ? fmtDate(up.end) : "—")))), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12
+      fontSize: 16
     }
   }, "Planning ", React.createElement("b", null, resolvedUp.name || "—"), !up.name && resolvedUp.name ? " (auto, next after your latest sprint)" : "", ".", " ", up.start && up.end ? holidays.length ? React.createElement("span", null, holidays.length, " federal holiday", holidays.length > 1 ? "s" : "", " in range (", holidays.map(fmtDate).join(", "), ") \u2014 subtracted for everyone. Leave is subtracted per person.") : React.createElement("span", null, "No federal holidays in range. Leave is subtracted per person from the leave calendar.") : React.createElement("span", null, "Pick the start date and working days \u2014 the end date is calculated for you.")), React.createElement("div", {
     className: "section-label",
     style: {
       marginTop: 18,
       marginBottom: 6,
-      fontSize: 11.5,
+      fontSize: 16,
       display: "flex",
       alignItems: "center",
       gap: 8
@@ -3239,7 +3251,7 @@ function SprintSettingsCard({
   }), " Add sprint")), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 11.5,
+      fontSize: 16,
       marginBottom: future.length ? 8 : 0
     }
   }, "Queue sprints you're planning beyond the upcoming one. Each end date is calculated from its start and working days. Points you assign into these sprints are ", React.createElement("b", null, "not"), " counted toward velocity."), future.map((f, i) => React.createElement("div", {
@@ -3307,17 +3319,17 @@ function SprintSettingsCard({
     style: {
       marginTop: 18,
       marginBottom: 6,
-      fontSize: 11.5
+      fontSize: 16
     }
   }, "All historical sprints (", datedPast.length, ")"), datedPast.length === 0 ? React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 11.5
+      fontSize: 16
     }
   }, "No historical sprints yet \u2014 import tickets to populate the calendar.") : React.createElement(React.Fragment, null, !up.start && React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 11.5,
+      fontSize: 16,
       marginBottom: 6
     }
   }, "Set the upcoming sprint's start date to back-calculate each historical date range."), React.createElement("div", {
@@ -3332,7 +3344,7 @@ function SprintSettingsCard({
       display: "flex",
       alignItems: "center",
       gap: 12,
-      fontSize: 12.5,
+      fontSize: 16,
       padding: "4px 0",
       borderBottom: "1px solid var(--border)"
     }
@@ -3412,7 +3424,7 @@ function ImportHistoryModal({
   }, React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12.5,
+      fontSize: 16,
       marginTop: -4
     }
   }, "In Jira, run an issue-navigator query for completed tickets across the sprints you want to seed, then choose ", React.createElement("b", null, "Export \xB7 HTML"), ". Drop the file here (or paste its contents) \u2014 we'll bucket points per assignee per sprint and store them as starting velocity."), React.createElement("div", {
@@ -3430,7 +3442,7 @@ function ImportHistoryModal({
   }, fileName ? fileName : "Choose an HTML export…"), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12
+      fontSize: 16
     }
   }, "or paste the HTML below")), React.createElement("input", {
     ref: fileRef,
@@ -3447,7 +3459,7 @@ function ImportHistoryModal({
     spellCheck: false,
     style: {
       fontFamily: "var(--font-mono)",
-      fontSize: 12,
+      fontSize: 16,
       padding: 11,
       borderRadius: 9,
       minHeight: 140,
@@ -3484,13 +3496,13 @@ function ImportHistoryModal({
   }), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 11.5,
+      fontSize: 16,
       fontFamily: "var(--font-mono)"
     }
   }, preview.sprints.slice(0, 6).join(" · "))) : React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12.5
+      fontSize: 16
     }
   }, "No matching rows yet \u2014 make sure the export contains assignee, points, and a sprint label."))), React.createElement("div", {
     className: "modal-foot"
@@ -3564,7 +3576,7 @@ function ImportIcalModal({
   }, React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12.5,
+      fontSize: 16,
       marginTop: -4
     }
   }, "Export your team's leave calendar as iCalendar (.ics) \u2014 typically from Google Calendar (", React.createElement("i", null, "Settings \u2192 Export"), ") or your HRIS. We match events to people by attendee or summary text, then subtract those days from sprint capacity."), React.createElement("div", {
@@ -3582,7 +3594,7 @@ function ImportIcalModal({
   }, fileName ? fileName : "Choose a .ics file…"), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12
+      fontSize: 16
     }
   }, "or paste the calendar contents below")), React.createElement("input", {
     ref: fileRef,
@@ -3599,7 +3611,7 @@ function ImportIcalModal({
     spellCheck: false,
     style: {
       fontFamily: "var(--font-mono)",
-      fontSize: 12,
+      fontSize: 16,
       padding: 11,
       borderRadius: 9,
       minHeight: 140,
@@ -3630,12 +3642,12 @@ function ImportIcalModal({
   }), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 11.5
+      fontSize: 16
     }
   }, "Weekends are skipped automatically.")) : React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12.5
+      fontSize: 16
     }
   }, "No matching events \u2014 names in attendees or event titles need to match a team member."))), React.createElement("div", {
     className: "modal-foot"
@@ -3727,7 +3739,7 @@ function ImportTicketsModal({
   }, React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12.5,
+      fontSize: 16,
       marginTop: -4
     }
   }, "In Jira, run an issue-navigator query for the tickets you want on the board, then choose ", React.createElement("b", null, "Export \xB7 HTML"), ". Drop the file here (or paste it) \u2014 we read Key, Summary, Assignee, Sprint, Epic, Story Points, and Description. Tickets with a sprint land in that sprint; the rest go to the backlog. ", React.createElement("b", null, "People are created from the assignees.")), React.createElement("div", {
@@ -3745,7 +3757,7 @@ function ImportTicketsModal({
   }, fileName ? fileName : "Choose an HTML export…"), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12
+      fontSize: 16
     }
   }, "or paste the HTML below")), React.createElement("input", {
     ref: fileRef,
@@ -3762,7 +3774,7 @@ function ImportTicketsModal({
     spellCheck: false,
     style: {
       fontFamily: "var(--font-mono)",
-      fontSize: 12,
+      fontSize: 16,
       padding: 11,
       borderRadius: 9,
       minHeight: 140,
@@ -3811,13 +3823,13 @@ function ImportTicketsModal({
   }), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 11.5,
+      fontSize: 16,
       fontFamily: "var(--font-mono)"
     }
   }, ["DX", "LX", "RC"].filter(p => preview.projects[p]).map(p => `${p} ${preview.projects[p]}`).join(" · "))) : React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12.5
+      fontSize: 16
     }
   }, "No tickets found \u2014 the export needs a table with a Key column (DX-\u2026, LX-\u2026, RCR-\u2026)."))), React.createElement("div", {
     className: "modal-foot"
@@ -3838,7 +3850,7 @@ function DebugView({
   doneRes,
   project,
   plannedSprints,
-  onToggleExclude
+  onVelocityOverride
 }) {
   const [q, setQ] = useState("");
   const [sort, setSort] = useState({
@@ -3852,24 +3864,40 @@ function DebugView({
   const isDone = t => !!(t.resolution && doneSet.has(t.resolution.toLowerCase()));
   const scoped = useMemo(() => (tickets || []).filter(t => VP.projectForKey(t.key) === project), [tickets, project]);
   function contribution(t) {
+    const ov = VP.velocityOverride(t);
     if (!t.assignee) return {
       ok: false,
       why: "no assignee"
     };
-    if (t.excludeFromVelocity) return {
+    if (ov === "exclude") return {
       ok: false,
       why: "excluded from velocity"
     };
+    const pts = Number(t.points) || 0;
+    const sps = (t.sprints || []).filter(Boolean);
+    if (ov === "include") {
+      if (pts <= 0) return {
+        ok: false,
+        why: "force-added, but points ≤ 0"
+      };
+      if (!sps.length) return {
+        ok: false,
+        why: "force-added, but no sprint to attribute"
+      };
+      return {
+        ok: true,
+        why: `force-added in ${sps.join(", ")}`,
+        pts
+      };
+    }
     if (!isDone(t)) return {
       ok: false,
       why: t.resolution ? `resolution "${t.resolution}" not in Done list` : "no resolution"
     };
-    const pts = Number(t.points) || 0;
     if (pts <= 0) return {
       ok: false,
       why: "points ≤ 0"
     };
-    const sps = (t.sprints || []).filter(Boolean);
     if (!sps.length) return {
       ok: false,
       why: "no sprint (backlog)"
@@ -3928,7 +3956,7 @@ function DebugView({
   const cell = {
     padding: "4px 8px",
     borderBottom: "1px solid var(--border)",
-    fontSize: 12,
+    fontSize: 16,
     whiteSpace: "nowrap"
   };
   const head = {
@@ -3937,7 +3965,7 @@ function DebugView({
     fontWeight: 800,
     textTransform: "uppercase",
     letterSpacing: "0.05em",
-    fontSize: 10,
+    fontSize: 16,
     position: "sticky",
     top: 0,
     background: "var(--surface-2)"
@@ -3959,7 +3987,7 @@ function DebugView({
     onChange: e => setQ(e.target.value),
     placeholder: "filter by name / sid\u2026",
     style: {
-      fontSize: 13,
+      fontSize: 16,
       padding: "8px 11px",
       borderRadius: 9,
       border: "1px solid var(--border)",
@@ -4003,7 +4031,7 @@ function DebugView({
   })), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 11.5
+      fontSize: 16
     }
   }, "Velocity counts a person's completed (Done, points>0) work in every past sprint \u2014 sprints still being planned (in ", React.createElement("b", {
     style: {
@@ -4019,7 +4047,7 @@ function DebugView({
   }, React.createElement("span", {
     className: "muted",
     style: {
-      fontSize: 12,
+      fontSize: 16,
       fontWeight: 700
     }
   }, "Order people by"), React.createElement("div", {
@@ -4035,7 +4063,7 @@ function DebugView({
   }, "Velocity")), React.createElement("span", {
     className: "muted",
     style: {
-      fontSize: 11.5
+      fontSize: 16
     }
   }, "Click a column header below to sort rows by ticket, pts, or sprints.")), ordered.filter(match).map(g => {
     const series = g.id !== "_none" ? derived[g.id] || [] : [];
@@ -4063,7 +4091,7 @@ function DebugView({
       style: {
         textAlign: "right",
         fontFamily: "var(--font-mono)",
-        fontSize: 12
+        fontSize: 16
       }
     }, React.createElement("div", null, React.createElement("b", {
       style: {
@@ -4095,17 +4123,21 @@ function DebugView({
     }, "Resolution"), React.createElement("th", {
       style: head
     }, "Feeds velocity?"), React.createElement("th", {
-      style: head
-    }, "Exclude"), React.createElement("th", {
+      style: {
+        ...head,
+        textAlign: "center"
+      }
+    }, "Velocity"), React.createElement("th", {
       style: {
         ...head,
         whiteSpace: "normal"
       }
     }, "Summary"))), React.createElement("tbody", null, sorted.map(t => {
       const c = contribution(t);
+      const ov = VP.velocityOverride(t);
       return React.createElement("tr", {
         key: t.id,
-        style: t.excludeFromVelocity ? {
+        style: ov === "exclude" ? {
           opacity: 0.55
         } : null
       }, React.createElement("td", {
@@ -4138,21 +4170,22 @@ function DebugView({
           ...cell,
           textAlign: "center"
         }
-      }, React.createElement("span", {
-        className: "switch",
-        "data-on": !!t.excludeFromVelocity,
-        onClick: () => onToggleExclude && onToggleExclude(t.id),
-        role: "switch",
-        "aria-checked": !!t.excludeFromVelocity,
-        title: "Exclude this ticket from velocity",
-        style: {
-          cursor: "pointer",
-          display: "inline-block",
-          verticalAlign: "middle"
-        }
-      }, React.createElement("span", {
-        className: "knob"
-      }))), React.createElement("td", {
+      }, React.createElement("div", {
+        className: "seg vel-seg",
+        onClick: e => e.stopPropagation()
+      }, React.createElement("button", {
+        "data-on": !ov,
+        onClick: () => onVelocityOverride(t.id, null),
+        title: "Follow the automatic rules"
+      }, "Auto"), React.createElement("button", {
+        "data-on": ov === "include",
+        onClick: () => onVelocityOverride(t.id, "include"),
+        title: "Always count this ticket toward velocity"
+      }, "Add"), React.createElement("button", {
+        "data-on": ov === "exclude",
+        onClick: () => onVelocityOverride(t.id, "exclude"),
+        title: "Never count this ticket toward velocity"
+      }, "Excl"))), React.createElement("td", {
         style: {
           ...cell,
           whiteSpace: "normal",
@@ -4165,7 +4198,7 @@ function DebugView({
     className: "empty-state",
     style: {
       padding: 28,
-      fontSize: 13
+      fontSize: 16
     }
   }, "No ", project, " tickets to show."));
 }
@@ -4366,9 +4399,10 @@ function App() {
       points: Math.max(0, Math.min(99, Math.round(Number(pts) || 0)))
     });
   };
-  const onToggleExclude = id => setTickets(ts => ts.map(x => x.id === id ? {
+  const onVelocityOverride = (id, mode) => setTickets(ts => ts.map(x => x.id === id ? {
     ...x,
-    excludeFromVelocity: !x.excludeFromVelocity
+    velocityOverride: mode || null,
+    excludeFromVelocity: undefined
   } : x));
   const onExportData = () => {
     const payload = {
@@ -4753,7 +4787,7 @@ function App() {
   }), React.createElement("div", {
     className: "muted",
     style: {
-      fontSize: 12,
+      fontSize: 16,
       display: "flex",
       alignItems: "center",
       gap: 7
@@ -4830,7 +4864,7 @@ function App() {
     doneRes: doneRes,
     project: project,
     plannedSprints: plannedSprintNames,
-    onToggleExclude: onToggleExclude
+    onVelocityOverride: onVelocityOverride
   })), descTicket && React.createElement(DescPanel, {
     ticket: tickets.find(t => t.id === descTicket.id) || descTicket,
     people: peopleV,

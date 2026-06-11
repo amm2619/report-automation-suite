@@ -150,7 +150,10 @@ function App() {
   const onMove = (ticket, sprintName) => { patchTicket(ticket.id, { sprints: [sprintName] }); toast(`${ticket.key} moved to ${sprintName}`, "info"); };
   const onBacklog = (ticket) => { patchTicket(ticket.id, { sprints: [] }); toast(`${ticket.key} returned to backlog`, "info"); };
   const onPoints = (ticket, pts) => { patchTicket(ticket.id, { points: Math.max(0, Math.min(99, Math.round(Number(pts) || 0))) }); };
-  const onToggleExclude = (id) => setTickets((ts) => ts.map((x) => x.id === id ? { ...x, excludeFromVelocity: !x.excludeFromVelocity } : x));
+  // Per-ticket velocity override: null (auto) | "include" (force in) | "exclude".
+  const onVelocityOverride = (id, mode) => setTickets((ts) => ts.map((x) => x.id === id
+    ? { ...x, velocityOverride: mode || null, excludeFromVelocity: undefined }
+    : x));
 
   // ---- settings actions ----
   // Save the entire workspace (people, tickets, sprints, leave, settings) to a
@@ -421,7 +424,7 @@ function App() {
           ))}
         </div>
         <div style={{ flex: 1 }} />
-        <div className="muted" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 7 }}>
+        <div className="muted" style={{ fontSize: 16, display: "flex", alignItems: "center", gap: 7 }}>
           <span className="dot" style={{ width: 8, height: 8, borderRadius: "50%", background: PROJ_COLOR[project], display: "inline-block" }} />
           {VP.PROJECTS.find((p) => p.id === project)?.name}
         </div>
@@ -459,7 +462,7 @@ function App() {
         {view === "debug" && (
           <DebugView tickets={tickets} people={people} sprints={sprintsList}
             currentIdx={currentSprintIdx} doneRes={doneRes} project={project}
-            plannedSprints={plannedSprintNames} onToggleExclude={onToggleExclude} />
+            plannedSprints={plannedSprintNames} onVelocityOverride={onVelocityOverride} />
         )}
       </main>
 

@@ -89,7 +89,7 @@ function PersonModal({ person, project, existingNames, projects, onSave, onClose
               ))}
             </div>
           </div>
-          {err && <div className="msg" style={{ color: "var(--danger)", fontWeight: 600, fontSize: 12 }}>{err}</div>}
+          {err && <div className="msg" style={{ color: "var(--danger)", fontWeight: 600, fontSize: 16 }}>{err}</div>}
         </div>
         <div className="modal-foot">
           <button className="btn" onClick={onClose}>Cancel</button>
@@ -159,7 +159,7 @@ function Team({ people, projects, currentProject, sprints, currentIdx, velCfg, h
             </header>
 
             {list.length === 0 ? (
-              <div className="empty-state" style={{ padding: 28, fontSize: 13 }}>No people on {proj.id} yet.</div>
+              <div className="empty-state" style={{ padding: 28, fontSize: 16 }}>No people on {proj.id} yet.</div>
             ) : tab === "cards" ? (
               <div className="team-grid">
                 {[...list].sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
@@ -241,7 +241,7 @@ function VelocityTable({ rows, historyDetail }) {
                       </div>
                     </div>
                   ) : (
-                    <div className="v-expand-inner muted" style={{ fontSize: 12 }}>No completed sprints feeding velocity yet — using {p.goal ? `goal (${p.goal})` : "no data"}.</div>
+                    <div className="v-expand-inner muted" style={{ fontSize: 16 }}>No completed sprints feeding velocity yet — using {p.goal ? `goal (${p.goal})` : "no data"}.</div>
                   )}
                 </div>
               )}

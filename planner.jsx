@@ -65,7 +65,7 @@ function CapCard({ person, assigned, cap, wfhUsed, holidays, innerRef, flash }) 
           <div className={"bar" + (wfhOver ? " over" : "")} title={`${wfhUsed} / ${cap.wfhPoints} pts (${cap.wfh.days} days budget)`}>
             <i style={{ width: pct(wfhUsed, cap.wfhPoints) + "%", background: "var(--accent)" }} />
           </div>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: wfhOver ? "var(--danger)" : "var(--text-faint)" }}>{wfhUsed}/{cap.wfhPoints}</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: wfhOver ? "var(--danger)" : "var(--text-faint)" }}>{wfhUsed}/{cap.wfhPoints}</span>
         </div>
       )}
     </div>
@@ -303,7 +303,7 @@ function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, 
                     </span>
                     {person ? (
                       <React.Fragment>
-                        <Avatar name={person.name} proj={person.project} className="av" style={{ width: 22, height: 22, borderRadius: 7, fontSize: 10 }} />
+                        <Avatar name={person.name} proj={person.project} className="av" style={{ width: 22, height: 22, borderRadius: 7, fontSize: 16 }} />
                         <span className="nm nm-link" onClick={(e) => { e.stopPropagation(); scrollToPerson(person.id); }} title="Scroll to this person's capacity card">{person.name}</span>
                         <span className="ec">{list.length}</span>
                         <div style={{ flex: 1 }} />
@@ -317,7 +317,7 @@ function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, 
                       </React.Fragment>
                     ) : (
                       <React.Fragment>
-                        <span className="av avatar" style={{ width: 22, height: 22, borderRadius: 7, fontSize: 10, background: "var(--surface-3)", color: "var(--text-faint)" }}>—</span>
+                        <span className="av avatar" style={{ width: 22, height: 22, borderRadius: 7, fontSize: 16, background: "var(--surface-3)", color: "var(--text-faint)" }}>—</span>
                         <span className="nm">Unassigned</span>
                         <span className="ec">{list.length}</span>
                         <div style={{ flex: 1 }} />
