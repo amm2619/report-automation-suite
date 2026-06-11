@@ -222,7 +222,24 @@
   // { [personId]: number[] } ordered chronologically; one entry per such sprint
   // the person landed work in. This replaces the static seed at runtime whenever
   // the board has completed work; otherwise the person's stored history is used.
-  function deriveHistory(tickets, doneResolutions, sprints /* , currentIdx */) {
+  // Per-ticket velocity override: "include" forces a ticket into velocity even
+  // if it isn't Done or sits in a sprint we're still planning; "exclude" keeps
+  // it out regardless. Absent → follow the automatic rules. (The older
+  // `excludeFromVelocity` boolean maps to "exclude".)
+  function velocityOverride(t) {
+    if (t.velocityOverride === "include" || t.velocityOverride === "exclude") return t.velocityOverride;
+    if (t.excludeFromVelocity) return "exclude";
+    return null;
+  }
+
+  // Detailed variant: same rules as deriveHistory, but each person's series is
+  // a list of { name, points } so the UI can show which sprint each value came
+  // from. opts.excludeSprints (sprint names) and each ticket's velocity override
+  // are honored — points in a sprint we're still planning, or on a ticket the
+  // user excluded, never feed velocity; force-included tickets always do.
+  function deriveHistoryDetail(tickets, doneResolutions, sprints, opts) {
+    opts = opts || {};
+    const exclude = new Set((opts.excludeSprints || []).map((s) => String(s)));
     const done = new Set((doneResolutions || []).map((r) => r.toLowerCase()));
     // Calendar order is used only to order each person's series; sprints we
     // haven't seen in the calendar sort to the end.
@@ -231,11 +248,15 @@
     const acc = {}; // personId -> { sprintName: points }
     for (const t of tickets || []) {
       if (!t.assignee) continue;
-      if (!t.resolution || !done.has(t.resolution.toLowerCase())) continue;
+      const ov = velocityOverride(t);
+      if (ov === "exclude") continue; // user-excluded from velocity
+      const isDone = !!(t.resolution && done.has(t.resolution.toLowerCase()));
+      if (ov !== "include" && !isDone) continue; // not forced and not Done
       const pts = Number(t.points) || 0;
       if (pts <= 0) continue;
       for (const sn of (t.sprints || [])) {
         if (!sn) continue; // backlog tickets (no sprint) can't be attributed
+        if (ov !== "include" && exclude.has(String(sn))) continue; // a sprint still being planned
         (acc[t.assignee] = acc[t.assignee] || {});
         acc[t.assignee][sn] = (acc[t.assignee][sn] || 0) + pts;
       }
@@ -247,8 +268,14 @@
         const bi = b in order ? order[b] : 1e9;
         return ai - bi || a.localeCompare(b);
       });
-      out[pid] = names.map((n) => bySprint[n]);
+      out[pid] = names.map((n) => ({ name: n, points: bySprint[n] }));
     }
+    return out;
+  }
+  function deriveHistory(tickets, doneResolutions, sprints, currentIdx, opts) {
+    const detail = deriveHistoryDetail(tickets, doneResolutions, sprints, opts);
+    const out = {};
+    for (const [pid, arr] of Object.entries(detail)) out[pid] = arr.map((e) => e.points);
     return out;
   }
 
@@ -354,7 +381,7 @@
     // calc
     isUndated,
     parseSprintNumber, sprintSortKey, nextSprintName, shiftWorkingDays, buildSprintCalendar,
-    sprintWorkDays, holidaysInRange, velocity, baseVelocity, deriveHistory,
+    sprintWorkDays, holidaysInRange, velocity, baseVelocity, deriveHistory, deriveHistoryDetail, velocityOverride,
     projectedVelocity,
     leaveDaysInSprint, leaveRecords, wfhBudget, capacity,
     parseISO, fmtISO, eachDay,

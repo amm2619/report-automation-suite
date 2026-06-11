@@ -89,7 +89,7 @@ function DescPanel({ ticket, people, sprints, currentIdx, hidePast, jiraBase, on
           {ticket.epic && (
             <div className="metric">
               <span className="k">Epic</span>
-              <span className="v" style={{ fontSize: 13, fontFamily: "var(--font-sans)" }}>{ticket.epic}</span>
+              <span className="v" style={{ fontSize: 16, fontFamily: "var(--font-sans)" }}>{ticket.epic}</span>
             </div>
           )}
 
@@ -112,7 +112,7 @@ function DescPanel({ ticket, people, sprints, currentIdx, hidePast, jiraBase, on
             renderValue={() => currentSprint
               ? <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>{currentSprint}</span>
               : <span className="muted">Backlog</span>}
-            renderOption={(o) => <span style={{ fontFamily: o.key === "_backlog" ? "var(--font-sans)" : "var(--font-mono)", fontWeight: 700, fontSize: 12 }}>{o.label}</span>}
+            renderOption={(o) => <span style={{ fontFamily: o.key === "_backlog" ? "var(--font-sans)" : "var(--font-mono)", fontWeight: 700, fontSize: 16 }}>{o.label}</span>}
             onPick={handleSprint}
             align="right" />
         </div>

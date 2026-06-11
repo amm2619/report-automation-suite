@@ -99,7 +99,10 @@ The build is dev-only — the committed `bundle.js` is all the app needs to run.
   lives in the session and resets on reload (only the active project + the
   "hide past sprints" toggle persist to `localStorage`). Persisting to a backend
   is the main gap to close for long-term use.
-- **Fonts.** The app uses the system font stack offline; no web fonts are
-  fetched. (Drop-in webfonts can be vendored later if you want the exact look.)
+- **Fonts.** The UI font is **Roboto**, vendored locally as a latin variable
+  woff2 in `vendor/fonts/` and declared via `@font-face` — nothing is fetched at
+  runtime, so the app stays fully offline. The base font size is **12pt (16px)**
+  and no text is rendered smaller than that. (`--font-mono` still falls back to
+  the system monospace stack.)
 - **Theming.** Themes are CSS custom-property sets selected by the `data-theme`
   attribute on `<html>` (`midnight` by default); `data-density` controls spacing.

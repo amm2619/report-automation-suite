@@ -89,7 +89,7 @@ function PersonModal({ person, project, existingNames, projects, onSave, onClose
               ))}
             </div>
           </div>
-          {err && <div className="msg" style={{ color: "var(--danger)", fontWeight: 600, fontSize: 12 }}>{err}</div>}
+          {err && <div className="msg" style={{ color: "var(--danger)", fontWeight: 600, fontSize: 16 }}>{err}</div>}
         </div>
         <div className="modal-foot">
           <button className="btn" onClick={onClose}>Cancel</button>
@@ -100,7 +100,7 @@ function PersonModal({ person, project, existingNames, projects, onSave, onClose
   );
 }
 
-function Team({ people, projects, currentProject, sprints, currentIdx, velCfg, onAdd, onEdit, onRemove }) {
+function Team({ people, projects, currentProject, sprints, currentIdx, velCfg, historyDetail, onAdd, onEdit, onRemove }) {
   const [modal, setModal] = useState(null); // null | {person?}
   const [addProj, setAddProj] = useState(currentProject);
   const [tab, setTab] = useState("cards"); // 'cards' | 'velocity'
@@ -159,15 +159,15 @@ function Team({ people, projects, currentProject, sprints, currentIdx, velCfg, o
             </header>
 
             {list.length === 0 ? (
-              <div className="empty-state" style={{ padding: 28, fontSize: 13 }}>No people on {proj.id} yet.</div>
+              <div className="empty-state" style={{ padding: 28, fontSize: 16 }}>No people on {proj.id} yet.</div>
             ) : tab === "cards" ? (
               <div className="team-grid">
-                {list.map((p) => (
+                {[...list].sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
                   <PersonCard key={p.id} person={p} onEdit={(pp) => setModal({ person: pp })} onRemove={onRemove} />
                 ))}
               </div>
             ) : (
-              <VelocityTable rows={vrows} />
+              <VelocityTable rows={vrows} historyDetail={historyDetail} />
             )}
           </section>
         );
@@ -187,7 +187,11 @@ function Team({ people, projects, currentProject, sprints, currentIdx, velCfg, o
 
 /* ---- Velocity table (per-team) — mirrors the by-hand calc, column by column:
    avg/sprint → points/day → upcoming available days → projected velocity. ---- */
-function VelocityTable({ rows }) {
+function VelocityTable({ rows, historyDetail }) {
+  // Click a person's name to expand a breakdown of the sprints that fed their
+  // velocity, with points per sprint.
+  const [expanded, setExpanded] = useState({});
+  const detail = historyDetail || {};
   return (
     <div className="tickets v-table" style={{ overflowX: "auto" }}>
       <div className="v-grid" style={{ gridTemplateColumns: `1fr 80px 84px 92px 96px`, minWidth: 520 }}>
@@ -201,25 +205,56 @@ function VelocityTable({ rows }) {
           const availTip = `${pv.gross} working days − ${pv.holidays} holiday${pv.holidays === 1 ? "" : "s"} − ${pv.leave} leave = ${pv.available}`;
           const avgTip = `${pv.totalPts} pts ÷ ${pv.sprintCount} sprints = ${pv.avgPerSprint.toFixed(2)}`;
           const ppdTip = `${pv.avgPerSprint.toFixed(2)} ÷ ${pv.pastDays} days = ${pv.pointsPerDay.toFixed(2)}`;
+          const series = detail[p.id] || [];
+          const isOpen = !!expanded[p.id];
+          const toggle = () => setExpanded((m) => ({ ...m, [p.id]: !m[p.id] }));
           return (
             <React.Fragment key={p.id}>
-              <div className="v-cell person-cell" data-row={ri}>
+              <div className="v-cell person-cell expandable" data-row={ri} data-open={isOpen} onClick={toggle} role="button" tabIndex={0} title="Show sprint-by-sprint breakdown">
+                <span className="collapse-caret" aria-label={isOpen ? "Collapse" : "Expand"} style={{ display: "inline-flex" }}>
+                  <Icon name="chev" size={13} />
+                </span>
                 <Avatar name={p.name} proj={p.project} className="av" />
                 <div className="who">
                   <div className="nm">{p.name}</div>
                   <div className="sid">{p.sid}</div>
                 </div>
               </div>
-              <div className="v-cell align-r num" data-row={ri} title={avgTip}>{pv.totalPts ? pv.avgPerSprint.toFixed(1) : "—"}</div>
-              <div className="v-cell align-r num dim" data-row={ri} title={ppdTip}>{pv.totalPts ? pv.pointsPerDay.toFixed(2) : "—"}</div>
-              <div className="v-cell align-r num dim" data-row={ri} title={availTip}>{pv.available}</div>
-              <div className="v-cell align-r num strong" data-row={ri}>{pv.totalPts ? pv.velocity : "—"}</div>
+              <div className="v-cell align-r num" data-row={ri} title={avgTip} onClick={toggle}>{pv.totalPts ? pv.avgPerSprint.toFixed(1) : "—"}</div>
+              <div className="v-cell align-r num dim" data-row={ri} title={ppdTip} onClick={toggle}>{pv.totalPts ? pv.pointsPerDay.toFixed(2) : "—"}</div>
+              <div className="v-cell align-r num dim" data-row={ri} title={availTip} onClick={toggle}>{pv.available}</div>
+              <div className="v-cell align-r num strong" data-row={ri} onClick={toggle}>{pv.totalPts ? pv.velocity : "—"}</div>
+
+              {isOpen && (
+                <div className="v-expand" data-row={ri} style={{ gridColumn: "1 / -1" }}>
+                  {series.length ? (
+                    <div className="v-expand-inner">
+                      <div className="v-expand-head">Previous sprints · points per sprint</div>
+                      <div className="v-spark-rows">
+                        {series.map((s) => (
+                          <div className="v-spark-row" key={s.name}>
+                            <span className="sp-name">{s.name}</span>
+                            <span className="sp-bar"><i style={{ width: pctOf(s.points, series) + "%", background: PROJ_COLOR[p.project] }} /></span>
+                            <span className="sp-pts">{s.points}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="v-expand-inner muted" style={{ fontSize: 16 }}>No completed sprints feeding velocity yet — using {p.goal ? `goal (${p.goal})` : "no data"}.</div>
+                  )}
+                </div>
+              )}
             </React.Fragment>
           );
         })}
       </div>
     </div>
   );
+}
+function pctOf(n, series) {
+  const max = Math.max(1, ...series.map((s) => s.points));
+  return Math.max(4, Math.round((n / max) * 100));
 }
 
 window.Team = Team;
