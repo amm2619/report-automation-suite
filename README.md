@@ -72,7 +72,8 @@ other browsers the in-browser auto-save + Export/Import still work.
 | `panel.jsx`      | `DescPanel` — left-sliding ticket detail panel                 |
 | `planner.jsx`    | `Planner` — capacity cards, ticket rows, single + multi sprint  |
 | `team.jsx`       | `Team` — person cards, add/edit modal, velocity table          |
-| `views.jsx`      | `Settings`, sprint-calendar editor, import modals              |
+| `sprints.jsx`    | `Sprints` — dictate the shared sprint calendar (its own save file) |
+| `views.jsx`      | `Settings`, velocity basis, import modals, `Debug`             |
 | `app.jsx`        | Root: state, top bar, nav, toasts                              |
 | `fsstore.js`     | Folder auto-save helper (File System Access API), `window.FSStore` |
 | `bundle.js`      | **Generated** — the precompiled app the browser actually runs   |

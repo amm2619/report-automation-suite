@@ -469,15 +469,15 @@
   async function stored() { try { return await idbGet(KEY); } catch (_) { return null; } }
   async function forget() { try { await idbDel(KEY); } catch (_) {} }
 
-  async function write(handle, obj) {
-    const fh = await handle.getFileHandle(FILE, { create: true });
+  async function write(handle, obj, file = FILE) {
+    const fh = await handle.getFileHandle(file, { create: true });
     const w = await fh.createWritable();
     await w.write(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
     await w.close();
   }
-  async function read(handle) {
+  async function read(handle, file = FILE) {
     try {
-      const fh = await handle.getFileHandle(FILE, { create: false });
+      const fh = await handle.getFileHandle(file, { create: false });
       const txt = await (await fh.getFile()).text();
       return txt ? JSON.parse(txt) : null;
     } catch (_) { return null; }
@@ -1372,7 +1372,7 @@ function CapCard({
     className: "dt wfh"
   }), wfhUsed, " wfh")), cap.undated ? React.createElement("span", {
     className: "chip",
-    title: "Set the upcoming sprint working days in Settings to project velocity"
+    title: "Add a future sprint in the Sprints tab to project velocity"
   }, React.createElement(Icon, {
     name: "cal",
     size: 12
@@ -1707,7 +1707,7 @@ function Planner({
     className: "sprint-head"
   }, React.createElement("div", null, React.createElement("h2", null, label), React.createElement("div", {
     className: "sub"
-  }, upDated ? `Planning window · ${fmtRange(up.start, up.end)}` : "Set the upcoming sprint window in Settings")), React.createElement("div", {
+  }, upDated ? `Planning window · ${fmtRange(up.start, up.end)}` : "Add a future sprint in the Sprints tab")), React.createElement("div", {
     className: "div"
   }), React.createElement("div", {
     className: "metric"
@@ -1767,7 +1767,7 @@ function Planner({
     className: "tickets mb20"
   }, inSprint.length === 0 && React.createElement("div", {
     className: "empty-state"
-  }, upcomingName ? "Nothing pulled in yet — add tickets from the backlog below." : "Set the upcoming sprint in Settings to start planning."), byAssignee(inSprint, people).map(({
+  }, upcomingName ? "Nothing pulled in yet — add tickets from the backlog below." : "Add a future sprint in the Sprints tab to start planning."), byAssignee(inSprint, people).map(({
     key,
     person,
     tickets: list,
@@ -2699,65 +2699,16 @@ function SprintSettingsCard({
   onVelCfg
 }) {
   const cfg = velCfg || {};
-  const up = cfg.upcoming || {};
-  const future = cfg.future || [];
-  const resolvedUp = velCfgResolved && velCfgResolved.upcoming || {};
   const usedCount = velCfgResolved ? velCfgResolved.pastSprintCount : sprints.length;
-  const detected = sprints.filter(s => s.name !== resolvedUp.name).length;
-  const setUp = patch => {
-    const merged = {
-      ...up,
-      ...patch
-    };
-    merged.end = endDateFromWorkDays(merged.start, merged.workingDays);
-    onVelCfg({
-      upcoming: merged
-    });
-  };
-  const holidays = up.start && up.end ? VP.holidaysInRange(up.start, up.end) : [];
-  const setFuture = next => onVelCfg({
-    future: next
-  });
-  const updateFuture = (i, patch) => setFuture(future.map((f, j) => {
-    if (j !== i) return f;
-    const merged = {
-      ...f,
-      ...patch
-    };
-    merged.end = endDateFromWorkDays(merged.start, merged.workingDays);
-    return merged;
-  }));
-  const removeFuture = i => setFuture(future.filter((_, j) => j !== i));
-  const addFuture = () => {
-    const plannedNames = [...sprints.map(s => s.name), resolvedUp.name, ...future.map(f => f.name).filter(Boolean)];
-    const prevEnd = future.length ? future[future.length - 1].end : up.end;
-    const wd = up.workingDays || 10;
-    const start = prevEnd ? VP.shiftWorkingDays(prevEnd, 1) : "";
-    const end = endDateFromWorkDays(start, wd);
-    setFuture([...future, {
-      name: VP.nextSprintName(plannedNames) || "",
-      workingDays: wd,
-      start,
-      end
-    }]);
-  };
-  const datedPast = useMemo(() => {
-    const names = sprints.map(s => s.name).filter(n => n && n !== resolvedUp.name);
-    if (!names.length) return [];
-    const dated = VP.buildSprintCalendar(names, {
-      current: resolvedUp.name,
-      currentStart: up.start,
-      workingDays: up.workingDays || 10
-    });
-    return dated.filter(s => s.name !== resolvedUp.name);
-  }, [sprints, resolvedUp.name, up.start, up.workingDays]);
+  const upName = velCfgResolved && velCfgResolved.upcoming && velCfgResolved.upcoming.name || "";
+  const pastCount = sprints.filter(s => s.name !== upName).length;
   return React.createElement("div", {
     className: "person-card settings-card"
   }, React.createElement("div", {
     className: "section-label m0"
-  }, "Sprint & velocity"), React.createElement("div", {
+  }, "Velocity basis"), React.createElement("div", {
     className: "muted"
-  }, "One cadence for the whole team \u2014 these settings are shared across every product; the product tabs just filter the view. Velocity per person = ", React.createElement("b", null, "(avg points per past sprint \xF7 past-sprint length)"), " \xD7 ", React.createElement("b", null, "(upcoming working days \u2212 federal holidays \u2212 that person's leave)"), ". Holidays and each person's leave are pulled automatically."), React.createElement("div", {
+  }, "Velocity per person = ", React.createElement("b", null, "(avg points per past sprint \xF7 past-sprint length)"), " \xD7 ", React.createElement("b", null, "(upcoming working days \u2212 federal holidays \u2212 that person's leave)"), ". Holidays and leave are pulled automatically. The sprint calendar itself \u2014 which sprints are past or future, and their dates \u2014 is now defined in the ", React.createElement("b", null, "Sprints"), " tab."), React.createElement("div", {
     className: "section-label sub-label"
   }, "Past sprints (history basis)"), React.createElement("div", {
     className: "grid-2"
@@ -2787,127 +2738,7 @@ function SprintSettingsCard({
     className: "num-field"
   }), React.createElement("div", {
     className: "muted mt4"
-  }, "0 = auto. Using ", React.createElement("b", null, usedCount || "—"), " (", detected, " detected from your tickets). Empty sprints count as 0."))), React.createElement("div", {
-    className: "section-label sub-label"
-  }, "Upcoming sprint (the one you're planning)"), React.createElement("div", {
-    className: "grid-up"
-  }, React.createElement("div", {
-    className: "field"
-  }, React.createElement("label", null, "Sprint #"), React.createElement("input", {
-    value: up.name || "",
-    placeholder: resolvedUp.name || "26.4.1",
-    onChange: e => setUp({
-      name: e.target.value
-    }),
-    className: "num-field"
-  })), React.createElement("div", {
-    className: "field"
-  }, React.createElement("label", null, "Working days"), React.createElement("input", {
-    type: "number",
-    min: 0,
-    max: 40,
-    value: up.workingDays || 0,
-    onChange: e => setUp({
-      workingDays: Math.max(0, Math.min(40, Math.round(Number(e.target.value) || 0)))
-    }),
-    className: "num-field"
-  })), React.createElement("div", {
-    className: "field"
-  }, React.createElement("label", null, "Start date"), React.createElement(DatePicker, {
-    value: up.start || "",
-    onChange: v => setUp({
-      start: v
-    }),
-    placeholder: "Pick start"
-  })), React.createElement("div", {
-    className: "field"
-  }, React.createElement("label", null, "End date ", React.createElement("span", {
-    className: "muted normal-weight"
-  }, "\xB7 calculated")), React.createElement("div", {
-    className: "ro-field",
-    title: "Calculated from the start date and working days"
-  }, React.createElement(Icon, {
-    name: "cal",
-    size: 13
-  }), React.createElement("span", {
-    className: "mono"
-  }, up.end ? fmtDate(up.end) : "—")))), React.createElement("div", {
-    className: "muted"
-  }, "Planning ", React.createElement("b", null, resolvedUp.name || "—"), !up.name && resolvedUp.name ? " (auto, next after your latest sprint)" : "", ".", " ", up.start && up.end ? holidays.length ? React.createElement("span", null, holidays.length, " federal holiday", holidays.length > 1 ? "s" : "", " in range (", holidays.map(fmtDate).join(", "), ") \u2014 subtracted for everyone. Leave is subtracted per person.") : React.createElement("span", null, "No federal holidays in range. Leave is subtracted per person from the leave calendar.") : React.createElement("span", null, "Pick the start date and working days \u2014 the end date is calculated for you.")), React.createElement("div", {
-    className: "section-label sub-label row"
-  }, React.createElement("span", null, "Future sprints (planning ahead)"), React.createElement("button", {
-    className: "btn sm",
-    onClick: addFuture
-  }, React.createElement(Icon, {
-    name: "plus",
-    size: 12
-  }), " Add sprint")), React.createElement("div", {
-    className: "muted" + (future.length ? " mb8" : "")
-  }, "Queue sprints you're planning beyond the upcoming one. Each end date is calculated from its start and working days. Points you assign into these sprints are ", React.createElement("b", null, "not"), " counted toward velocity."), future.map((f, i) => React.createElement("div", {
-    key: i,
-    className: "grid-future mb8"
-  }, React.createElement("div", {
-    className: "field"
-  }, i === 0 && React.createElement("label", null, "Sprint #"), React.createElement("input", {
-    value: f.name || "",
-    placeholder: "26.4.2",
-    onChange: e => updateFuture(i, {
-      name: e.target.value
-    }),
-    className: "num-field"
-  })), React.createElement("div", {
-    className: "field"
-  }, i === 0 && React.createElement("label", null, "Working days"), React.createElement("input", {
-    type: "number",
-    min: 0,
-    max: 40,
-    value: f.workingDays || 0,
-    onChange: e => updateFuture(i, {
-      workingDays: Math.max(0, Math.min(40, Math.round(Number(e.target.value) || 0)))
-    }),
-    className: "num-field"
-  })), React.createElement("div", {
-    className: "field"
-  }, i === 0 && React.createElement("label", null, "Start date"), React.createElement(DatePicker, {
-    value: f.start || "",
-    onChange: v => updateFuture(i, {
-      start: v
-    }),
-    placeholder: "Pick start"
-  })), React.createElement("div", {
-    className: "field"
-  }, i === 0 && React.createElement("label", null, "End date \xB7 calculated"), React.createElement("div", {
-    className: "ro-field",
-    title: "Calculated from the start date and working days"
-  }, React.createElement(Icon, {
-    name: "cal",
-    size: 13
-  }), React.createElement("span", {
-    className: "mono"
-  }, f.end ? fmtDate(f.end) : "—"))), React.createElement("button", {
-    className: "iconbtn h38",
-    onClick: () => removeFuture(i),
-    "aria-label": "Remove sprint",
-    title: "Remove"
-  }, React.createElement(Icon, {
-    name: "trash",
-    size: 14
-  })))), React.createElement("div", {
-    className: "section-label sub-label"
-  }, "All historical sprints (", datedPast.length, ")"), datedPast.length === 0 ? React.createElement("div", {
-    className: "muted"
-  }, "No historical sprints yet \u2014 import tickets to populate the calendar.") : React.createElement(React.Fragment, null, !up.start && React.createElement("div", {
-    className: "muted mb6"
-  }, "Set the upcoming sprint's start date to back-calculate each historical date range."), React.createElement("div", {
-    className: "hist-list"
-  }, datedPast.map(s => React.createElement("div", {
-    key: s.id,
-    className: "hist-row"
-  }, React.createElement("span", {
-    className: "mono bold hist-name"
-  }, s.name), React.createElement("span", {
-    className: "muted mono"
-  }, s.start && s.end ? fmtRange(s.start, s.end) : "—"))))));
+  }, "0 = auto. Using ", React.createElement("b", null, usedCount || "—"), " (", pastCount, " past sprint", pastCount === 1 ? "" : "s", " defined). Empty sprints count as 0."))));
 }
 function ImportHistoryModal({
   people,
@@ -3545,10 +3376,162 @@ Object.assign(window, {
   DebugView
 });
 
+/* ===== sprints.jsx ===== */
+
+function Sprints({
+  sprints,
+  projects,
+  onAdd,
+  onUpdate,
+  onRemove,
+  onDetect,
+  onExport,
+  onImport
+}) {
+  const fileRef = useRef(null);
+  const sorted = useMemo(() => [...sprints].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num)), [sprints]);
+  const pastCount = sorted.filter(s => s.status !== "future").length;
+  const futureCount = sorted.length - pastCount;
+  function pickFile() {
+    fileRef.current?.click();
+  }
+  function onFile(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => onImport(String(reader.result || ""));
+    reader.readAsText(f);
+    e.target.value = "";
+  }
+  return React.createElement("div", {
+    className: "wrap"
+  }, React.createElement("div", {
+    className: "team-head"
+  }, React.createElement("div", null, React.createElement("h2", null, "Sprints"), React.createElement("div", {
+    className: "sub"
+  }, "The shared sprint calendar \u2014 one number per sprint across ", projects.map(p => p.id).join(" / "), ", kept in its own save file. ", sorted.length, " sprint", sorted.length === 1 ? "" : "s", " \xB7 ", pastCount, " past \xB7 ", futureCount, " future.")), React.createElement("div", {
+    className: "row-8"
+  }, React.createElement("button", {
+    className: "btn",
+    onClick: pickFile
+  }, React.createElement(Icon, {
+    name: "download",
+    size: 14,
+    className: "rot-180"
+  }), " Import"), React.createElement("button", {
+    className: "btn",
+    onClick: onExport
+  }, React.createElement(Icon, {
+    name: "download",
+    size: 14
+  }), " Export"), React.createElement("button", {
+    className: "btn",
+    onClick: onDetect
+  }, React.createElement(Icon, {
+    name: "history",
+    size: 14
+  }), " Detect from tickets"), React.createElement("button", {
+    className: "btn primary",
+    onClick: onAdd
+  }, React.createElement(Icon, {
+    name: "plus",
+    size: 14
+  }), " Add sprint"), React.createElement("input", {
+    ref: fileRef,
+    type: "file",
+    accept: "application/json,.json",
+    onChange: onFile,
+    className: "hidden"
+  }))), React.createElement("div", {
+    className: "person-card settings-card"
+  }, React.createElement("div", {
+    className: "muted"
+  }, "Each sprint has a number (e.g. ", React.createElement("span", {
+    className: "mono"
+  }, "26.3.6"), "), a ", React.createElement("b", null, "Past / Future"), " status, working days, and a start date \u2014 the end date is calculated. ", React.createElement("b", null, "Future"), " sprints are the ones you're planning; their points don't count toward velocity, and the earliest future sprint is what the Planner schedules."), sorted.length === 0 ? React.createElement("div", {
+    className: "empty-state pad28"
+  }, "No sprints yet \u2014 add one, or \u201CDetect from tickets\u201D.") : React.createElement("div", {
+    className: "scroll-x"
+  }, React.createElement("div", {
+    className: "sprint-grid"
+  }, React.createElement("div", {
+    className: "sprint-head"
+  }, "Sprint #"), React.createElement("div", {
+    className: "sprint-head"
+  }, "Projects"), React.createElement("div", {
+    className: "sprint-head"
+  }, "Status"), React.createElement("div", {
+    className: "sprint-head"
+  }, "Working days"), React.createElement("div", {
+    className: "sprint-head"
+  }, "Start date"), React.createElement("div", {
+    className: "sprint-head"
+  }, "End \xB7 calc"), React.createElement("div", {
+    className: "sprint-head"
+  }), sorted.map(s => React.createElement(React.Fragment, {
+    key: s.id
+  }, React.createElement("input", {
+    className: "num-field",
+    value: s.num || "",
+    placeholder: "26.3.6",
+    onChange: e => onUpdate(s.id, {
+      num: e.target.value
+    })
+  }), React.createElement("div", {
+    className: "sprint-labels mono"
+  }, projects.map(p => `${p.id} ${s.num || "—"}`).join(" · ")), React.createElement("div", {
+    className: "seg sprint-status"
+  }, React.createElement("button", {
+    "data-on": s.status !== "future",
+    onClick: () => onUpdate(s.id, {
+      status: "past"
+    })
+  }, "Past"), React.createElement("button", {
+    "data-on": s.status === "future",
+    onClick: () => onUpdate(s.id, {
+      status: "future"
+    })
+  }, "Future")), React.createElement("input", {
+    type: "number",
+    min: 0,
+    max: 40,
+    className: "num-field",
+    value: s.workingDays || 0,
+    onChange: e => onUpdate(s.id, {
+      workingDays: Math.max(0, Math.min(40, Math.round(Number(e.target.value) || 0)))
+    })
+  }), React.createElement(DatePicker, {
+    value: s.start || "",
+    onChange: v => onUpdate(s.id, {
+      start: v
+    }),
+    placeholder: "Pick start"
+  }), React.createElement("div", {
+    className: "ro-field",
+    title: "Calculated from the start date + working days"
+  }, React.createElement(Icon, {
+    name: "cal",
+    size: 13
+  }), React.createElement("span", {
+    className: "mono"
+  }, s.end ? fmtDate(s.end) : "—")), React.createElement("button", {
+    className: "iconbtn",
+    onClick: () => onRemove(s.id),
+    "aria-label": "Remove sprint",
+    title: "Remove"
+  }, React.createElement(Icon, {
+    name: "trash",
+    size: 14
+  }))))))));
+}
+window.Sprints = Sprints;
+
 /* ===== app.jsx ===== */
 
 let _tid = 0;
 const PERSIST_KEY = "vp.state.v1";
+const SPRINTS_KEY = "vp.sprints.v1";
+const SPRINTS_FILE = "velocity-sprints.json";
 function loadSaved() {
   try {
     return JSON.parse(localStorage.getItem(PERSIST_KEY)) || {};
@@ -3556,10 +3539,62 @@ function loadSaved() {
     return {};
   }
 }
+function loadSprints() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SPRINTS_KEY));
+    return Array.isArray(s) ? s : null;
+  } catch (_) {
+    return null;
+  }
+}
 const SAVED = loadSaved();
 if (Array.isArray(SAVED.leave)) {
   VP.LEAVE.length = 0;
   VP.LEAVE.push(...SAVED.leave);
+}
+let _sid = 0;
+const newSprintId = () => "sp_" + ++_sid + "_" + Math.random().toString(36).slice(2, 7);
+function sprintEnd(start, workingDays) {
+  return start ? endDateFromWorkDays(start, workingDays) : "";
+}
+function seedSprintDefs(tickets, doneRes, velCfg) {
+  const cfg = velCfg || {};
+  const baseDays = cfg.pastSprintDays || 10;
+  const doneSet = new Set((doneRes || []).map(r => String(r).toLowerCase()));
+  const futures = [];
+  if (cfg.upcoming && cfg.upcoming.name && String(cfg.upcoming.name).trim()) futures.push(cfg.upcoming);
+  (cfg.future || []).forEach(f => {
+    if (f && f.name && String(f.name).trim()) futures.push(f);
+  });
+  const futureNums = new Set(futures.map(f => VP.parseSprintNumber(f.name) || f.name));
+  const map = new Map();
+  (tickets || []).forEach(t => (t.sprints || []).forEach(s => {
+    const n = VP.parseSprintNumber(s) || s;
+    if (n && !futureNums.has(n) && !map.has(n)) {
+      map.set(n, {
+        id: newSprintId(),
+        num: n,
+        status: "past",
+        workingDays: baseDays,
+        start: "",
+        end: ""
+      });
+    }
+  }));
+  futures.forEach(f => {
+    const n = VP.parseSprintNumber(f.name) || f.name;
+    const wd = f.workingDays || baseDays;
+    const start = f.start || "";
+    map.set(n, {
+      id: newSprintId(),
+      num: n,
+      status: "future",
+      workingDays: wd,
+      start,
+      end: start ? sprintEnd(start, wd) : f.end || ""
+    });
+  });
+  return [...map.values()].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num));
 }
 function App() {
   const [project, setProject] = useState(() => SAVED.project || "DX");
@@ -3574,14 +3609,13 @@ function App() {
   const [velCfg, setVelCfg] = useState(() => ({
     pastSprintDays: 10,
     pastSprintCount: 0,
-    upcoming: {
-      workingDays: 10,
-      start: "",
-      end: ""
-    },
-    future: [],
     ...(SAVED.velCfg || {})
   }));
+  const [sprintDefs, setSprintDefs] = useState(() => {
+    const stored = loadSprints();
+    if (stored) return stored;
+    return seedSprintDefs(SAVED.tickets || [], SAVED.doneRes || [...VP.DONE_RESOLUTIONS], SAVED.velCfg || {});
+  });
   const [descTicket, setDescTicket] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [jiraBase, setJiraBase] = useState(() => SAVED.jiraBase != null ? SAVED.jiraBase : "https://jira.example.com");
@@ -3595,52 +3629,49 @@ function App() {
   const [folderReconnect, setFolderReconnect] = useState(false);
   const dirHandle = useRef(null);
   const writeTimer = useRef(null);
+  const sprintWriteTimer = useRef(null);
   const fsSupported = !!(window.FSStore && window.FSStore.supported());
-  const sprintsList = useMemo(() => {
-    const nums = [];
-    tickets.forEach(t => (t.sprints || []).forEach(s => nums.push(s)));
-    return VP.buildSprintCalendar(nums, {});
-  }, [tickets]);
-  const pastSprintNames = useMemo(() => {
-    const done = new Set(doneRes.map(r => String(r).toLowerCase()));
-    const set = new Set();
-    tickets.forEach(t => {
-      if (t.resolution && done.has(String(t.resolution).toLowerCase())) {
-        (t.sprints || []).forEach(s => {
-          const n = VP.parseSprintNumber(s) || s;
-          if (n) set.add(n);
-        });
-      }
-    });
-    return [...set].sort((a, b) => VP.sprintSortKey(a) - VP.sprintSortKey(b));
-  }, [tickets, doneRes]);
-  const upcomingName = velCfg.upcoming && velCfg.upcoming.name && velCfg.upcoming.name.trim() || VP.nextSprintName(pastSprintNames);
-  const currentSprintIdx = pastSprintNames.length;
+  const sortedSprints = useMemo(() => [...sprintDefs].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num)), [sprintDefs]);
+  const sprintsList = useMemo(() => sortedSprints.map(s => ({
+    id: s.id,
+    name: s.num,
+    start: s.start || null,
+    end: s.end || null
+  })), [sortedSprints]);
+  const pastSprintNames = useMemo(() => sortedSprints.filter(s => s.status !== "future").map(s => s.num), [sortedSprints]);
+  const futureDefs = useMemo(() => sortedSprints.filter(s => s.status === "future"), [sortedSprints]);
+  const upcomingDef = futureDefs[0] || null;
+  const upcomingName = upcomingDef ? upcomingDef.num : "";
+  const currentSprintIdx = useMemo(() => {
+    const i = sprintsList.findIndex(s => futureDefs.some(f => f.num === s.name));
+    return i < 0 ? sprintsList.length : i;
+  }, [sprintsList, futureDefs]);
   const velCfgResolved = useMemo(() => ({
     pastSprintDays: velCfg.pastSprintDays || 10,
     pastSprintCount: velCfg.pastSprintCount > 0 ? velCfg.pastSprintCount : pastSprintNames.length,
-    upcoming: {
-      ...(velCfg.upcoming || {
-        workingDays: 10,
-        start: "",
-        end: ""
-      }),
-      name: upcomingName
+    upcoming: upcomingDef ? {
+      name: upcomingDef.num,
+      workingDays: upcomingDef.workingDays || 0,
+      start: upcomingDef.start || "",
+      end: upcomingDef.end || ""
+    } : {
+      name: "",
+      workingDays: 0,
+      start: "",
+      end: ""
     },
-    future: velCfg.future || []
-  }), [velCfg, pastSprintNames.length, upcomingName]);
+    future: futureDefs.map(f => ({
+      name: f.num,
+      workingDays: f.workingDays,
+      start: f.start,
+      end: f.end
+    }))
+  }), [velCfg, pastSprintNames.length, upcomingDef, futureDefs]);
   const onVelCfg = patch => setVelCfg(c => ({
     ...c,
     ...patch
   }));
-  const plannedSprintNames = useMemo(() => {
-    const names = [];
-    if (upcomingName) names.push(upcomingName);
-    (velCfg.future || []).forEach(f => {
-      if (f && f.name && f.name.trim()) names.push(f.name.trim());
-    });
-    return names;
-  }, [upcomingName, velCfg.future]);
+  const plannedSprintNames = useMemo(() => futureDefs.map(f => f.num), [futureDefs]);
   const snapshot = () => ({
     v: 1,
     people,
@@ -3665,6 +3696,21 @@ function App() {
     }
   }, [people, tickets, velCfg, leaveOverlay, jiraBase, doneRes, customRes, project, folder]);
   useEffect(() => {
+    try {
+      localStorage.setItem(SPRINTS_KEY, JSON.stringify(sprintDefs));
+    } catch (_) {}
+    if (folder && dirHandle.current && window.FSStore) {
+      clearTimeout(sprintWriteTimer.current);
+      const payload = {
+        version: 1,
+        sprints: sprintDefs
+      };
+      sprintWriteTimer.current = setTimeout(() => {
+        window.FSStore.write(dirHandle.current, payload, SPRINTS_FILE).catch(() => {});
+      }, 500);
+    }
+  }, [sprintDefs, folder]);
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       if (!fsSupported) return;
@@ -3673,8 +3719,10 @@ function App() {
       dirHandle.current = h;
       if ((await window.FSStore.permission(h, false)) === "granted") {
         const data = await window.FSStore.read(h);
+        const sp = await window.FSStore.read(h, SPRINTS_FILE);
         if (cancelled) return;
         if (data) applyData(data);
+        if (sp && Array.isArray(sp.sprints)) applySprints(sp.sprints);
         setFolder({
           name: h.name
         });
@@ -3739,6 +3787,106 @@ function App() {
     velocityOverride: mode || null,
     excludeFromVelocity: undefined
   } : x));
+  const onAddSprint = () => setSprintDefs(prev => {
+    const sorted = [...prev].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num));
+    const tail = sorted.filter(s => s.status === "future").pop() || sorted[sorted.length - 1] || null;
+    const wd = tail && tail.workingDays || velCfg.pastSprintDays || 10;
+    const start = tail && tail.end ? VP.shiftWorkingDays(tail.end, 1) : "";
+    const num = VP.nextSprintName(sorted.map(s => s.num)) || "";
+    return [...prev, {
+      id: newSprintId(),
+      num,
+      status: "future",
+      workingDays: wd,
+      start,
+      end: sprintEnd(start, wd)
+    }];
+  });
+  const onUpdateSprint = (id, patch) => setSprintDefs(prev => prev.map(s => {
+    if (s.id !== id) return s;
+    const m = {
+      ...s,
+      ...patch
+    };
+    if ("num" in patch) m.num = VP.parseSprintNumber(patch.num) || patch.num;
+    m.end = sprintEnd(m.start, m.workingDays);
+    return m;
+  }));
+  const onRemoveSprint = id => setSprintDefs(prev => prev.filter(s => s.id !== id));
+  const onDetectSprints = () => setSprintDefs(prev => {
+    const have = new Set(prev.map(s => s.num));
+    const nums = new Set();
+    tickets.forEach(t => (t.sprints || []).forEach(s => {
+      const n = VP.parseSprintNumber(s) || s;
+      if (n) nums.add(n);
+    }));
+    const added = [];
+    nums.forEach(n => {
+      if (!have.has(n)) added.push({
+        id: newSprintId(),
+        num: n,
+        status: "past",
+        workingDays: velCfg.pastSprintDays || 10,
+        start: "",
+        end: ""
+      });
+    });
+    if (!added.length) {
+      toast("No new sprints found on tickets", "info");
+      return prev;
+    }
+    toast(`Added ${added.length} sprint${added.length === 1 ? "" : "s"} from tickets`);
+    return [...prev, ...added].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num));
+  });
+  const applySprints = arr => {
+    if (!Array.isArray(arr)) return;
+    setSprintDefs(arr.map(s => {
+      const num = VP.parseSprintNumber(s.num) || s.num || "";
+      const workingDays = Math.max(0, Math.round(Number(s.workingDays) || 0));
+      const start = s.start || "";
+      return {
+        id: s.id || newSprintId(),
+        num,
+        status: s.status === "future" ? "future" : "past",
+        workingDays,
+        start,
+        end: sprintEnd(start, workingDays)
+      };
+    }));
+  };
+  const onExportSprints = () => {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      sprints: sprintDefs
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json"
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `velocity-sprints-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast("Sprints exported");
+  };
+  const onImportSprints = txt => {
+    try {
+      const d = JSON.parse(txt);
+      const arr = Array.isArray(d) ? d : Array.isArray(d.sprints) ? d.sprints : null;
+      if (!arr) {
+        toast("No sprints in that file", "err");
+        return;
+      }
+      applySprints(arr);
+      toast(`Imported ${arr.length} sprint${arr.length === 1 ? "" : "s"}`);
+    } catch {
+      toast("Invalid sprints file", "err");
+    }
+  };
   const onExportData = () => {
     const payload = {
       version: 1,
@@ -3803,14 +3951,9 @@ function App() {
     setTickets([]);
     setVelCfg({
       pastSprintDays: 10,
-      pastSprintCount: 0,
-      upcoming: {
-        workingDays: 10,
-        start: "",
-        end: "",
-        name: ""
-      }
+      pastSprintCount: 0
     });
+    setSprintDefs([]);
     setLeaveOverlay([]);
     setJiraBase("https://jira.example.com");
     setDoneRes([...VP.DONE_RESOLUTIONS]);
@@ -3818,6 +3961,7 @@ function App() {
     setProject("DX");
     try {
       localStorage.removeItem(PERSIST_KEY);
+      localStorage.removeItem(SPRINTS_KEY);
     } catch (_) {}
     toast("All data cleared", "info");
   };
@@ -3826,11 +3970,17 @@ function App() {
       const h = await window.FSStore.connect();
       dirHandle.current = h;
       const existing = await window.FSStore.read(h);
+      const existingSprints = await window.FSStore.read(h, SPRINTS_FILE);
       if (existing && (existing.people || existing.tickets || existing.velCfg)) {
         applyData(existing);
+        if (existingSprints && Array.isArray(existingSprints.sprints)) applySprints(existingSprints.sprints);
         toast(`Connected “${h.name}” · loaded its data`);
       } else {
         await window.FSStore.write(h, snapshot());
+        await window.FSStore.write(h, {
+          version: 1,
+          sprints: sprintDefs
+        }, SPRINTS_FILE);
         toast(`Connected “${h.name}” · auto-saving here`);
       }
       setFolder({
@@ -3851,7 +4001,9 @@ function App() {
       }
       dirHandle.current = h;
       const data = await window.FSStore.read(h);
+      const sp = await window.FSStore.read(h, SPRINTS_FILE);
       if (data) applyData(data);
+      if (sp && Array.isArray(sp.sprints)) applySprints(sp.sprints);
       setFolder({
         name: h.name
       });
@@ -4057,6 +4209,10 @@ function App() {
     label: "Team",
     icon: "users"
   }, {
+    id: "sprints",
+    label: "Sprints",
+    icon: "cal"
+  }, {
     id: "settings",
     label: "Settings",
     icon: "gear"
@@ -4150,6 +4306,15 @@ function App() {
     onAdd: onAddPerson,
     onEdit: onEditPerson,
     onRemove: onRemovePerson
+  }), view === "sprints" && React.createElement(Sprints, {
+    sprints: sprintDefs,
+    projects: VP.PROJECTS,
+    onAdd: onAddSprint,
+    onUpdate: onUpdateSprint,
+    onRemove: onRemoveSprint,
+    onDetect: onDetectSprints,
+    onExport: onExportSprints,
+    onImport: onImportSprints
   }), view === "settings" && React.createElement(Settings, {
     jiraBase: jiraBase,
     setJiraBase: setJiraBase,

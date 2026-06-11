@@ -318,65 +318,19 @@ function ManualLeaveCard({ people, records, onAdd, onRemove }) {
    ========================================================================== */
 function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg }) {
   const cfg = velCfg || {};
-  const up = cfg.upcoming || {};
-  const future = cfg.future || [];
-  const resolvedUp = (velCfgResolved && velCfgResolved.upcoming) || {};
   const usedCount = velCfgResolved ? velCfgResolved.pastSprintCount : sprints.length;
-  // Past sprints = the detected numbers minus the one we're planning.
-  const detected = sprints.filter((s) => s.name !== resolvedUp.name).length;
-
-  // End date is always derived: pick a duration (working days) + a start date and
-  // the last working day is computed (weekends + federal holidays skipped).
-  const setUp = (patch) => {
-    const merged = { ...up, ...patch };
-    merged.end = endDateFromWorkDays(merged.start, merged.workingDays);
-    onVelCfg({ upcoming: merged });
-  };
-  const holidays = (up.start && up.end) ? VP.holidaysInRange(up.start, up.end) : [];
-
-  // ---- future sprints (planned beyond the upcoming one) ----
-  const setFuture = (next) => onVelCfg({ future: next });
-  const updateFuture = (i, patch) => setFuture(future.map((f, j) => {
-    if (j !== i) return f;
-    const merged = { ...f, ...patch };
-    merged.end = endDateFromWorkDays(merged.start, merged.workingDays);
-    return merged;
-  }));
-  const removeFuture = (i) => setFuture(future.filter((_, j) => j !== i));
-  const addFuture = () => {
-    // Chain after the last planned sprint: suggest the next number and start the
-    // working day after the previous sprint ends.
-    const plannedNames = [...sprints.map((s) => s.name), resolvedUp.name, ...future.map((f) => f.name).filter(Boolean)];
-    const prevEnd = future.length ? future[future.length - 1].end : up.end;
-    const wd = up.workingDays || 10;
-    const start = prevEnd ? VP.shiftWorkingDays(prevEnd, 1) : "";
-    const end = endDateFromWorkDays(start, wd);
-    setFuture([...future, { name: VP.nextSprintName(plannedNames) || "", workingDays: wd, start, end }]);
-  };
-
-  // ---- all historical sprints, back-dated from the upcoming start so each one
-  // gets a concrete date range to display ----
-  const datedPast = useMemo(() => {
-    const names = sprints.map((s) => s.name).filter((n) => n && n !== resolvedUp.name);
-    if (!names.length) return [];
-    const dated = VP.buildSprintCalendar(
-      names,
-      { current: resolvedUp.name, currentStart: up.start, workingDays: up.workingDays || 10 }
-    );
-    // Drop the synthetic "current" entry buildSprintCalendar injects.
-    return dated.filter((s) => s.name !== resolvedUp.name);
-  }, [sprints, resolvedUp.name, up.start, up.workingDays]);
+  const upName = (velCfgResolved && velCfgResolved.upcoming && velCfgResolved.upcoming.name) || "";
+  const pastCount = sprints.filter((s) => s.name !== upName).length;
 
   return (
     <div className="person-card settings-card">
-      <div className="section-label m0">Sprint &amp; velocity</div>
+      <div className="section-label m0">Velocity basis</div>
       <div className="muted">
-        One cadence for the whole team — these settings are shared across every product; the product tabs just filter
-        the view. Velocity per person = <b>(avg points per past sprint ÷ past-sprint length)</b> × <b>(upcoming working
-        days − federal holidays − that person's leave)</b>. Holidays and each person's leave are pulled automatically.
+        Velocity per person = <b>(avg points per past sprint ÷ past-sprint length)</b> × <b>(upcoming working
+        days − federal holidays − that person's leave)</b>. Holidays and leave are pulled automatically. The sprint
+        calendar itself — which sprints are past or future, and their dates — is now defined in the <b>Sprints</b> tab.
       </div>
 
-      {/* Past sprints → points/day basis */}
       <div className="section-label sub-label">Past sprints (history basis)</div>
       <div className="grid-2">
         <div className="field">
@@ -392,106 +346,13 @@ function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg }) {
             onChange={(e) => onVelCfg({ pastSprintCount: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
             className="num-field" />
           <div className="muted mt4">
-            0 = auto. Using <b>{usedCount || "—"}</b> ({detected} detected from your tickets). Empty sprints count as 0.
+            0 = auto. Using <b>{usedCount || "—"}</b> ({pastCount} past sprint{pastCount === 1 ? "" : "s"} defined). Empty sprints count as 0.
           </div>
         </div>
       </div>
-
-      {/* Upcoming sprint → available days */}
-      <div className="section-label sub-label">Upcoming sprint (the one you're planning)</div>
-      <div className="grid-up">
-        <div className="field">
-          <label>Sprint #</label>
-          <input value={up.name || ""} placeholder={resolvedUp.name || "26.4.1"}
-            onChange={(e) => setUp({ name: e.target.value })} className="num-field" />
-        </div>
-        <div className="field">
-          <label>Working days</label>
-          <input type="number" min={0} max={40} value={up.workingDays || 0}
-            onChange={(e) => setUp({ workingDays: Math.max(0, Math.min(40, Math.round(Number(e.target.value) || 0))) })}
-            className="num-field" />
-        </div>
-        <div className="field">
-          <label>Start date</label>
-          <DatePicker value={up.start || ""} onChange={(v) => setUp({ start: v })} placeholder="Pick start" />
-        </div>
-        <div className="field">
-          <label>End date <span className="muted normal-weight">· calculated</span></label>
-          <div className="ro-field" title="Calculated from the start date and working days">
-            <Icon name="cal" size={13} />
-            <span className="mono">{up.end ? fmtDate(up.end) : "—"}</span>
-          </div>
-        </div>
-      </div>
-      <div className="muted">
-        Planning <b>{resolvedUp.name || "—"}</b>{!up.name && resolvedUp.name ? " (auto, next after your latest sprint)" : ""}.{" "}
-        {up.start && up.end ? (
-          holidays.length
-            ? <span>{holidays.length} federal holiday{holidays.length > 1 ? "s" : ""} in range ({holidays.map(fmtDate).join(", ")}) — subtracted for everyone. Leave is subtracted per person.</span>
-            : <span>No federal holidays in range. Leave is subtracted per person from the leave calendar.</span>
-        ) : <span>Pick the start date and working days — the end date is calculated for you.</span>}
-      </div>
-
-      {/* Future sprints — plan ahead; their points never count toward velocity */}
-      <div className="section-label sub-label row">
-        <span>Future sprints (planning ahead)</span>
-        <button className="btn sm" onClick={addFuture}><Icon name="plus" size={12} /> Add sprint</button>
-      </div>
-      <div className={"muted" + (future.length ? " mb8" : "")}>
-        Queue sprints you're planning beyond the upcoming one. Each end date is calculated from its start and working days.
-        Points you assign into these sprints are <b>not</b> counted toward velocity.
-      </div>
-      {future.map((f, i) => (
-        <div key={i} className="grid-future mb8">
-          <div className="field">
-            {i === 0 && <label>Sprint #</label>}
-            <input value={f.name || ""} placeholder="26.4.2"
-              onChange={(e) => updateFuture(i, { name: e.target.value })} className="num-field" />
-          </div>
-          <div className="field">
-            {i === 0 && <label>Working days</label>}
-            <input type="number" min={0} max={40} value={f.workingDays || 0}
-              onChange={(e) => updateFuture(i, { workingDays: Math.max(0, Math.min(40, Math.round(Number(e.target.value) || 0))) })}
-              className="num-field" />
-          </div>
-          <div className="field">
-            {i === 0 && <label>Start date</label>}
-            <DatePicker value={f.start || ""} onChange={(v) => updateFuture(i, { start: v })} placeholder="Pick start" />
-          </div>
-          <div className="field">
-            {i === 0 && <label>End date · calculated</label>}
-            <div className="ro-field" title="Calculated from the start date and working days">
-              <Icon name="cal" size={13} />
-              <span className="mono">{f.end ? fmtDate(f.end) : "—"}</span>
-            </div>
-          </div>
-          <button className="iconbtn h38" onClick={() => removeFuture(i)} aria-label="Remove sprint" title="Remove">
-            <Icon name="trash" size={14} />
-          </button>
-        </div>
-      ))}
-
-      {/* Historical sprint calendar — every past sprint with its computed dates */}
-      <div className="section-label sub-label">All historical sprints ({datedPast.length})</div>
-      {datedPast.length === 0 ? (
-        <div className="muted">No historical sprints yet — import tickets to populate the calendar.</div>
-      ) : (
-        <React.Fragment>
-          {!up.start && <div className="muted mb6">Set the upcoming sprint's start date to back-calculate each historical date range.</div>}
-          <div className="hist-list">
-            {datedPast.map((s) => (
-              <div key={s.id} className="hist-row">
-                <span className="mono bold hist-name">{s.name}</span>
-                <span className="muted mono">{s.start && s.end ? fmtRange(s.start, s.end) : "—"}</span>
-              </div>
-            ))}
-          </div>
-        </React.Fragment>
-      )}
     </div>
   );
 }
-
 /* ============================================================================
    ImportHistoryModal — paste / upload Jira issue-navigator HTML export
    ========================================================================== */

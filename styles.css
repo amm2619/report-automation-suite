@@ -976,3 +976,14 @@ button { font-family: inherit; cursor: pointer; color: inherit; }
 .dbg-table td.feeds[data-ok="false"] { color: var(--text-faint); }
 .dbg-table td.summary { color: var(--text-dim); max-width: 360px; }
 .dbg-table tr[data-excluded="true"] { opacity: 0.55; }
+
+/* ===================== Sprints tab ===================== */
+.sprint-grid {
+  display: grid;
+  grid-template-columns: 120px minmax(180px, 1fr) 160px 110px 180px 150px 40px;
+  gap: 8px 10px; align-items: center; min-width: 920px;
+}
+.sprint-head { font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); }
+.sprint-labels { color: var(--text-dim); font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seg.sprint-status { gap: 4px; }
+.seg.sprint-status button { flex: none; padding: 7px 12px; }

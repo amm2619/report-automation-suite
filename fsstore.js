@@ -70,15 +70,15 @@
   async function stored() { try { return await idbGet(KEY); } catch (_) { return null; } }
   async function forget() { try { await idbDel(KEY); } catch (_) {} }
 
-  async function write(handle, obj) {
-    const fh = await handle.getFileHandle(FILE, { create: true });
+  async function write(handle, obj, file = FILE) {
+    const fh = await handle.getFileHandle(file, { create: true });
     const w = await fh.createWritable();
     await w.write(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
     await w.close();
   }
-  async function read(handle) {
+  async function read(handle, file = FILE) {
     try {
-      const fh = await handle.getFileHandle(FILE, { create: false });
+      const fh = await handle.getFileHandle(file, { create: false });
       const txt = await (await fh.getFile()).text();
       return txt ? JSON.parse(txt) : null;
     } catch (_) { return null; }

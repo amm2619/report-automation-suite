@@ -4,11 +4,49 @@
 let _tid = 0;
 
 const PERSIST_KEY = "vp.state.v1";
+// Sprints live in their OWN save file / storage key, separate from the main
+// workspace snapshot, so the sprint calendar can be dictated and shared on its own.
+const SPRINTS_KEY = "vp.sprints.v1";
+const SPRINTS_FILE = "velocity-sprints.json";
 function loadSaved() { try { return JSON.parse(localStorage.getItem(PERSIST_KEY)) || {}; } catch (_) { return {}; } }
+function loadSprints() { try { const s = JSON.parse(localStorage.getItem(SPRINTS_KEY)); return Array.isArray(s) ? s : null; } catch (_) { return null; } }
 const SAVED = loadSaved();
 // Capacity math reads leave off VP.LEAVE, so re-seed it from the saved snapshot
 // before the first render.
 if (Array.isArray(SAVED.leave)) { VP.LEAVE.length = 0; VP.LEAVE.push(...SAVED.leave); }
+
+// A sprint definition: { id, num, status:"past"|"future", workingDays, start, end }.
+// `end` is always derived from start + workingDays. Per-product labels (DX 26.3.6,
+// LX 26.3.6, …) are derived from the number at display time, not stored.
+let _sid = 0;
+const newSprintId = () => "sp_" + (++_sid) + "_" + Math.random().toString(36).slice(2, 7);
+function sprintEnd(start, workingDays) { return start ? endDateFromWorkDays(start, workingDays) : ""; }
+// First-run migration: build the explicit sprint list from whatever the old
+// setup implied — completed ticket sprints become Past, and the previously
+// typed upcoming/future config becomes Future.
+function seedSprintDefs(tickets, doneRes, velCfg) {
+  const cfg = velCfg || {};
+  const baseDays = cfg.pastSprintDays || 10;
+  const doneSet = new Set((doneRes || []).map((r) => String(r).toLowerCase()));
+  const futures = [];
+  if (cfg.upcoming && cfg.upcoming.name && String(cfg.upcoming.name).trim()) futures.push(cfg.upcoming);
+  (cfg.future || []).forEach((f) => { if (f && f.name && String(f.name).trim()) futures.push(f); });
+  const futureNums = new Set(futures.map((f) => VP.parseSprintNumber(f.name) || f.name));
+  const map = new Map();
+  (tickets || []).forEach((t) => (t.sprints || []).forEach((s) => {
+    const n = VP.parseSprintNumber(s) || s;
+    if (n && !futureNums.has(n) && !map.has(n)) {
+      map.set(n, { id: newSprintId(), num: n, status: "past", workingDays: baseDays, start: "", end: "" });
+    }
+  }));
+  futures.forEach((f) => {
+    const n = VP.parseSprintNumber(f.name) || f.name;
+    const wd = f.workingDays || baseDays;
+    const start = f.start || "";
+    map.set(n, { id: newSprintId(), num: n, status: "future", workingDays: wd, start, end: start ? sprintEnd(start, wd) : (f.end || "") });
+  });
+  return [...map.values()].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num));
+}
 
 function App() {
   // ---- app state (hydrated from the saved snapshot when present) ----
@@ -25,10 +63,14 @@ function App() {
   // upcoming = the sprint we're planning (typed working days + date range).
   const [velCfg, setVelCfg] = useState(() => ({
     pastSprintDays: 10, pastSprintCount: 0,
-    upcoming: { workingDays: 10, start: "", end: "" },
-    future: [], // additional sprints being planned beyond the upcoming one
     ...(SAVED.velCfg || {}),
   }));
+  // Dictated sprint calendar (its own store). Seed once from the legacy setup.
+  const [sprintDefs, setSprintDefs] = useState(() => {
+    const stored = loadSprints();
+    if (stored) return stored;
+    return seedSprintDefs(SAVED.tickets || [], SAVED.doneRes || [...VP.DONE_RESOLUTIONS], SAVED.velCfg || {});
+  });
   const [descTicket, setDescTicket] = useState(null);
   const [toasts, setToasts] = useState([]);
 
@@ -46,53 +88,48 @@ function App() {
   const [folderReconnect, setFolderReconnect] = useState(false);
   const dirHandle = useRef(null);
   const writeTimer = useRef(null);
+  const sprintWriteTimer = useRef(null);
   const fsSupported = !!(window.FSStore && window.FSStore.supported());
 
-  // ---- shared sprint calendar (the distinct sprint numbers seen on tickets) --
-  // All products run the same cadence, so the calendar is just the sorted set
-  // of completed sprint numbers across every ticket; the product tab filters
-  // the view. The one upcoming sprint we're planning lives in velCfg, not here.
-  const sprintsList = useMemo(() => {
-    const nums = [];
-    tickets.forEach((t) => (t.sprints || []).forEach((s) => nums.push(s)));
-    return VP.buildSprintCalendar(nums, {});
-  }, [tickets]);
-  // Past = sprints that already have completed work; the upcoming sprint's
-  // tickets aren't done, so it never lands here. Deriving the auto name from
-  // completed sprints keeps it stable once you start pulling tickets in.
-  const pastSprintNames = useMemo(() => {
-    const done = new Set(doneRes.map((r) => String(r).toLowerCase()));
-    const set = new Set();
-    tickets.forEach((t) => {
-      if (t.resolution && done.has(String(t.resolution).toLowerCase())) {
-        (t.sprints || []).forEach((s) => { const n = VP.parseSprintNumber(s) || s; if (n) set.add(n); });
-      }
-    });
-    return [...set].sort((a, b) => VP.sprintSortKey(a) - VP.sprintSortKey(b));
-  }, [tickets, doneRes]);
-  // The sprint we're planning: whatever you typed, else the next number after
-  // the latest completed one.
-  const upcomingName = (velCfg.upcoming && velCfg.upcoming.name && velCfg.upcoming.name.trim())
-    || VP.nextSprintName(pastSprintNames);
-  const currentSprintIdx = pastSprintNames.length;
-  // Resolve the shared config the calc actually uses (auto-fill the past-sprint
-  // count from the data when it isn't pinned in settings).
+  // ---- shared sprint calendar, dictated in the Sprints tab ------------------
+  // The whole org runs one cadence: one number per sprint, shared across every
+  // product. Sprints are sorted by number; "future" sprints are the ones being
+  // planned (excluded from velocity), the earliest of which the Planner schedules.
+  const sortedSprints = useMemo(
+    () => [...sprintDefs].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num)),
+    [sprintDefs]
+  );
+  const sprintsList = useMemo(
+    () => sortedSprints.map((s) => ({ id: s.id, name: s.num, start: s.start || null, end: s.end || null })),
+    [sortedSprints]
+  );
+  const pastSprintNames = useMemo(
+    () => sortedSprints.filter((s) => s.status !== "future").map((s) => s.num),
+    [sortedSprints]
+  );
+  const futureDefs = useMemo(() => sortedSprints.filter((s) => s.status === "future"), [sortedSprints]);
+  const upcomingDef = futureDefs[0] || null;          // earliest future sprint = the one we plan
+  const upcomingName = upcomingDef ? upcomingDef.num : "";
+  // "current" index = where the planning window begins (first future sprint).
+  const currentSprintIdx = useMemo(() => {
+    const i = sprintsList.findIndex((s) => futureDefs.some((f) => f.num === s.name));
+    return i < 0 ? sprintsList.length : i;
+  }, [sprintsList, futureDefs]);
+  // Resolve the shared config the calc actually uses (the upcoming sprint's
+  // window comes from the dictated calendar now).
   const velCfgResolved = useMemo(() => ({
     pastSprintDays: velCfg.pastSprintDays || 10,
     pastSprintCount: velCfg.pastSprintCount > 0 ? velCfg.pastSprintCount : pastSprintNames.length,
-    upcoming: { ...(velCfg.upcoming || { workingDays: 10, start: "", end: "" }), name: upcomingName },
-    future: velCfg.future || [],
-  }), [velCfg, pastSprintNames.length, upcomingName]);
+    upcoming: upcomingDef
+      ? { name: upcomingDef.num, workingDays: upcomingDef.workingDays || 0, start: upcomingDef.start || "", end: upcomingDef.end || "" }
+      : { name: "", workingDays: 0, start: "", end: "" },
+    future: futureDefs.map((f) => ({ name: f.num, workingDays: f.workingDays, start: f.start, end: f.end })),
+  }), [velCfg, pastSprintNames.length, upcomingDef, futureDefs]);
   const onVelCfg = (patch) => setVelCfg((c) => ({ ...c, ...patch }));
 
-  // Sprints we're actively planning (the upcoming one + any future ones queued
-  // in Settings). Their points must not be folded into velocity history.
-  const plannedSprintNames = useMemo(() => {
-    const names = [];
-    if (upcomingName) names.push(upcomingName);
-    (velCfg.future || []).forEach((f) => { if (f && f.name && f.name.trim()) names.push(f.name.trim()); });
-    return names;
-  }, [upcomingName, velCfg.future]);
+  // Sprints being planned (every "future" sprint). Their points must not be
+  // folded into velocity history.
+  const plannedSprintNames = useMemo(() => futureDefs.map((f) => f.num), [futureDefs]);
 
   const snapshot = () => ({ v: 1, people, tickets, velCfg, leave: leaveOverlay, jiraBase, doneRes, customRes, project });
 
@@ -107,6 +144,16 @@ function App() {
     }
   }, [people, tickets, velCfg, leaveOverlay, jiraBase, doneRes, customRes, project, folder]);
 
+  // ---- persistence: sprints live in their own key / file ----
+  useEffect(() => {
+    try { localStorage.setItem(SPRINTS_KEY, JSON.stringify(sprintDefs)); } catch (_) {}
+    if (folder && dirHandle.current && window.FSStore) {
+      clearTimeout(sprintWriteTimer.current);
+      const payload = { version: 1, sprints: sprintDefs };
+      sprintWriteTimer.current = setTimeout(() => { window.FSStore.write(dirHandle.current, payload, SPRINTS_FILE).catch(() => {}); }, 500);
+    }
+  }, [sprintDefs, folder]);
+
   // ---- on load: reconnect a previously chosen folder ----
   useEffect(() => {
     let cancelled = false;
@@ -117,8 +164,10 @@ function App() {
       dirHandle.current = h;
       if ((await window.FSStore.permission(h, false)) === "granted") {
         const data = await window.FSStore.read(h);
+        const sp = await window.FSStore.read(h, SPRINTS_FILE);
         if (cancelled) return;
         if (data) applyData(data);
+        if (sp && Array.isArray(sp.sprints)) applySprints(sp.sprints);
         setFolder({ name: h.name });
       } else if (!cancelled) {
         setFolder({ name: h.name });
@@ -155,6 +204,64 @@ function App() {
     ? { ...x, velocityOverride: mode || null, excludeFromVelocity: undefined }
     : x));
 
+  // ---- sprint actions (Sprints tab) ----
+  const onAddSprint = () => setSprintDefs((prev) => {
+    const sorted = [...prev].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num));
+    const tail = sorted.filter((s) => s.status === "future").pop() || sorted[sorted.length - 1] || null;
+    const wd = (tail && tail.workingDays) || velCfg.pastSprintDays || 10;
+    const start = tail && tail.end ? VP.shiftWorkingDays(tail.end, 1) : "";
+    const num = VP.nextSprintName(sorted.map((s) => s.num)) || "";
+    return [...prev, { id: newSprintId(), num, status: "future", workingDays: wd, start, end: sprintEnd(start, wd) }];
+  });
+  const onUpdateSprint = (id, patch) => setSprintDefs((prev) => prev.map((s) => {
+    if (s.id !== id) return s;
+    const m = { ...s, ...patch };
+    // Snap a fully-typed number to its canonical form; leave partial input alone.
+    if ("num" in patch) m.num = VP.parseSprintNumber(patch.num) || patch.num;
+    m.end = sprintEnd(m.start, m.workingDays);   // end is always derived
+    return m;
+  }));
+  const onRemoveSprint = (id) => setSprintDefs((prev) => prev.filter((s) => s.id !== id));
+  // Pull any sprint numbers seen on tickets that aren't defined yet (as Past).
+  const onDetectSprints = () => setSprintDefs((prev) => {
+    const have = new Set(prev.map((s) => s.num));
+    const nums = new Set();
+    tickets.forEach((t) => (t.sprints || []).forEach((s) => { const n = VP.parseSprintNumber(s) || s; if (n) nums.add(n); }));
+    const added = [];
+    nums.forEach((n) => { if (!have.has(n)) added.push({ id: newSprintId(), num: n, status: "past", workingDays: velCfg.pastSprintDays || 10, start: "", end: "" }); });
+    if (!added.length) { toast("No new sprints found on tickets", "info"); return prev; }
+    toast(`Added ${added.length} sprint${added.length === 1 ? "" : "s"} from tickets`);
+    return [...prev, ...added].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num));
+  });
+  const applySprints = (arr) => {
+    if (!Array.isArray(arr)) return;
+    setSprintDefs(arr.map((s) => {
+      const num = VP.parseSprintNumber(s.num) || s.num || "";
+      const workingDays = Math.max(0, Math.round(Number(s.workingDays) || 0));
+      const start = s.start || "";
+      return { id: s.id || newSprintId(), num, status: s.status === "future" ? "future" : "past", workingDays, start, end: sprintEnd(start, workingDays) };
+    }));
+  };
+  const onExportSprints = () => {
+    const payload = { version: 1, exportedAt: new Date().toISOString(), sprints: sprintDefs };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `velocity-sprints-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast("Sprints exported");
+  };
+  const onImportSprints = (txt) => {
+    try {
+      const d = JSON.parse(txt);
+      const arr = Array.isArray(d) ? d : (Array.isArray(d.sprints) ? d.sprints : null);
+      if (!arr) { toast("No sprints in that file", "err"); return; }
+      applySprints(arr);
+      toast(`Imported ${arr.length} sprint${arr.length === 1 ? "" : "s"}`);
+    } catch { toast("Invalid sprints file", "err"); }
+  };
+
   // ---- settings actions ----
   // Save the entire workspace (people, tickets, sprints, leave, settings) to a
   // JSON file you can keep in a folder and re-import later.
@@ -190,13 +297,14 @@ function App() {
     VP.LEAVE.length = 0;
     setPeople([]);
     setTickets([]);
-    setVelCfg({ pastSprintDays: 10, pastSprintCount: 0, upcoming: { workingDays: 10, start: "", end: "", name: "" } });
+    setVelCfg({ pastSprintDays: 10, pastSprintCount: 0 });
+    setSprintDefs([]);
     setLeaveOverlay([]);
     setJiraBase("https://jira.example.com");
     setDoneRes([...VP.DONE_RESOLUTIONS]);
     setCustomRes([]);
     setProject("DX");
-    try { localStorage.removeItem(PERSIST_KEY); } catch (_) {}
+    try { localStorage.removeItem(PERSIST_KEY); localStorage.removeItem(SPRINTS_KEY); } catch (_) {}
     toast("All data cleared", "info");
   };
 
@@ -206,11 +314,14 @@ function App() {
       const h = await window.FSStore.connect();
       dirHandle.current = h;
       const existing = await window.FSStore.read(h);
+      const existingSprints = await window.FSStore.read(h, SPRINTS_FILE);
       if (existing && (existing.people || existing.tickets || existing.velCfg)) {
         applyData(existing);
+        if (existingSprints && Array.isArray(existingSprints.sprints)) applySprints(existingSprints.sprints);
         toast(`Connected “${h.name}” · loaded its data`);
       } else {
         await window.FSStore.write(h, snapshot());
+        await window.FSStore.write(h, { version: 1, sprints: sprintDefs }, SPRINTS_FILE);
         toast(`Connected “${h.name}” · auto-saving here`);
       }
       setFolder({ name: h.name });
@@ -226,7 +337,9 @@ function App() {
       if ((await window.FSStore.permission(h, true)) !== "granted") { toast("Permission denied", "err"); return; }
       dirHandle.current = h;
       const data = await window.FSStore.read(h);
+      const sp = await window.FSStore.read(h, SPRINTS_FILE);
       if (data) applyData(data);
+      if (sp && Array.isArray(sp.sprints)) applySprints(sp.sprints);
       setFolder({ name: h.name });
       setFolderReconnect(false);
       toast(`Reconnected “${h.name}”`);
@@ -390,6 +503,7 @@ function App() {
   const NAV = [
     { id: "planner", label: "Planner", icon: "board" },
     { id: "team", label: "Team", icon: "users" },
+    { id: "sprints", label: "Sprints", icon: "cal" },
     { id: "settings", label: "Settings", icon: "gear" },
     { id: "debug", label: "Debug", icon: "board" },
   ];
@@ -443,6 +557,11 @@ function App() {
           <Team people={peopleV} projects={VP.PROJECTS} currentProject={project} sprints={sprintsList}
             currentIdx={currentSprintIdx} velCfg={velCfgResolved} historyDetail={derivedDetail}
             onAdd={onAddPerson} onEdit={onEditPerson} onRemove={onRemovePerson} />
+        )}
+        {view === "sprints" && (
+          <Sprints sprints={sprintDefs} projects={VP.PROJECTS}
+            onAdd={onAddSprint} onUpdate={onUpdateSprint} onRemove={onRemoveSprint}
+            onDetect={onDetectSprints} onExport={onExportSprints} onImport={onImportSprints} />
         )}
         {view === "settings" && (
           <Settings jiraBase={jiraBase} setJiraBase={setJiraBase}

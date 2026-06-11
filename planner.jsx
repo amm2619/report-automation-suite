@@ -43,7 +43,7 @@ function CapCard({ person, assigned, cap, wfhUsed, holidays, innerRef, flash }) 
           </span>
         )}
         {cap.undated ? (
-          <span className="chip" title="Set the upcoming sprint working days in Settings to project velocity">
+          <span className="chip" title="Add a future sprint in the Sprints tab to project velocity">
             <Icon name="cal" size={12} />no sprint set
           </span>
         ) : (
@@ -262,7 +262,7 @@ function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, 
           <div className="sprint-head">
             <div>
               <h2>{label}</h2>
-              <div className="sub">{upDated ? `Planning window · ${fmtRange(up.start, up.end)}` : "Set the upcoming sprint window in Settings"}</div>
+              <div className="sub">{upDated ? `Planning window · ${fmtRange(up.start, up.end)}` : "Add a future sprint in the Sprints tab"}</div>
             </div>
             <div className="div" />
             <div className="metric"><span className="k">Working days</span><span className="v">{undated ? "—" : workDays}</span></div>
@@ -287,7 +287,7 @@ function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, 
           {/* ticket list — grouped by assignee */}
           <div className="section-label">In this sprint · {inSprint.length} tickets · {inSprint.reduce((a, t) => a + t.points, 0)} pts</div>
           <div className="tickets mb20">
-            {inSprint.length === 0 && <div className="empty-state">{upcomingName ? "Nothing pulled in yet — add tickets from the backlog below." : "Set the upcoming sprint in Settings to start planning."}</div>}
+            {inSprint.length === 0 && <div className="empty-state">{upcomingName ? "Nothing pulled in yet — add tickets from the backlog below." : "Add a future sprint in the Sprints tab to start planning."}</div>}
             {byAssignee(inSprint, people).map(({ key, person, tickets: list, points }) => {
               const cap = person ? caps.find((c) => c.p.id === person.id)?.cap : null;
               const over = cap && points > cap.adjusted;
