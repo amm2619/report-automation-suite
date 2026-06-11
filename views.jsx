@@ -322,14 +322,55 @@ function ManualLeaveCard({ people, records, onAdd, onRemove }) {
 function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg }) {
   const cfg = velCfg || {};
   const up = cfg.upcoming || {};
+  const future = cfg.future || [];
   const resolvedUp = (velCfgResolved && velCfgResolved.upcoming) || {};
   const usedCount = velCfgResolved ? velCfgResolved.pastSprintCount : sprints.length;
   // Past sprints = the detected numbers minus the one we're planning.
   const detected = sprints.filter((s) => s.name !== resolvedUp.name).length;
   const numStyle = { fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14, padding: "9px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", width: "100%", boxSizing: "border-box" };
+  const roStyle = { ...numStyle, background: "var(--surface)", color: "var(--text-dim)", display: "flex", alignItems: "center", gap: 6, minHeight: 38, boxSizing: "border-box" };
 
-  const setUp = (patch) => onVelCfg({ upcoming: { ...up, ...patch } });
+  // End date is always derived: pick a duration (working days) + a start date and
+  // the last working day is computed (weekends + federal holidays skipped).
+  const setUp = (patch) => {
+    const merged = { ...up, ...patch };
+    merged.end = endDateFromWorkDays(merged.start, merged.workingDays);
+    onVelCfg({ upcoming: merged });
+  };
   const holidays = (up.start && up.end) ? VP.holidaysInRange(up.start, up.end) : [];
+
+  // ---- future sprints (planned beyond the upcoming one) ----
+  const setFuture = (next) => onVelCfg({ future: next });
+  const updateFuture = (i, patch) => setFuture(future.map((f, j) => {
+    if (j !== i) return f;
+    const merged = { ...f, ...patch };
+    merged.end = endDateFromWorkDays(merged.start, merged.workingDays);
+    return merged;
+  }));
+  const removeFuture = (i) => setFuture(future.filter((_, j) => j !== i));
+  const addFuture = () => {
+    // Chain after the last planned sprint: suggest the next number and start the
+    // working day after the previous sprint ends.
+    const plannedNames = [...sprints.map((s) => s.name), resolvedUp.name, ...future.map((f) => f.name).filter(Boolean)];
+    const prevEnd = future.length ? future[future.length - 1].end : up.end;
+    const wd = up.workingDays || 10;
+    const start = prevEnd ? VP.shiftWorkingDays(prevEnd, 1) : "";
+    const end = endDateFromWorkDays(start, wd);
+    setFuture([...future, { name: VP.nextSprintName(plannedNames) || "", workingDays: wd, start, end }]);
+  };
+
+  // ---- all historical sprints, back-dated from the upcoming start so each one
+  // gets a concrete date range to display ----
+  const datedPast = useMemo(() => {
+    const names = sprints.map((s) => s.name).filter((n) => n && n !== resolvedUp.name);
+    if (!names.length) return [];
+    const dated = VP.buildSprintCalendar(
+      names,
+      { current: resolvedUp.name, currentStart: up.start, workingDays: up.workingDays || 10 }
+    );
+    // Drop the synthetic "current" entry buildSprintCalendar injects.
+    return dated.filter((s) => s.name !== resolvedUp.name);
+  }, [sprints, resolvedUp.name, up.start, up.workingDays]);
 
   return (
     <div className="person-card settings-card">
@@ -380,8 +421,11 @@ function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg }) {
           <DatePicker value={up.start || ""} onChange={(v) => setUp({ start: v })} placeholder="Pick start" />
         </div>
         <div className="field">
-          <label>End date</label>
-          <DatePicker value={up.end || ""} onChange={(v) => setUp({ end: v })} placeholder="Pick end" />
+          <label>End date <span className="muted" style={{ fontWeight: 400 }}>· calculated</span></label>
+          <div style={roStyle} title="Calculated from the start date and working days">
+            <Icon name="cal" size={13} />
+            <span style={{ fontFamily: "var(--font-mono)" }}>{up.end ? fmtDate(up.end) : "—"}</span>
+          </div>
         </div>
       </div>
       <div className="muted" style={{ fontSize: 12 }}>
@@ -390,8 +434,65 @@ function SprintSettingsCard({ sprints, velCfg, velCfgResolved, onVelCfg }) {
           holidays.length
             ? <span>{holidays.length} federal holiday{holidays.length > 1 ? "s" : ""} in range ({holidays.map(fmtDate).join(", ")}) — subtracted for everyone. Leave is subtracted per person.</span>
             : <span>No federal holidays in range. Leave is subtracted per person from the leave calendar.</span>
-        ) : <span>Pick the start and end dates so holidays and leave can be detected.</span>}
+        ) : <span>Pick the start date and working days — the end date is calculated for you.</span>}
       </div>
+
+      {/* Future sprints — plan ahead; their points never count toward velocity */}
+      <div className="section-label" style={{ marginTop: 18, marginBottom: 6, fontSize: 11.5, display: "flex", alignItems: "center", gap: 8 }}>
+        <span>Future sprints (planning ahead)</span>
+        <button className="btn sm" onClick={addFuture}><Icon name="plus" size={12} /> Add sprint</button>
+      </div>
+      <div className="muted" style={{ fontSize: 11.5, marginBottom: future.length ? 8 : 0 }}>
+        Queue sprints you're planning beyond the upcoming one. Each end date is calculated from its start and working days.
+        Points you assign into these sprints are <b>not</b> counted toward velocity.
+      </div>
+      {future.map((f, i) => (
+        <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 110px 1fr 1fr auto", gap: 10, alignItems: "end", marginBottom: 8 }}>
+          <div className="field">
+            {i === 0 && <label>Sprint #</label>}
+            <input value={f.name || ""} placeholder="26.4.2"
+              onChange={(e) => updateFuture(i, { name: e.target.value })} style={numStyle} />
+          </div>
+          <div className="field">
+            {i === 0 && <label>Working days</label>}
+            <input type="number" min={0} max={40} value={f.workingDays || 0}
+              onChange={(e) => updateFuture(i, { workingDays: Math.max(0, Math.min(40, Math.round(Number(e.target.value) || 0))) })}
+              style={numStyle} />
+          </div>
+          <div className="field">
+            {i === 0 && <label>Start date</label>}
+            <DatePicker value={f.start || ""} onChange={(v) => updateFuture(i, { start: v })} placeholder="Pick start" />
+          </div>
+          <div className="field">
+            {i === 0 && <label>End date · calculated</label>}
+            <div style={roStyle} title="Calculated from the start date and working days">
+              <Icon name="cal" size={13} />
+              <span style={{ fontFamily: "var(--font-mono)" }}>{f.end ? fmtDate(f.end) : "—"}</span>
+            </div>
+          </div>
+          <button className="iconbtn" onClick={() => removeFuture(i)} aria-label="Remove sprint" title="Remove" style={{ height: 38 }}>
+            <Icon name="trash" size={14} />
+          </button>
+        </div>
+      ))}
+
+      {/* Historical sprint calendar — every past sprint with its computed dates */}
+      <div className="section-label" style={{ marginTop: 18, marginBottom: 6, fontSize: 11.5 }}>All historical sprints ({datedPast.length})</div>
+      {datedPast.length === 0 ? (
+        <div className="muted" style={{ fontSize: 11.5 }}>No historical sprints yet — import tickets to populate the calendar.</div>
+      ) : (
+        <React.Fragment>
+          {!up.start && <div className="muted" style={{ fontSize: 11.5, marginBottom: 6 }}>Set the upcoming sprint's start date to back-calculate each historical date range.</div>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {datedPast.map((s) => (
+              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12.5, padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, minWidth: 80 }}>{s.name}</span>
+                <span className="muted" style={{ fontFamily: "var(--font-mono)" }}>{s.start && s.end ? fmtRange(s.start, s.end) : "—"}</span>
+              </div>
+            ))}
+          </div>
+        </React.Fragment>
+      )}
     </div>
   );
 }
@@ -702,49 +803,85 @@ function ImportTicketsModal({ people, sprints, onClose, onImport }) {
 /* ============================================================================
    Debug — shows exactly how every ticket is read and what feeds velocity.
    ========================================================================== */
-function DebugView({ tickets, people, sprints, currentIdx, doneRes }) {
+function DebugView({ tickets, people, sprints, currentIdx, doneRes, project, plannedSprints, onToggleExclude }) {
   const [q, setQ] = useState("");
+  // Row sort, shared across every person's table. Click a column header to sort.
+  const [sort, setSort] = useState({ key: "ticket", dir: 1 });
+  // Person-group order: alphabetical by name, or by projected velocity.
+  const [groupSort, setGroupSort] = useState("person");
   const doneSet = new Set((doneRes || []).map((r) => r.toLowerCase()));
-  const idxByName = {}; sprints.forEach((s, i) => { idxByName[s.name] = i; });
+  const plannedSet = new Set((plannedSprints || []).map((s) => String(s)));
   const personById = (id) => people.find((p) => p.id === id);
   const isDone = (t) => !!(t.resolution && doneSet.has(t.resolution.toLowerCase()));
+
+  // Only the active project's tickets — Debug follows the top-bar project tab.
+  const scoped = useMemo(
+    () => (tickets || []).filter((t) => VP.projectForKey(t.key) === project),
+    [tickets, project]
+  );
 
   // Why a ticket does / doesn't feed velocity, mirroring deriveHistory exactly.
   function contribution(t) {
     if (!t.assignee) return { ok: false, why: "no assignee" };
+    if (t.excludeFromVelocity) return { ok: false, why: "excluded from velocity" };
     if (!isDone(t)) return { ok: false, why: t.resolution ? `resolution "${t.resolution}" not in Done list` : "no resolution" };
     const pts = Number(t.points) || 0;
     if (pts <= 0) return { ok: false, why: "points ≤ 0" };
     const sps = (t.sprints || []).filter(Boolean);
     if (!sps.length) return { ok: false, why: "no sprint (backlog)" };
-    return { ok: true, why: `counts in ${sps.join(", ")}`, pts };
+    const counted = sps.filter((s) => !plannedSet.has(String(s)));
+    if (!counted.length) return { ok: false, why: `sprint ${sps.join(", ")} still being planned` };
+    return { ok: true, why: `counts in ${counted.join(", ")}`, pts };
   }
 
-  const derived = VP.deriveHistory(tickets, doneRes, sprints, currentIdx);
+  const derived = VP.deriveHistory(tickets, doneRes, sprints, currentIdx, { excludeSprints: plannedSprints });
 
-  // Group tickets by assignee (people first, then an Unassigned bucket).
+  // Group the scoped tickets by assignee (people first, then Unassigned).
   const groups = new Map();
-  for (const t of tickets) {
+  for (const t of scoped) {
     const k = t.assignee || "_none";
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k).push(t);
   }
+  const velocityFor = (id) => {
+    const series = id !== "_none" ? (derived[id] || []) : [];
+    return series.length ? series.reduce((a, b) => a + b, 0) / series.length : 0;
+  };
   const ordered = [...groups.entries()]
     .map(([id, ts]) => ({ id, person: id === "_none" ? null : personById(id), tickets: ts }))
-    .sort((a, b) => (a.id === "_none" ? 1 : b.id === "_none" ? -1 : (a.person?.name || a.id).localeCompare(b.person?.name || b.id)));
+    .sort((a, b) => {
+      if (a.id === "_none") return 1;
+      if (b.id === "_none") return -1;
+      if (groupSort === "velocity") return velocityFor(b.id) - velocityFor(a.id);
+      return (a.person?.name || a.id).localeCompare(b.person?.name || b.id);
+    });
+
+  // Row comparator for the chosen column.
+  const sprintKey = (t) => (t.sprints || []).map((s) => VP.sprintSortKey(s)).sort((x, y) => x - y)[0] ?? Infinity;
+  function compareRows(a, b) {
+    let r = 0;
+    if (sort.key === "ticket") r = a.key.localeCompare(b.key);
+    else if (sort.key === "pts") r = (Number(a.points) || 0) - (Number(b.points) || 0);
+    else if (sort.key === "sprints") r = sprintKey(a) - sprintKey(b) || (a.sprints || []).join().localeCompare((b.sprints || []).join());
+    if (r === 0) r = a.key.localeCompare(b.key);
+    return r * sort.dir;
+  }
+  const toggleSort = (key) => setSort((s) => s.key === key ? { key, dir: -s.dir } : { key, dir: 1 });
+  const arrow = (key) => sort.key === key ? (sort.dir === 1 ? " ▲" : " ▼") : "";
 
   const ql = q.trim().toLowerCase();
   const match = (g) => !ql || (g.person?.name || "unassigned").toLowerCase().includes(ql) || (g.person?.sid || "").toLowerCase().includes(ql);
 
   const cell = { padding: "4px 8px", borderBottom: "1px solid var(--border)", fontSize: 12, whiteSpace: "nowrap" };
   const head = { ...cell, color: "var(--text-faint)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 10, position: "sticky", top: 0, background: "var(--surface-2)" };
+  const sortHead = (key) => ({ ...head, cursor: "pointer", color: sort.key === key ? "var(--text)" : "var(--text-faint)", userSelect: "none" });
 
   return (
     <div className="wrap">
       <div className="team-head">
         <div>
-          <h2>Debug</h2>
-          <div className="sub">How each ticket is parsed and what feeds velocity. Velocity counts <b>Done</b> tickets with <b>points &gt; 0</b> assigned to a person, in a sprint <b>before the current one</b>.</div>
+          <h2>Debug · {project}</h2>
+          <div className="sub">How each <b>{project}</b> ticket is parsed and what feeds velocity. Velocity counts <b>Done</b> tickets with <b>points &gt; 0</b> assigned to a person, in a sprint that isn't being planned and isn't excluded.</div>
         </div>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="filter by name / sid…"
           style={{ fontSize: 13, padding: "8px 11px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", minWidth: 200 }} />
@@ -755,8 +892,9 @@ function DebugView({ tickets, people, sprints, currentIdx, doneRes }) {
         <div className="section-label" style={{ margin: 0 }}>Sprints in the calendar ({sprints.length}) · current = index {currentIdx}</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {sprints.map((s, i) => {
-            const rel = i === currentIdx ? "current" : i < currentIdx ? "past" : "future";
-            const color = rel === "current" ? "var(--good)" : rel === "past" ? "var(--text-faint)" : "var(--accent)";
+            const planned = plannedSet.has(String(s.name));
+            const rel = planned ? "planning" : i === currentIdx ? "current" : i < currentIdx ? "past" : "future";
+            const color = planned ? "var(--rc)" : rel === "current" ? "var(--good)" : rel === "past" ? "var(--text-faint)" : "var(--accent)";
             return (
               <span key={s.id} className="res-chip" title={`index ${i} · ${rel}${VP.isUndated(s) ? " · undated" : ""}`}
                 style={{ borderColor: color, color }}>
@@ -765,7 +903,17 @@ function DebugView({ tickets, people, sprints, currentIdx, doneRes }) {
             );
           })}
         </div>
-        <div className="muted" style={{ fontSize: 11.5 }}>Velocity counts a person's completed (Done, points&gt;0) work in <b>every</b> sprint listed here — duplicate / merged names here are the thing to watch for.</div>
+        <div className="muted" style={{ fontSize: 11.5 }}>Velocity counts a person's completed (Done, points&gt;0) work in every past sprint — sprints still being planned (in <b style={{ color: "var(--rc)" }}>red</b>) and tickets marked excluded never count.</div>
+      </div>
+
+      {/* Group ordering control */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        <span className="muted" style={{ fontSize: 12, fontWeight: 700 }}>Order people by</span>
+        <div className="mode-toggle" role="tablist" aria-label="Order people">
+          <button data-active={groupSort === "person"} onClick={() => setGroupSort("person")}>Person</button>
+          <button data-active={groupSort === "velocity"} onClick={() => setGroupSort("velocity")}>Velocity</button>
+        </div>
+        <span className="muted" style={{ fontSize: 11.5 }}>Click a column header below to sort rows by ticket, pts, or sprints.</span>
       </div>
 
       {/* Per-assignee breakdown */}
@@ -775,7 +923,7 @@ function DebugView({ tickets, people, sprints, currentIdx, doneRes }) {
         const avg = series.length ? sum / series.length : 0;
         const usesGoal = series.length < 2;
         const totalPts = g.tickets.reduce((a, t) => a + (Number(t.points) || 0), 0);
-        const sorted = [...g.tickets].sort((a, b) => a.key.localeCompare(b.key));
+        const sorted = [...g.tickets].sort(compareRows);
         return (
           <div className="person-card" key={g.id} style={{ marginBottom: 14 }}>
             <div className="pc-head" style={{ justifyContent: "space-between" }}>
@@ -791,20 +939,28 @@ function DebugView({ tickets, people, sprints, currentIdx, doneRes }) {
             <div style={{ overflowX: "auto", marginTop: 8 }}>
               <table style={{ borderCollapse: "collapse", width: "100%" }}>
                 <thead><tr>
-                  <th style={head}>Key</th><th style={head}>Pts</th><th style={head}>Sprint(s)</th>
+                  <th style={sortHead("ticket")} onClick={() => toggleSort("ticket")}>Key{arrow("ticket")}</th>
+                  <th style={sortHead("pts")} onClick={() => toggleSort("pts")}>Pts{arrow("pts")}</th>
+                  <th style={sortHead("sprints")} onClick={() => toggleSort("sprints")}>Sprint(s){arrow("sprints")}</th>
                   <th style={head}>Resolution</th><th style={head}>Feeds velocity?</th>
+                  <th style={head}>Exclude</th>
                   <th style={{ ...head, whiteSpace: "normal" }}>Summary</th>
                 </tr></thead>
                 <tbody>
                   {sorted.map((t) => {
                     const c = contribution(t);
                     return (
-                      <tr key={t.id}>
+                      <tr key={t.id} style={t.excludeFromVelocity ? { opacity: 0.55 } : null}>
                         <td style={{ ...cell, fontFamily: "var(--font-mono)", color: PROJ_COLOR[VP.projectForKey(t.key)] || "var(--text)" }}>{t.key}</td>
                         <td style={{ ...cell, fontFamily: "var(--font-mono)", textAlign: "right", fontWeight: 700 }}>{t.points}</td>
                         <td style={{ ...cell, fontFamily: "var(--font-mono)" }}>{(t.sprints || []).join(", ") || "—"}</td>
                         <td style={cell}>{t.resolution || "—"}</td>
                         <td style={{ ...cell, color: c.ok ? "var(--good)" : "var(--text-faint)" }}>{c.ok ? `✓ ${c.why}` : `✗ ${c.why}`}</td>
+                        <td style={{ ...cell, textAlign: "center" }}>
+                          <span className="switch" data-on={!!t.excludeFromVelocity} onClick={() => onToggleExclude && onToggleExclude(t.id)} role="switch" aria-checked={!!t.excludeFromVelocity} title="Exclude this ticket from velocity" style={{ cursor: "pointer", display: "inline-block", verticalAlign: "middle" }}>
+                            <span className="knob" />
+                          </span>
+                        </td>
                         <td style={{ ...cell, whiteSpace: "normal", color: "var(--text-dim)", maxWidth: 360 }}>{t.summary}</td>
                       </tr>
                     );
@@ -815,6 +971,9 @@ function DebugView({ tickets, people, sprints, currentIdx, doneRes }) {
           </div>
         );
       })}
+      {ordered.filter(match).length === 0 && (
+        <div className="empty-state" style={{ padding: 28, fontSize: 13 }}>No {project} tickets to show.</div>
+      )}
     </div>
   );
 }

@@ -3,14 +3,14 @@
 function pct(n, d) { return d > 0 ? Math.min(100, Math.round((n / d) * 100)) : 0; }
 
 /* ---- capacity card ---- */
-function CapCard({ person, assigned, cap, wfhUsed, holidays }) {
+function CapCard({ person, assigned, cap, wfhUsed, holidays, innerRef, flash }) {
   const color = PROJ_COLOR[person.project];
   const over = assigned > cap.adjusted;
   const wfhOver = cap.wfhPoints != null && wfhUsed > cap.wfhPoints;
   const officeUsed = Math.max(0, assigned - wfhUsed);
   const hol = holidays || 0;
   return (
-    <div className="cap-card" data-over={over}>
+    <div className="cap-card" data-over={over} data-flash={flash ? "true" : undefined} ref={innerRef}>
       <div className="cap-head">
         <Avatar name={person.name} proj={person.project} />
         <div style={{ minWidth: 0 }}>
@@ -208,6 +208,15 @@ function byAssignee(list, people) {
 function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, onMove, onBacklog, onPoints, onOpenDesc, onOpenImportTickets }) {
   const [openPop, setOpenPop] = useState(null);
   const [userCollapse, setUserCollapse] = useState({}); // {pid: bool} — explicit user overrides
+  const capRefs = useRef({});                            // person id -> capacity card element
+  const [flashId, setFlashId] = useState(null);          // briefly highlight the scrolled-to card
+  const scrollToPerson = (pid) => {
+    const el = capRefs.current[pid];
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    setFlashId(pid);
+    setTimeout(() => setFlashId((cur) => (cur === pid ? null : cur)), 1300);
+  };
   // The one sprint we're planning. Its name lives in the shared velocity config.
   const up = (velCfg && velCfg.upcoming) || {};
   const upcomingName = up.name || "";
@@ -269,7 +278,8 @@ function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, 
             <div className="section-label">Team capacity · {projPeople.length} people</div>
             <div className="cap-row">
               {caps.map(({ p, cap }) => (
-                <CapCard key={p.id} person={p} cap={cap} assigned={assignedBy.pts[p.id] || 0} wfhUsed={assignedBy.wfh[p.id] || 0} holidays={holidays.length} />
+                <CapCard key={p.id} person={p} cap={cap} assigned={assignedBy.pts[p.id] || 0} wfhUsed={assignedBy.wfh[p.id] || 0} holidays={holidays.length}
+                  innerRef={(el) => { capRefs.current[p.id] = el; }} flash={flashId === p.id} />
               ))}
             </div>
           </div>
@@ -294,7 +304,7 @@ function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, 
                     {person ? (
                       <React.Fragment>
                         <Avatar name={person.name} proj={person.project} className="av" style={{ width: 22, height: 22, borderRadius: 7, fontSize: 10 }} />
-                        <span className="nm">{person.name}</span>
+                        <span className="nm nm-link" onClick={(e) => { e.stopPropagation(); scrollToPerson(person.id); }} title="Scroll to this person's capacity card">{person.name}</span>
                         <span className="ec">{list.length}</span>
                         <div style={{ flex: 1 }} />
                         <span className="pts-sum" title={cap ? `${points} of ${cap.adjusted} adjusted capacity` : `${points} points`}>

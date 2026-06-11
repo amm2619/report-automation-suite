@@ -26,6 +26,7 @@ function App() {
   const [velCfg, setVelCfg] = useState(() => ({
     pastSprintDays: 10, pastSprintCount: 0,
     upcoming: { workingDays: 10, start: "", end: "" },
+    future: [], // additional sprints being planned beyond the upcoming one
     ...(SAVED.velCfg || {}),
   }));
   const [descTicket, setDescTicket] = useState(null);
@@ -80,8 +81,18 @@ function App() {
     pastSprintDays: velCfg.pastSprintDays || 10,
     pastSprintCount: velCfg.pastSprintCount > 0 ? velCfg.pastSprintCount : pastSprintNames.length,
     upcoming: { ...(velCfg.upcoming || { workingDays: 10, start: "", end: "" }), name: upcomingName },
+    future: velCfg.future || [],
   }), [velCfg, pastSprintNames.length, upcomingName]);
   const onVelCfg = (patch) => setVelCfg((c) => ({ ...c, ...patch }));
+
+  // Sprints we're actively planning (the upcoming one + any future ones queued
+  // in Settings). Their points must not be folded into velocity history.
+  const plannedSprintNames = useMemo(() => {
+    const names = [];
+    if (upcomingName) names.push(upcomingName);
+    (velCfg.future || []).forEach((f) => { if (f && f.name && f.name.trim()) names.push(f.name.trim()); });
+    return names;
+  }, [upcomingName, velCfg.future]);
 
   const snapshot = () => ({ v: 1, people, tickets, velCfg, leave: leaveOverlay, jiraBase, doneRes, customRes, project });
 
@@ -139,6 +150,7 @@ function App() {
   const onMove = (ticket, sprintName) => { patchTicket(ticket.id, { sprints: [sprintName] }); toast(`${ticket.key} moved to ${sprintName}`, "info"); };
   const onBacklog = (ticket) => { patchTicket(ticket.id, { sprints: [] }); toast(`${ticket.key} returned to backlog`, "info"); };
   const onPoints = (ticket, pts) => { patchTicket(ticket.id, { points: Math.max(0, Math.min(99, Math.round(Number(pts) || 0))) }); };
+  const onToggleExclude = (id) => setTickets((ts) => ts.map((x) => x.id === id ? { ...x, excludeFromVelocity: !x.excludeFromVelocity } : x));
 
   // ---- settings actions ----
   // Save the entire workspace (people, tickets, sprints, leave, settings) to a
@@ -358,10 +370,15 @@ function App() {
   // Velocity is derived live from completed tickets. Each person's effective
   // history = the derived series when there is completed work, else their stored
   // (imported) seed. The view components read velocity/capacity off this.
-  const derivedHistory = useMemo(
-    () => VP.deriveHistory(tickets, doneRes, sprintsList, currentSprintIdx),
-    [tickets, doneRes, sprintsList, currentSprintIdx]
+  const derivedDetail = useMemo(
+    () => VP.deriveHistoryDetail(tickets, doneRes, sprintsList, { excludeSprints: plannedSprintNames }),
+    [tickets, doneRes, sprintsList, plannedSprintNames]
   );
+  const derivedHistory = useMemo(() => {
+    const o = {};
+    for (const [pid, arr] of Object.entries(derivedDetail)) o[pid] = arr.map((e) => e.points);
+    return o;
+  }, [derivedDetail]);
   const peopleV = useMemo(
     () => people.map((p) => (derivedHistory[p.id] && derivedHistory[p.id].length ? { ...p, history: derivedHistory[p.id] } : p)),
     [people, derivedHistory]
@@ -421,7 +438,7 @@ function App() {
         )}
         {view === "team" && (
           <Team people={peopleV} projects={VP.PROJECTS} currentProject={project} sprints={sprintsList}
-            currentIdx={currentSprintIdx} velCfg={velCfgResolved}
+            currentIdx={currentSprintIdx} velCfg={velCfgResolved} historyDetail={derivedDetail}
             onAdd={onAddPerson} onEdit={onEditPerson} onRemove={onRemovePerson} />
         )}
         {view === "settings" && (
@@ -441,7 +458,8 @@ function App() {
         )}
         {view === "debug" && (
           <DebugView tickets={tickets} people={people} sprints={sprintsList}
-            currentIdx={currentSprintIdx} doneRes={doneRes} />
+            currentIdx={currentSprintIdx} doneRes={doneRes} project={project}
+            plannedSprints={plannedSprintNames} onToggleExclude={onToggleExclude} />
         )}
       </main>
 
