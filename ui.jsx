@@ -292,7 +292,14 @@ function parseBoardHtml(html) {
   const idxAss = pick("assignee", (h) => h.includes("assignee"));
   const idxEpic = pick(CF.epic, (h) => h.includes("epic"));
   const idxPts = pick(CF.points, (h) => h.includes("story point"));
-  const idxRes = pick("resolution", (h) => h.includes("resolution"));
+  // Match the Resolution column, NOT the "Resolved" date column. Jira's
+  // resolution-date column carries the class `resolutiondate`, which contains
+  // the substring "resolution" — so a plain class match grabs the date by
+  // mistake and the resolution field ends up holding a date. Exclude it.
+  const idxRes = (() => {
+    const i = headerClasses.findIndex((c) => c.includes("resolution") && !c.includes("resolutiondate"));
+    return i >= 0 ? i : byText((h) => h.includes("resolution") && !h.includes("resolved") && !h.includes("date"));
+  })();
   const idxDesc = pick("description", (h) => h.includes("description"));
   // Sprint can appear under its custom-field class OR a plain "Sprint" header
   // (sometimes more than once). Take both.

@@ -907,7 +907,10 @@ function parseBoardHtml(html) {
   const idxAss = pick("assignee", h => h.includes("assignee"));
   const idxEpic = pick(CF.epic, h => h.includes("epic"));
   const idxPts = pick(CF.points, h => h.includes("story point"));
-  const idxRes = pick("resolution", h => h.includes("resolution"));
+  const idxRes = (() => {
+    const i = headerClasses.findIndex(c => c.includes("resolution") && !c.includes("resolutiondate"));
+    return i >= 0 ? i : byText(h => h.includes("resolution") && !h.includes("resolved") && !h.includes("date"));
+  })();
   const idxDesc = pick("description", h => h.includes("description"));
   const sprintCols = [];
   headerClasses.forEach((c, i) => {
