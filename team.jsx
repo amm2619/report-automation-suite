@@ -8,7 +8,7 @@ function PersonCard({ person, onEdit, onRemove }) {
     <div className="person-card">
       <div className="pc-head">
         <Avatar name={person.name} proj={person.project} />
-        <div style={{ minWidth: 0, flex: 1 }}>
+        <div className="grow-min0">
           <div className="pc-name">{person.name}</div>
           <div className="pc-sid">{person.sid}</div>
         </div>
@@ -17,7 +17,7 @@ function PersonCard({ person, onEdit, onRemove }) {
 
       <div className="spark" title="Recent sprint points">
         {(v.perSprint.length ? v.perSprint : [0, 0, 0]).map((n, i) => (
-          <i key={i} style={{ height: (8 + (n / max) * 22) + "px", background: n ? color : "var(--surface-3)" }} />
+          <i key={i} style={{ "--sp-h": (8 + (n / max) * 22) + "px", "--sp-bg": n ? color : "var(--surface-3)" }} />
         ))}
       </div>
 
@@ -70,8 +70,8 @@ function PersonModal({ person, project, existingNames, projects, onSave, onClose
             <label>Name</label>
             <input value={name} autoFocus onChange={(e) => { setName(e.target.value); setErr(""); }} placeholder="Jane Doe" />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div className="field"><label>SID (must match the program calendar)</label><input value={sid} onChange={(e) => setSid(e.target.value)} placeholder="leave blank if you don't use one" style={{ fontFamily: "var(--font-mono)" }} /></div>
+          <div className="grid-2">
+            <div className="field"><label>SID (must match the program calendar)</label><input value={sid} onChange={(e) => setSid(e.target.value)} placeholder="leave blank if you don't use one" className="mono" /></div>
             <div className="field"><label>Goal points</label><input type="number" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="14" /></div>
           </div>
           <div className="field">
@@ -85,11 +85,11 @@ function PersonModal({ person, project, existingNames, projects, onSave, onClose
             <label>Primary project</label>
             <div className="seg">
               {projects.map((p) => (
-                <button key={p.id} data-on={proj === p.id} onClick={() => setProj(p.id)} style={proj === p.id ? { color: PROJ_COLOR[p.id], borderColor: PROJ_COLOR[p.id], background: PROJ_DIM[p.id] } : {}}>{p.id}</button>
+                <button key={p.id} className="proj-seg-btn" data-on={proj === p.id} onClick={() => setProj(p.id)} style={{ "--seg-color": PROJ_COLOR[p.id], "--seg-dim": PROJ_DIM[p.id] }}>{p.id}</button>
               ))}
             </div>
           </div>
-          {err && <div className="msg" style={{ color: "var(--danger)", fontWeight: 600, fontSize: 16 }}>{err}</div>}
+          {err && <div className="msg">{err}</div>}
         </div>
         <div className="modal-foot">
           <button className="btn" onClick={onClose}>Cancel</button>
@@ -122,7 +122,7 @@ function Team({ people, projects, currentProject, sprints, currentIdx, velCfg, h
               : "per-person velocity from completed historical tickets"}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div className="row-10">
           <div className="mode-toggle" role="tablist" aria-label="Team view">
             <button data-active={tab === "cards"} onClick={() => setTab("cards")}>Cards</button>
             <button data-active={tab === "velocity"} onClick={() => setTab("velocity")}>Velocity</button>
@@ -143,13 +143,13 @@ function Team({ people, projects, currentProject, sprints, currentIdx, velCfg, h
         return (
           <section className="team-section" key={proj.id}>
             <header className="team-section-head">
-              <span className="dot" style={{ background: color }} />
+              <span className="dot" style={{ "--dot-color": color }} />
               <h3>{proj.name}<span className="k">{proj.id}</span></h3>
               <span className="count">{list.length} {list.length === 1 ? "person" : "people"}</span>
-              <div style={{ flex: 1 }} />
+              <div className="spacer" />
               {tab === "velocity" ? (
                 <span className="chip" title="Projected team velocity for the upcoming sprint">
-                  team velocity <b style={{ fontFamily: "var(--font-mono)", marginLeft: 4 }}>{teamVel || "—"}</b>
+                  team velocity <b className="team-vel-num">{teamVel || "—"}</b>
                 </span>
               ) : (
                 <button className="btn sm" onClick={() => { setAddProj(proj.id); setModal({ project: proj.id }); }}>
@@ -159,7 +159,7 @@ function Team({ people, projects, currentProject, sprints, currentIdx, velCfg, h
             </header>
 
             {list.length === 0 ? (
-              <div className="empty-state" style={{ padding: 28, fontSize: 16 }}>No people on {proj.id} yet.</div>
+              <div className="empty-state pad28">No people on {proj.id} yet.</div>
             ) : tab === "cards" ? (
               <div className="team-grid">
                 {[...list].sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
@@ -193,8 +193,8 @@ function VelocityTable({ rows, historyDetail }) {
   const [expanded, setExpanded] = useState({});
   const detail = historyDetail || {};
   return (
-    <div className="tickets v-table" style={{ overflowX: "auto" }}>
-      <div className="v-grid" style={{ gridTemplateColumns: `1fr 80px 84px 92px 96px`, minWidth: 520 }}>
+    <div className="tickets v-table scroll-x">
+      <div className="v-grid vt-cols">
         <div className="v-head">Person</div>
         <div className="v-head align-r" title="Total completed points ÷ number of past sprints (empty sprints count as 0)">Avg / sprint</div>
         <div className="v-head align-r" title="Avg ÷ past sprint length">Points / day</div>
@@ -211,7 +211,7 @@ function VelocityTable({ rows, historyDetail }) {
           return (
             <React.Fragment key={p.id}>
               <div className="v-cell person-cell expandable" data-row={ri} data-open={isOpen} onClick={toggle} role="button" tabIndex={0} title="Show sprint-by-sprint breakdown">
-                <span className="collapse-caret" aria-label={isOpen ? "Collapse" : "Expand"} style={{ display: "inline-flex" }}>
+                <span className="collapse-caret" aria-label={isOpen ? "Collapse" : "Expand"}>
                   <Icon name="chev" size={13} />
                 </span>
                 <Avatar name={p.name} proj={p.project} className="av" />
@@ -226,7 +226,7 @@ function VelocityTable({ rows, historyDetail }) {
               <div className="v-cell align-r num strong" data-row={ri} onClick={toggle}>{pv.totalPts ? pv.velocity : "—"}</div>
 
               {isOpen && (
-                <div className="v-expand" data-row={ri} style={{ gridColumn: "1 / -1" }}>
+                <div className="v-expand" data-row={ri}>
                   {series.length ? (
                     <div className="v-expand-inner">
                       <div className="v-expand-head">Previous sprints · points per sprint</div>
@@ -234,14 +234,14 @@ function VelocityTable({ rows, historyDetail }) {
                         {series.map((s) => (
                           <div className="v-spark-row" key={s.name}>
                             <span className="sp-name">{s.name}</span>
-                            <span className="sp-bar"><i style={{ width: pctOf(s.points, series) + "%", background: PROJ_COLOR[p.project] }} /></span>
+                            <span className="sp-bar"><i style={{ "--bar-w": pctOf(s.points, series) + "%", "--bar-color": PROJ_COLOR[p.project] }} /></span>
                             <span className="sp-pts">{s.points}</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <div className="v-expand-inner muted" style={{ fontSize: 16 }}>No completed sprints feeding velocity yet — using {p.goal ? `goal (${p.goal})` : "no data"}.</div>
+                    <div className="v-expand-inner muted">No completed sprints feeding velocity yet — using {p.goal ? `goal (${p.goal})` : "no data"}.</div>
                   )}
                 </div>
               )}

@@ -403,7 +403,7 @@ function App() {
         <div className="proj-tabs">
           {VP.PROJECTS.map((p) => (
             <button key={p.id} className="proj-tab" data-active={project === p.id} data-proj={p.id} onClick={() => setProject(p.id)}>
-              <span className="dot" style={{ background: PROJ_COLOR[p.id] }} />
+              <span className="dot" style={{ "--dot-color": PROJ_COLOR[p.id] }} />
               {p.id}
               <span className="cnt">{counts[p.id]}</span>
             </button>
@@ -423,9 +423,9 @@ function App() {
             <button key={n.id} className="viewtab" data-active={view === n.id} onClick={() => setView(n.id)}>{n.label}</button>
           ))}
         </div>
-        <div style={{ flex: 1 }} />
-        <div className="muted" style={{ fontSize: 16, display: "flex", alignItems: "center", gap: 7 }}>
-          <span className="dot" style={{ width: 8, height: 8, borderRadius: "50%", background: PROJ_COLOR[project], display: "inline-block" }} />
+        <div className="spacer" />
+        <div className="muted nav-proj">
+          <span className="dot nav-dot" style={{ "--dot-color": PROJ_COLOR[project] }} />
           {VP.PROJECTS.find((p) => p.id === project)?.name}
         </div>
       </nav>

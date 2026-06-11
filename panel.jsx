@@ -13,7 +13,7 @@ function MetaPicker({ label, value, options, renderValue, renderOption, onPick, 
         <span className="caret"><Icon name="chev" size={12} /></span>
       </button>
       {open && (
-        <div className="pop meta-pop" style={align === "right" ? { right: 0 } : { left: 0 }}>
+        <div className="pop meta-pop" data-align={align}>
           {options.map((o) => (
             <button key={o.key} className="pop-item" data-active={o.active} onClick={() => { onPick(o.value); setOpen(false); }}>
               {renderOption ? renderOption(o) : <span>{o.label}</span>}
@@ -67,13 +67,13 @@ function DescPanel({ ticket, people, sprints, currentIdx, hidePast, jiraBase, on
       <div className="scrim" onClick={onClose} />
       <aside className="desc-panel" role="dialog" aria-label={"Ticket " + ticket.key}>
         <div className="desc-top">
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="desc-top-main">
             {href ? (
-              <a className="tkey" href={href} target="_blank" rel="noopener" style={{ color }}>
-                {ticket.key} <span className="ext" style={{ opacity: 1 }}><Icon name="ext" size={12} /></span>
+              <a className="tkey" href={href} target="_blank" rel="noopener" style={{ "--tkey-color": color }}>
+                {ticket.key} <span className="ext ext-on"><Icon name="ext" size={12} /></span>
               </a>
             ) : (
-              <span className="tkey" style={{ color }}>{ticket.key}</span>
+              <span className="tkey" style={{ "--tkey-color": color }}>{ticket.key}</span>
             )}
             <h2 className="desc-title">{ticket.summary}</h2>
           </div>
@@ -89,7 +89,7 @@ function DescPanel({ ticket, people, sprints, currentIdx, hidePast, jiraBase, on
           {ticket.epic && (
             <div className="metric">
               <span className="k">Epic</span>
-              <span className="v" style={{ fontSize: 16, fontFamily: "var(--font-sans)" }}>{ticket.epic}</span>
+              <span className="v epic-val">{ticket.epic}</span>
             </div>
           )}
 
@@ -102,7 +102,7 @@ function DescPanel({ ticket, people, sprints, currentIdx, hidePast, jiraBase, on
               : (<span className="muted">Unassigned</span>)}
             renderOption={(o) => o.person
               ? (<><Avatar name={o.person.name} proj={o.person.project} className="av" /><span>{o.label}</span></>)
-              : (<><span className="av avatar" style={{ background: "var(--surface-3)", color: "var(--text-faint)" }}>—</span><span>{o.label}</span></>)}
+              : (<><span className="av avatar empty">—</span><span>{o.label}</span></>)}
             onPick={(pid) => onAssign(ticket, pid, currentSprint)} />
 
           <MetaPicker
@@ -110,9 +110,9 @@ function DescPanel({ ticket, people, sprints, currentIdx, hidePast, jiraBase, on
             value={currentSprint}
             options={sprintOpts}
             renderValue={() => currentSprint
-              ? <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>{currentSprint}</span>
+              ? <span className="mono-700">{currentSprint}</span>
               : <span className="muted">Backlog</span>}
-            renderOption={(o) => <span style={{ fontFamily: o.key === "_backlog" ? "var(--font-sans)" : "var(--font-mono)", fontWeight: 700, fontSize: 16 }}>{o.label}</span>}
+            renderOption={(o) => <span className={"sprint-opt" + (o.key === "_backlog" ? " sans" : "")}>{o.label}</span>}
             onPick={handleSprint}
             align="right" />
         </div>

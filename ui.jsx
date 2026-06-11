@@ -12,8 +12,7 @@ function initials(name) {
 function Avatar({ name, proj, className, style }) {
   const c = PROJ_COLOR[proj] || "var(--accent)";
   return (
-    <span className={"avatar " + (className || "")}
-      style={{ background: "var(--surface-3)", color: c, border: "1px solid " + c, ...style }}>
+    <span className={"avatar " + (className || "")} style={{ "--av-color": c, ...style }}>
       {initials(name)}
     </span>
   );
@@ -145,9 +144,9 @@ function DatePicker({ value, onChange, placeholder = "Pick a date" }) {
       {open && (
         <div className="date-pop" role="dialog">
           <div className="date-nav">
-            <button type="button" onClick={prev} aria-label="Previous month"><Icon name="chev" size={15} style={{ transform: "rotate(90deg)" }} /></button>
+            <button type="button" onClick={prev} aria-label="Previous month"><Icon name="chev" size={15} className="rot-90" /></button>
             <div className="date-month">{monthLabel}</div>
-            <button type="button" onClick={next} aria-label="Next month"><Icon name="chev" size={15} style={{ transform: "rotate(-90deg)" }} /></button>
+            <button type="button" onClick={next} aria-label="Next month"><Icon name="chev" size={15} className="rot-neg90" /></button>
           </div>
           <div className="date-dow">
             {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => <span key={i}>{d}</span>)}

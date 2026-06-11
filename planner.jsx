@@ -13,7 +13,7 @@ function CapCard({ person, assigned, cap, wfhUsed, holidays, innerRef, flash }) 
     <div className="cap-card" data-over={over} data-flash={flash ? "true" : undefined} ref={innerRef}>
       <div className="cap-head">
         <Avatar name={person.name} proj={person.project} />
-        <div style={{ minWidth: 0 }}>
+        <div className="min0">
           <div className="cap-name">{person.name}</div>
           <div className="cap-meta">
             <span className={"tag " + (person.type === "gov" ? "gov" : "con")}>{person.type === "gov" ? "GOV" : "CTR"}</span>
@@ -31,7 +31,7 @@ function CapCard({ person, assigned, cap, wfhUsed, holidays, innerRef, flash }) 
       </div>
 
       <div className={"bar" + (over ? " over" : "")}>
-        <i style={{ width: pct(assigned, cap.adjusted) + "%", background: color }} />
+        <i style={{ "--bar-w": pct(assigned, cap.adjusted) + "%", "--bar-color": color }} />
       </div>
 
       {/* breakdown of assigned points + days context */}
@@ -51,7 +51,7 @@ function CapCard({ person, assigned, cap, wfhUsed, holidays, innerRef, flash }) 
             <Icon name="cal" size={12} />{cap.available}d
           </span>
         )}
-        {!cap.undated && hol > 0 && <span className="chip" style={{ color: "var(--rc)" }} title="Federal holidays in the upcoming sprint (already subtracted)">
+        {!cap.undated && hol > 0 && <span className="chip rc" title="Federal holidays in the upcoming sprint (already subtracted)">
           {hol}d hol
         </span>}
         {!cap.undated && cap.leave > 0 && <span className="chip" title="Personal leave in this sprint">
@@ -62,10 +62,10 @@ function CapCard({ person, assigned, cap, wfhUsed, holidays, innerRef, flash }) 
       {cap.wfh && (
         <div className="wfh-mini">
           <span className="lbl">WFH</span>
-          <div className={"bar" + (wfhOver ? " over" : "")} title={`${wfhUsed} / ${cap.wfhPoints} pts (${cap.wfh.days} days budget)`}>
-            <i style={{ width: pct(wfhUsed, cap.wfhPoints) + "%", background: "var(--accent)" }} />
+          <div className={"bar wfh-bar" + (wfhOver ? " over" : "")} title={`${wfhUsed} / ${cap.wfhPoints} pts (${cap.wfh.days} days budget)`}>
+            <i style={{ "--bar-w": pct(wfhUsed, cap.wfhPoints) + "%" }} />
           </div>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 16, color: wfhOver ? "var(--danger)" : "var(--text-faint)" }}>{wfhUsed}/{cap.wfhPoints}</span>
+          <span className="wfh-count" data-over={wfhOver}>{wfhUsed}/{cap.wfhPoints}</span>
         </div>
       )}
     </div>
@@ -77,10 +77,10 @@ function AssignPop({ ticket, people, onPick, onClose }) {
   const ref = useRef(null);
   useClickOutside(ref, onClose);
   return (
-    <div className="pop" ref={ref} style={{ right: 0, top: "calc(100% + 6px)" }}>
+    <div className="pop pop-tr" ref={ref}>
       <div className="pop-label">Assign to</div>
       <button className="pop-item" data-active={!ticket.assignee} onClick={() => onPick(null)}>
-        <span className="av avatar" style={{ background: "var(--surface-3)", color: "var(--text-faint)" }}>—</span>
+        <span className="av avatar empty">—</span>
         <span>Unassigned</span>
       </button>
       <div className="pop-sep" />
@@ -104,13 +104,13 @@ function MovePop({ ticket, upcomingName, onMove, onBacklog, onClose }) {
   useClickOutside(ref, onClose);
   const inSprint = upcomingName && ticket.sprints.includes(upcomingName);
   return (
-    <div className="pop" ref={ref} style={{ right: 0, top: "calc(100% + 6px)", minWidth: 200 }}>
+    <div className="pop pop-tr pop-w200" ref={ref}>
       {upcomingName && (
         <button className="pop-item" data-active={inSprint} onClick={() => onMove(upcomingName)}>
           <Icon name="calplus" size={14} /> <span>Add to {upcomingName}</span>
         </button>
       )}
-      <button className="pop-item" onClick={onBacklog} style={{ color: "var(--text-dim)" }}>
+      <button className="pop-item dim" onClick={onBacklog}>
         <Icon name="history" size={14} /> <span>Return to backlog</span>
       </button>
     </div>
@@ -130,10 +130,10 @@ function TicketRow({ ticket, people, jiraBase, upcomingName, openPop, setOpenPop
     <div className={"trow trow-" + variant}>
       <div>
         {href ? (
-          <a className="tkey" href={href} target="_blank" rel="noopener" style={{ color }} onClick={(e) => e.stopPropagation()}>
+          <a className="tkey" href={href} target="_blank" rel="noopener" style={{ "--tkey-color": color }} onClick={(e) => e.stopPropagation()}>
             {ticket.key}<span className="ext"><Icon name="ext" size={11} /></span>
           </a>
-        ) : <span className="tkey" style={{ color }}>{ticket.key}</span>}
+        ) : <span className="tkey" style={{ "--tkey-color": color }}>{ticket.key}</span>}
       </div>
 
       <div className="tsum">
@@ -156,14 +156,14 @@ function TicketRow({ ticket, people, jiraBase, upcomingName, openPop, setOpenPop
         {popA && <AssignPop ticket={ticket} people={people} onClose={() => setOpenPop(null)} onPick={(pid) => { onAssign(ticket, pid); setOpenPop(null); }} />}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div className="trow-actions">
         {assignee && (
           <button className="wfh-toggle" data-on={ticket.wfh} onClick={() => onWfh(ticket)} title="Work from home">
             <Icon name="home" size={12} /> WFH
           </button>
         )}
         <div className="rowmenu">
-          <button className="iconbtn" style={{ width: 30, height: 30 }} onClick={() => setOpenPop(popM ? null : { id: ticket.id, type: "move" })} aria-label="Move ticket">
+          <button className="iconbtn sm30" onClick={() => setOpenPop(popM ? null : { id: ticket.id, type: "move" })} aria-label="Move ticket">
             <Icon name="dots" size={16} />
           </button>
           {popM && <MovePop ticket={ticket} upcomingName={upcomingName} onClose={() => setOpenPop(null)}
@@ -269,12 +269,12 @@ function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, 
             <div className="metric"><span className="k">Holidays</span><span className="v">{undated ? "—" : holidays.length}</span></div>
             <div className="metric"><span className="k">Assigned</span><span className="v">{totalAssigned}</span></div>
             <div className="metric"><span className="k">Velocity</span><span className="v">{totalCap}</span></div>
-            <div style={{ flex: 1 }} />
+            <div className="spacer" />
             <button className="btn" onClick={onOpenImportTickets}><Icon name="download" size={15} /> Import tickets</button>
           </div>
 
           {/* capacity cards */}
-          <div style={{ marginBottom: 20 }}>
+          <div className="mb20">
             <div className="section-label">Team capacity · {projPeople.length} people</div>
             <div className="cap-row">
               {caps.map(({ p, cap }) => (
@@ -286,7 +286,7 @@ function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, 
 
           {/* ticket list — grouped by assignee */}
           <div className="section-label">In this sprint · {inSprint.length} tickets · {inSprint.reduce((a, t) => a + t.points, 0)} pts</div>
-          <div className="tickets" style={{ marginBottom: 20 }}>
+          <div className="tickets mb20">
             {inSprint.length === 0 && <div className="empty-state">{upcomingName ? "Nothing pulled in yet — add tickets from the backlog below." : "Set the upcoming sprint in Settings to start planning."}</div>}
             {byAssignee(inSprint, people).map(({ key, person, tickets: list, points }) => {
               const cap = person ? caps.find((c) => c.p.id === person.id)?.cap : null;
@@ -303,10 +303,10 @@ function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, 
                     </span>
                     {person ? (
                       <React.Fragment>
-                        <Avatar name={person.name} proj={person.project} className="av" style={{ width: 22, height: 22, borderRadius: 7, fontSize: 16 }} />
+                        <Avatar name={person.name} proj={person.project} className="av avatar-xs" />
                         <span className="nm nm-link" onClick={(e) => { e.stopPropagation(); scrollToPerson(person.id); }} title="Scroll to this person's capacity card">{person.name}</span>
                         <span className="ec">{list.length}</span>
-                        <div style={{ flex: 1 }} />
+                        <div className="spacer" />
                         <span className="pts-sum" title={cap ? `${points} of ${cap.adjusted} adjusted capacity` : `${points} points`}>
                           <span className="big">{points}</span>
                           {cap && <span className="of">/ {cap.adjusted}</span>}
@@ -317,10 +317,10 @@ function Planner({ project, tickets, people, velCfg, jiraBase, onAssign, onWfh, 
                       </React.Fragment>
                     ) : (
                       <React.Fragment>
-                        <span className="av avatar" style={{ width: 22, height: 22, borderRadius: 7, fontSize: 16, background: "var(--surface-3)", color: "var(--text-faint)" }}>—</span>
+                        <span className="av avatar empty avatar-xs">—</span>
                         <span className="nm">Unassigned</span>
                         <span className="ec">{list.length}</span>
-                        <div style={{ flex: 1 }} />
+                        <div className="spacer" />
                         <span className="pts-sum"><span className="big">{points}</span><span className="u">pts</span></span>
                       </React.Fragment>
                     )}
