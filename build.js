@@ -17,7 +17,7 @@ const babel = require('@babel/core');
 const root = __dirname;
 // Plain JS prepended as-is (no JSX); then the compiled JSX. Dependency order.
 const PLAIN = ['data.js', 'fsstore.js'];
-const JSX = ['ui.jsx', 'panel.jsx', 'planner.jsx', 'team.jsx', 'views.jsx', 'app.jsx'];
+const JSX = ['ui.jsx', 'panel.jsx', 'planner.jsx', 'team.jsx', 'views.jsx', 'sprints.jsx', 'app.jsx'];
 
 function compile(file) {
   return babel.transformSync(fs.readFileSync(path.join(root, file), 'utf8'), {

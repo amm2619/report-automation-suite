@@ -469,15 +469,15 @@
   async function stored() { try { return await idbGet(KEY); } catch (_) { return null; } }
   async function forget() { try { await idbDel(KEY); } catch (_) {} }
 
-  async function write(handle, obj) {
-    const fh = await handle.getFileHandle(FILE, { create: true });
+  async function write(handle, obj, file = FILE) {
+    const fh = await handle.getFileHandle(file, { create: true });
     const w = await fh.createWritable();
     await w.write(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
     await w.close();
   }
-  async function read(handle) {
+  async function read(handle, file = FILE) {
     try {
-      const fh = await handle.getFileHandle(FILE, { create: false });
+      const fh = await handle.getFileHandle(file, { create: false });
       const txt = await (await fh.getFile()).text();
       return txt ? JSON.parse(txt) : null;
     } catch (_) { return null; }
@@ -521,9 +521,7 @@ function Avatar({
   return React.createElement("span", {
     className: "avatar " + (className || ""),
     style: {
-      background: "var(--surface-3)",
-      color: c,
-      border: "1px solid " + c,
+      "--av-color": c,
       ...style
     }
   }, initials(name));
@@ -716,9 +714,7 @@ function DatePicker({
   }, React.createElement(Icon, {
     name: "chev",
     size: 15,
-    style: {
-      transform: "rotate(90deg)"
-    }
+    className: "rot-90"
   })), React.createElement("div", {
     className: "date-month"
   }, monthLabel), React.createElement("button", {
@@ -728,9 +724,7 @@ function DatePicker({
   }, React.createElement(Icon, {
     name: "chev",
     size: 15,
-    style: {
-      transform: "rotate(-90deg)"
-    }
+    className: "rot-neg90"
   }))), React.createElement("div", {
     className: "date-dow"
   }, ["S", "M", "T", "W", "T", "F", "S"].map((d, i) => React.createElement("span", {
@@ -907,7 +901,10 @@ function parseBoardHtml(html) {
   const idxAss = pick("assignee", h => h.includes("assignee"));
   const idxEpic = pick(CF.epic, h => h.includes("epic"));
   const idxPts = pick(CF.points, h => h.includes("story point"));
-  const idxRes = pick("resolution", h => h.includes("resolution"));
+  const idxRes = (() => {
+    const i = headerClasses.findIndex(c => c.includes("resolution") && !c.includes("resolutiondate"));
+    return i >= 0 ? i : byText(h => h.includes("resolution") && !h.includes("resolved") && !h.includes("date"));
+  })();
   const idxDesc = pick("description", h => h.includes("description"));
   const sprintCols = [];
   headerClasses.forEach((c, i) => {
@@ -1137,11 +1134,7 @@ function MetaPicker({
     size: 12
   }))), open && React.createElement("div", {
     className: "pop meta-pop",
-    style: align === "right" ? {
-      right: 0
-    } : {
-      left: 0
-    }
+    "data-align": align
   }, options.map(o => React.createElement("button", {
     key: o.key,
     className: "pop-item",
@@ -1221,30 +1214,24 @@ function DescPanel({
   }, React.createElement("div", {
     className: "desc-top"
   }, React.createElement("div", {
-    style: {
-      flex: 1,
-      minWidth: 0
-    }
+    className: "desc-top-main"
   }, href ? React.createElement("a", {
     className: "tkey",
     href: href,
     target: "_blank",
     rel: "noopener",
     style: {
-      color
+      "--tkey-color": color
     }
   }, ticket.key, " ", React.createElement("span", {
-    className: "ext",
-    style: {
-      opacity: 1
-    }
+    className: "ext ext-on"
   }, React.createElement(Icon, {
     name: "ext",
     size: 12
   }))) : React.createElement("span", {
     className: "tkey",
     style: {
-      color
+      "--tkey-color": color
     }
   }, ticket.key), React.createElement("h2", {
     className: "desc-title"
@@ -1270,11 +1257,7 @@ function DescPanel({
   }, React.createElement("span", {
     className: "k"
   }, "Epic"), React.createElement("span", {
-    className: "v",
-    style: {
-      fontSize: 16,
-      fontFamily: "var(--font-sans)"
-    }
+    className: "v epic-val"
   }, ticket.epic)), React.createElement(MetaPicker, {
     label: "Assignee",
     value: ticket.assignee,
@@ -1291,11 +1274,7 @@ function DescPanel({
       proj: o.person.project,
       className: "av"
     }), React.createElement("span", null, o.label)) : React.createElement(React.Fragment, null, React.createElement("span", {
-      className: "av avatar",
-      style: {
-        background: "var(--surface-3)",
-        color: "var(--text-faint)"
-      }
+      className: "av avatar empty"
     }, "\u2014"), React.createElement("span", null, o.label)),
     onPick: pid => onAssign(ticket, pid, currentSprint)
   }), React.createElement(MetaPicker, {
@@ -1303,19 +1282,12 @@ function DescPanel({
     value: currentSprint,
     options: sprintOpts,
     renderValue: () => currentSprint ? React.createElement("span", {
-      style: {
-        fontFamily: "var(--font-mono)",
-        fontWeight: 700
-      }
+      className: "mono-700"
     }, currentSprint) : React.createElement("span", {
       className: "muted"
     }, "Backlog"),
     renderOption: o => React.createElement("span", {
-      style: {
-        fontFamily: o.key === "_backlog" ? "var(--font-sans)" : "var(--font-mono)",
-        fontWeight: 700,
-        fontSize: 16
-      }
+      className: "sprint-opt" + (o.key === "_backlog" ? " sans" : "")
     }, o.label),
     onPick: handleSprint,
     align: "right"
@@ -1355,9 +1327,7 @@ function CapCard({
     name: person.name,
     proj: person.project
   }), React.createElement("div", {
-    style: {
-      minWidth: 0
-    }
+    className: "min0"
   }, React.createElement("div", {
     className: "cap-name"
   }, person.name), React.createElement("div", {
@@ -1384,8 +1354,8 @@ function CapCard({
     className: "bar" + (over ? " over" : "")
   }, React.createElement("i", {
     style: {
-      width: pct(assigned, cap.adjusted) + "%",
-      background: color
+      "--bar-w": pct(assigned, cap.adjusted) + "%",
+      "--bar-color": color
     }
   })), React.createElement("div", {
     className: "cap-foot"
@@ -1402,7 +1372,7 @@ function CapCard({
     className: "dt wfh"
   }), wfhUsed, " wfh")), cap.undated ? React.createElement("span", {
     className: "chip",
-    title: "Set the upcoming sprint working days in Settings to project velocity"
+    title: "Add a future sprint in the Sprints tab to project velocity"
   }, React.createElement(Icon, {
     name: "cal",
     size: 12
@@ -1413,10 +1383,7 @@ function CapCard({
     name: "cal",
     size: 12
   }), cap.available, "d"), !cap.undated && hol > 0 && React.createElement("span", {
-    className: "chip",
-    style: {
-      color: "var(--rc)"
-    },
+    className: "chip rc",
     title: "Federal holidays in the upcoming sprint (already subtracted)"
   }, hol, "d hol"), !cap.undated && cap.leave > 0 && React.createElement("span", {
     className: "chip",
@@ -1429,19 +1396,15 @@ function CapCard({
   }, React.createElement("span", {
     className: "lbl"
   }, "WFH"), React.createElement("div", {
-    className: "bar" + (wfhOver ? " over" : ""),
+    className: "bar wfh-bar" + (wfhOver ? " over" : ""),
     title: `${wfhUsed} / ${cap.wfhPoints} pts (${cap.wfh.days} days budget)`
   }, React.createElement("i", {
     style: {
-      width: pct(wfhUsed, cap.wfhPoints) + "%",
-      background: "var(--accent)"
+      "--bar-w": pct(wfhUsed, cap.wfhPoints) + "%"
     }
   })), React.createElement("span", {
-    style: {
-      fontFamily: "var(--font-mono)",
-      fontSize: 16,
-      color: wfhOver ? "var(--danger)" : "var(--text-faint)"
-    }
+    className: "wfh-count",
+    "data-over": wfhOver
   }, wfhUsed, "/", cap.wfhPoints)));
 }
 function AssignPop({
@@ -1453,12 +1416,8 @@ function AssignPop({
   const ref = useRef(null);
   useClickOutside(ref, onClose);
   return React.createElement("div", {
-    className: "pop",
-    ref: ref,
-    style: {
-      right: 0,
-      top: "calc(100% + 6px)"
-    }
+    className: "pop pop-tr",
+    ref: ref
   }, React.createElement("div", {
     className: "pop-label"
   }, "Assign to"), React.createElement("button", {
@@ -1466,11 +1425,7 @@ function AssignPop({
     "data-active": !ticket.assignee,
     onClick: () => onPick(null)
   }, React.createElement("span", {
-    className: "av avatar",
-    style: {
-      background: "var(--surface-3)",
-      color: "var(--text-faint)"
-    }
+    className: "av avatar empty"
   }, "\u2014"), React.createElement("span", null, "Unassigned")), React.createElement("div", {
     className: "pop-sep"
   }), people.map(p => {
@@ -1500,13 +1455,8 @@ function MovePop({
   useClickOutside(ref, onClose);
   const inSprint = upcomingName && ticket.sprints.includes(upcomingName);
   return React.createElement("div", {
-    className: "pop",
-    ref: ref,
-    style: {
-      right: 0,
-      top: "calc(100% + 6px)",
-      minWidth: 200
-    }
+    className: "pop pop-tr pop-w200",
+    ref: ref
   }, upcomingName && React.createElement("button", {
     className: "pop-item",
     "data-active": inSprint,
@@ -1515,11 +1465,8 @@ function MovePop({
     name: "calplus",
     size: 14
   }), " ", React.createElement("span", null, "Add to ", upcomingName)), React.createElement("button", {
-    className: "pop-item",
-    onClick: onBacklog,
-    style: {
-      color: "var(--text-dim)"
-    }
+    className: "pop-item dim",
+    onClick: onBacklog
   }, React.createElement(Icon, {
     name: "history",
     size: 14
@@ -1554,7 +1501,7 @@ function TicketRow({
     target: "_blank",
     rel: "noopener",
     style: {
-      color
+      "--tkey-color": color
     },
     onClick: e => e.stopPropagation()
   }, ticket.key, React.createElement("span", {
@@ -1565,7 +1512,7 @@ function TicketRow({
   }))) : React.createElement("span", {
     className: "tkey",
     style: {
-      color
+      "--tkey-color": color
     }
   }, ticket.key)), React.createElement("div", {
     className: "tsum"
@@ -1610,11 +1557,7 @@ function TicketRow({
       setOpenPop(null);
     }
   })), React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 8
-    }
+    className: "trow-actions"
   }, assignee && React.createElement("button", {
     className: "wfh-toggle",
     "data-on": ticket.wfh,
@@ -1626,11 +1569,7 @@ function TicketRow({
   }), " WFH"), React.createElement("div", {
     className: "rowmenu"
   }, React.createElement("button", {
-    className: "iconbtn",
-    style: {
-      width: 30,
-      height: 30
-    },
+    className: "iconbtn sm30",
     onClick: () => setOpenPop(popM ? null : {
       id: ticket.id,
       type: "move"
@@ -1768,7 +1707,7 @@ function Planner({
     className: "sprint-head"
   }, React.createElement("div", null, React.createElement("h2", null, label), React.createElement("div", {
     className: "sub"
-  }, upDated ? `Planning window · ${fmtRange(up.start, up.end)}` : "Set the upcoming sprint window in Settings")), React.createElement("div", {
+  }, upDated ? `Planning window · ${fmtRange(up.start, up.end)}` : "Add a future sprint in the Sprints tab")), React.createElement("div", {
     className: "div"
   }), React.createElement("div", {
     className: "metric"
@@ -1795,9 +1734,7 @@ function Planner({
   }, "Velocity"), React.createElement("span", {
     className: "v"
   }, totalCap)), React.createElement("div", {
-    style: {
-      flex: 1
-    }
+    className: "spacer"
   }), React.createElement("button", {
     className: "btn",
     onClick: onOpenImportTickets
@@ -1805,9 +1742,7 @@ function Planner({
     name: "download",
     size: 15
   }), " Import tickets")), React.createElement("div", {
-    style: {
-      marginBottom: 20
-    }
+    className: "mb20"
   }, React.createElement("div", {
     className: "section-label"
   }, "Team capacity \xB7 ", projPeople.length, " people"), React.createElement("div", {
@@ -1829,13 +1764,10 @@ function Planner({
   })))), React.createElement("div", {
     className: "section-label"
   }, "In this sprint \xB7 ", inSprint.length, " tickets \xB7 ", inSprint.reduce((a, t) => a + t.points, 0), " pts"), React.createElement("div", {
-    className: "tickets",
-    style: {
-      marginBottom: 20
-    }
+    className: "tickets mb20"
   }, inSprint.length === 0 && React.createElement("div", {
     className: "empty-state"
-  }, upcomingName ? "Nothing pulled in yet — add tickets from the backlog below." : "Set the upcoming sprint in Settings to start planning."), byAssignee(inSprint, people).map(({
+  }, upcomingName ? "Nothing pulled in yet — add tickets from the backlog below." : "Add a future sprint in the Sprints tab to start planning."), byAssignee(inSprint, people).map(({
     key,
     person,
     tickets: list,
@@ -1869,13 +1801,7 @@ function Planner({
     })), person ? React.createElement(React.Fragment, null, React.createElement(Avatar, {
       name: person.name,
       proj: person.project,
-      className: "av",
-      style: {
-        width: 22,
-        height: 22,
-        borderRadius: 7,
-        fontSize: 16
-      }
+      className: "av avatar-xs"
     }), React.createElement("span", {
       className: "nm nm-link",
       onClick: e => {
@@ -1886,9 +1812,7 @@ function Planner({
     }, person.name), React.createElement("span", {
       className: "ec"
     }, list.length), React.createElement("div", {
-      style: {
-        flex: 1
-      }
+      className: "spacer"
     }), React.createElement("span", {
       className: "pts-sum",
       title: cap ? `${points} of ${cap.adjusted} adjusted capacity` : `${points} points`
@@ -1903,23 +1827,13 @@ function Planner({
     }, "+", points - cap.adjusted), atOrOver && !over && React.createElement("span", {
       className: "full-tag mini"
     }, "FULL")) : React.createElement(React.Fragment, null, React.createElement("span", {
-      className: "av avatar",
-      style: {
-        width: 22,
-        height: 22,
-        borderRadius: 7,
-        fontSize: 16,
-        background: "var(--surface-3)",
-        color: "var(--text-faint)"
-      }
+      className: "av avatar empty avatar-xs"
     }, "\u2014"), React.createElement("span", {
       className: "nm"
     }, "Unassigned"), React.createElement("span", {
       className: "ec"
     }, list.length), React.createElement("div", {
-      style: {
-        flex: 1
-      }
+      className: "spacer"
     }), React.createElement("span", {
       className: "pts-sum"
     }, React.createElement("span", {
@@ -1982,10 +1896,7 @@ function PersonCard({
     name: person.name,
     proj: person.project
   }), React.createElement("div", {
-    style: {
-      minWidth: 0,
-      flex: 1
-    }
+    className: "grow-min0"
   }, React.createElement("div", {
     className: "pc-name"
   }, person.name), React.createElement("div", {
@@ -1998,8 +1909,8 @@ function PersonCard({
   }, (v.perSprint.length ? v.perSprint : [0, 0, 0]).map((n, i) => React.createElement("i", {
     key: i,
     style: {
-      height: 8 + n / max * 22 + "px",
-      background: n ? color : "var(--surface-3)"
+      "--sp-h": 8 + n / max * 22 + "px",
+      "--sp-bg": n ? color : "var(--surface-3)"
     }
   }))), React.createElement("div", {
     className: "pc-stats"
@@ -2106,20 +2017,14 @@ function PersonModal({
     },
     placeholder: "Jane Doe"
   })), React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 12
-    }
+    className: "grid-2"
   }, React.createElement("div", {
     className: "field"
   }, React.createElement("label", null, "SID (must match the program calendar)"), React.createElement("input", {
     value: sid,
     onChange: e => setSid(e.target.value),
     placeholder: "leave blank if you don't use one",
-    style: {
-      fontFamily: "var(--font-mono)"
-    }
+    className: "mono"
   })), React.createElement("div", {
     className: "field"
   }, React.createElement("label", null, "Goal points"), React.createElement("input", {
@@ -2143,20 +2048,15 @@ function PersonModal({
     className: "seg"
   }, projects.map(p => React.createElement("button", {
     key: p.id,
+    className: "proj-seg-btn",
     "data-on": proj === p.id,
     onClick: () => setProj(p.id),
-    style: proj === p.id ? {
-      color: PROJ_COLOR[p.id],
-      borderColor: PROJ_COLOR[p.id],
-      background: PROJ_DIM[p.id]
-    } : {}
-  }, p.id)))), err && React.createElement("div", {
-    className: "msg",
     style: {
-      color: "var(--danger)",
-      fontWeight: 600,
-      fontSize: 16
+      "--seg-color": PROJ_COLOR[p.id],
+      "--seg-dim": PROJ_DIM[p.id]
     }
+  }, p.id)))), err && React.createElement("div", {
+    className: "msg"
   }, err)), React.createElement("div", {
     className: "modal-foot"
   }, React.createElement("button", {
@@ -2192,11 +2092,7 @@ function Team({
   }, React.createElement("div", null, React.createElement("h2", null, "Team \xB7 ", currentProject), React.createElement("div", {
     className: "sub"
   }, scopedTotal, " ", scopedTotal === 1 ? "person" : "people", " \xB7", " ", tab === "cards" ? "auto-created from ticket assignees on import" : "per-person velocity from completed historical tickets")), React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 10,
-      alignItems: "center"
-    }
+    className: "row-10"
   }, React.createElement("div", {
     className: "mode-toggle",
     role: "tablist",
@@ -2232,24 +2128,19 @@ function Team({
     }, React.createElement("span", {
       className: "dot",
       style: {
-        background: color
+        "--dot-color": color
       }
     }), React.createElement("h3", null, proj.name, React.createElement("span", {
       className: "k"
     }, proj.id)), React.createElement("span", {
       className: "count"
     }, list.length, " ", list.length === 1 ? "person" : "people"), React.createElement("div", {
-      style: {
-        flex: 1
-      }
+      className: "spacer"
     }), tab === "velocity" ? React.createElement("span", {
       className: "chip",
       title: "Projected team velocity for the upcoming sprint"
     }, "team velocity ", React.createElement("b", {
-      style: {
-        fontFamily: "var(--font-mono)",
-        marginLeft: 4
-      }
+      className: "team-vel-num"
     }, teamVel || "—")) : React.createElement("button", {
       className: "btn sm",
       onClick: () => {
@@ -2262,11 +2153,7 @@ function Team({
       name: "plus",
       size: 12
     }), " Add")), list.length === 0 ? React.createElement("div", {
-      className: "empty-state",
-      style: {
-        padding: 28,
-        fontSize: 16
-      }
+      className: "empty-state pad28"
     }, "No people on ", proj.id, " yet.") : tab === "cards" ? React.createElement("div", {
       className: "team-grid"
     }, [...list].sort((a, b) => a.name.localeCompare(b.name)).map(p => React.createElement(PersonCard, {
@@ -2299,16 +2186,9 @@ function VelocityTable({
   const [expanded, setExpanded] = useState({});
   const detail = historyDetail || {};
   return React.createElement("div", {
-    className: "tickets v-table",
-    style: {
-      overflowX: "auto"
-    }
+    className: "tickets v-table scroll-x"
   }, React.createElement("div", {
-    className: "v-grid",
-    style: {
-      gridTemplateColumns: `1fr 80px 84px 92px 96px`,
-      minWidth: 520
-    }
+    className: "v-grid vt-cols"
   }, React.createElement("div", {
     className: "v-head"
   }, "Person"), React.createElement("div", {
@@ -2348,10 +2228,7 @@ function VelocityTable({
       title: "Show sprint-by-sprint breakdown"
     }, React.createElement("span", {
       className: "collapse-caret",
-      "aria-label": isOpen ? "Collapse" : "Expand",
-      style: {
-        display: "inline-flex"
-      }
+      "aria-label": isOpen ? "Collapse" : "Expand"
     }, React.createElement(Icon, {
       name: "chev",
       size: 13
@@ -2386,10 +2263,7 @@ function VelocityTable({
       onClick: toggle
     }, pv.totalPts ? pv.velocity : "—"), isOpen && React.createElement("div", {
       className: "v-expand",
-      "data-row": ri,
-      style: {
-        gridColumn: "1 / -1"
-      }
+      "data-row": ri
     }, series.length ? React.createElement("div", {
       className: "v-expand-inner"
     }, React.createElement("div", {
@@ -2405,16 +2279,13 @@ function VelocityTable({
       className: "sp-bar"
     }, React.createElement("i", {
       style: {
-        width: pctOf(s.points, series) + "%",
-        background: PROJ_COLOR[p.project]
+        "--bar-w": pctOf(s.points, series) + "%",
+        "--bar-color": PROJ_COLOR[p.project]
       }
     })), React.createElement("span", {
       className: "sp-pts"
     }, s.points))))) : React.createElement("div", {
-      className: "v-expand-inner muted",
-      style: {
-        fontSize: 16
-      }
+      className: "v-expand-inner muted"
     }, "No completed sprints feeding velocity yet \u2014 using ", p.goal ? `goal (${p.goal})` : "no data", ".")));
   })));
 }
@@ -2492,28 +2363,20 @@ function Settings({
   const importedLeaveCount = (leaveOverlay || []).filter(e => e.source === "ical").length;
   const manualLeave = (leaveOverlay || []).filter(e => e.source !== "ical");
   return React.createElement("div", {
-    className: "wrap",
-    style: {
-      maxWidth: 820
-    }
+    className: "wrap narrow"
   }, React.createElement("div", {
     className: "team-head"
   }, React.createElement("div", null, React.createElement("h2", null, "Settings"), React.createElement("div", {
     className: "sub"
   }, "Project-agnostic \xB7 applies across ", VP.PROJECTS.map(p => p.id).join(" / "))), React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8
-    }
+    className: "row-8"
   }, React.createElement("button", {
     className: "btn",
     onClick: pickFile
   }, React.createElement(Icon, {
     name: "download",
     size: 14,
-    style: {
-      transform: "rotate(180deg)"
-    }
+    className: "rot-180"
   }), " Import data"), React.createElement("button", {
     className: "btn primary",
     onClick: onExportData
@@ -2525,34 +2388,17 @@ function Settings({
     type: "file",
     accept: "application/json,.json",
     onChange: onFileChosen,
-    style: {
-      display: "none"
-    }
+    className: "hidden"
   }))), React.createElement("div", {
-    className: "person-card settings-card",
-    style: {
-      marginBottom: 16
-    }
+    className: "person-card settings-card"
   }, React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 12
-    }
+    className: "row-12"
   }, React.createElement("div", {
-    style: {
-      flex: 1
-    }
+    className: "grow"
   }, React.createElement("div", {
-    className: "section-label",
-    style: {
-      margin: 0
-    }
+    className: "section-label m0"
   }, "Tickets \xB7 Jira HTML import"), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Import the backlog and in-sprint tickets from a Jira issue-navigator ", React.createElement("b", null, "Export \xB7 HTML"), ". People are created from the assignees, and any sprint the export references is added to the calendar. Use ", React.createElement("b", null, "Velocity history"), " to seed each person's rolling average from completed tickets.")), React.createElement("button", {
     className: "btn",
     onClick: onOpenImportHistory
@@ -2566,58 +2412,26 @@ function Settings({
     name: "download",
     size: 14
   }), " Import tickets"))), React.createElement("div", {
-    className: "person-card settings-card",
-    style: {
-      marginBottom: 16
-    }
+    className: "person-card settings-card"
   }, React.createElement("div", {
-    className: "section-label",
-    style: {
-      margin: 0
-    }
+    className: "section-label m0"
   }, "Jira base URL"), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Makes ticket keys clickable ", React.createElement("span", {
-    style: {
-      fontFamily: "var(--font-mono)"
-    }
+    className: "mono"
   }, "\u2026/browse/KEY"), " links."), React.createElement("input", {
     value: jiraBase,
     onChange: e => setJiraBase(e.target.value),
     placeholder: "https://jira.example.com",
-    style: {
-      fontFamily: "var(--font-mono)",
-      fontSize: 16,
-      padding: "9px 11px",
-      borderRadius: 9,
-      border: "1px solid var(--border)",
-      background: "var(--surface-2)",
-      color: "var(--text)"
-    }
+    className: "text-input mono"
   })), React.createElement("div", {
-    className: "person-card settings-card",
-    style: {
-      marginBottom: 16
-    }
+    className: "person-card settings-card"
   }, React.createElement("div", {
-    className: "section-label",
-    style: {
-      margin: 0
-    }
+    className: "section-label m0"
   }, "Done resolutions"), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Which resolutions count as completed when computing velocity. Add custom strings to match your Jira instance."), React.createElement("div", {
-    style: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 8
-    }
+    className: "row-wrap-8"
   }, allRes.map(r => {
     const on = doneRes.includes(r);
     const custom = customRes.includes(r);
@@ -2626,14 +2440,8 @@ function Settings({
       className: "res-chip",
       "data-on": on
     }, React.createElement("button", {
-      onClick: () => setDoneRes(on ? doneRes.filter(x => x !== r) : [...doneRes, r]),
-      style: {
-        all: "unset",
-        cursor: "pointer",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5
-      }
+      className: "chip-toggle",
+      onClick: () => setDoneRes(on ? doneRes.filter(x => x !== r) : [...doneRes, r])
     }, on && React.createElement(Icon, {
       name: "check",
       size: 12
@@ -2663,34 +2471,17 @@ function Settings({
     name: "plus",
     size: 13
   }), " Add resolution"))), React.createElement("div", {
-    className: "person-card settings-card",
-    style: {
-      marginBottom: 16
-    }
+    className: "person-card settings-card"
   }, React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 12
-    }
+    className: "row-12"
   }, React.createElement("div", {
-    style: {
-      flex: 1
-    }
+    className: "grow"
   }, React.createElement("div", {
-    className: "section-label",
-    style: {
-      margin: 0
-    }
+    className: "section-label m0"
   }, "Leave calendar \xB7 iCal import"), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Drop a .ics export from your team calendar \u2014 OOO / PTO / leave events get matched to people and subtracted from sprint capacity.", importedLeaveCount > 0 && React.createElement(React.Fragment, null, " \xB7 ", React.createElement("b", {
-    style: {
-      color: "var(--good)"
-    }
+    className: "good"
   }, importedLeaveCount, " day", importedLeaveCount === 1 ? "" : "s", " loaded")))), importedLeaveCount > 0 && React.createElement("button", {
     className: "btn sm",
     onClick: onClearImportedLeave
@@ -2711,96 +2502,45 @@ function Settings({
     velCfgResolved: velCfgResolved,
     onVelCfg: onVelCfg
   }), React.createElement("div", {
-    className: "person-card settings-card",
-    style: {
-      marginTop: 16
-    }
+    className: "person-card settings-card mt16"
   }, React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 12
-    }
+    className: "row-12"
   }, React.createElement("div", {
-    style: {
-      flex: 1
-    }
+    className: "grow"
   }, React.createElement("div", {
-    className: "section-label",
-    style: {
-      margin: 0
-    }
+    className: "section-label m0"
   }, "Data"), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Everything you import or edit is saved automatically in this browser and restored on refresh. Use ", React.createElement("b", null, "Export data"), " (top right) to keep a one-off copy. Clearing wipes the workspace back to empty.")), React.createElement("button", {
-    className: "btn",
-    onClick: () => setConfirmClear(true),
-    style: {
-      borderColor: "var(--danger)",
-      color: "var(--danger)"
-    }
+    className: "btn danger-outline",
+    onClick: () => setConfirmClear(true)
   }, React.createElement(Icon, {
     name: "trash",
     size: 14
   }), " Clear all data")), React.createElement("div", {
-    className: "opt-row",
-    style: {
-      cursor: "default",
-      alignItems: "center"
-    }
+    className: "opt-row static"
   }, React.createElement("span", null, React.createElement("div", {
-    style: {
-      fontWeight: 700,
-      fontSize: 16
-    }
+    className: "opt-title"
   }, "Auto-save to a folder"), !fsSupported ? React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Needs Chrome/Edge served over ", React.createElement("span", {
-    style: {
-      fontFamily: "var(--font-mono)"
-    }
+    className: "mono"
   }, "http://localhost"), " (run ", React.createElement("span", {
-    style: {
-      fontFamily: "var(--font-mono)"
-    }
+    className: "mono"
   }, "npm start"), "). Export/Import still works everywhere.") : folder ? folderReconnect ? React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Linked to ", React.createElement("b", null, folder.name), " \u2014 reconnect to resume writing ", React.createElement("span", {
-    style: {
-      fontFamily: "var(--font-mono)"
-    }
+    className: "mono"
   }, "velocity-data.json"), ".") : React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Auto-saving to ", React.createElement("b", null, folder.name), React.createElement("span", {
-    style: {
-      fontFamily: "var(--font-mono)"
-    }
+    className: "mono"
   }, "/velocity-data.json"), ".") : React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Pick a folder once; the app keeps ", React.createElement("span", {
-    style: {
-      fontFamily: "var(--font-mono)"
-    }
+    className: "mono"
   }, "velocity-data.json"), " there in sync.")), fsSupported && (folder ? React.createElement("span", {
-    style: {
-      display: "flex",
-      gap: 8
-    }
+    className: "row-8"
   }, folderReconnect && React.createElement("button", {
     className: "btn sm primary",
     onClick: onReconnectFolder
@@ -2817,32 +2557,21 @@ function Settings({
     className: "modal-scrim",
     onClick: () => setConfirmClear(false)
   }, React.createElement("div", {
-    className: "modal",
-    style: {
-      width: "min(400px, 100%)"
-    },
+    className: "modal modal-sm",
     onClick: e => e.stopPropagation()
   }, React.createElement("div", {
     className: "modal-head"
   }, React.createElement("h3", null, "Clear all data?")), React.createElement("div", {
     className: "modal-body"
   }, React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "This removes all people, tickets, leave, and resets the sprint calendar and settings. Export first if you want to keep a copy. This can't be undone.")), React.createElement("div", {
     className: "modal-foot"
   }, React.createElement("button", {
     className: "btn",
     onClick: () => setConfirmClear(false)
   }, "Cancel"), React.createElement("button", {
-    className: "btn",
-    style: {
-      background: "color-mix(in oklch, var(--danger) 18%, var(--surface-2))",
-      borderColor: "var(--danger)",
-      color: "var(--text)"
-    },
+    className: "btn danger-fill",
     onClick: () => {
       onClearData();
       setConfirmClear(false);
@@ -2879,42 +2608,19 @@ function ManualLeaveCard({
     })).sort((a, b) => (a.person?.name || a.sid).localeCompare(b.person?.name || b.sid));
   }, [records, people]);
   return React.createElement("div", {
-    className: "person-card settings-card",
-    style: {
-      marginBottom: 16
-    }
+    className: "person-card settings-card"
   }, React.createElement("div", {
-    className: "section-label",
-    style: {
-      margin: 0
-    }
+    className: "section-label m0"
   }, "Manual leave"), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Add ad-hoc leave days for anyone with a SID set in the Team tab. These are kept separate from iCal-imported leave and survive Clear."), React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr auto auto",
-      gap: 10,
-      alignItems: "end"
-    }
+    className: "manual-grid"
   }, React.createElement("div", {
     className: "field"
   }, React.createElement("label", null, "Person"), React.createElement("select", {
-    className: "twk-field",
+    className: "twk-field select-field",
     value: sid,
-    onChange: e => setSid(e.target.value),
-    style: {
-      fontFamily: "inherit",
-      height: 38,
-      padding: "0 10px",
-      borderRadius: 9,
-      border: "1px solid var(--border)",
-      background: "var(--surface-2)",
-      color: "var(--text)"
-    }
+    onChange: e => setSid(e.target.value)
   }, React.createElement("option", {
     value: ""
   }, "\u2014 Pick a person \u2014"), withSid.map(p => React.createElement("option", {
@@ -2927,17 +2633,9 @@ function ManualLeaveCard({
     onChange: setDate,
     placeholder: "Pick a date"
   })), React.createElement("label", {
-    className: "opt-row",
-    style: {
-      cursor: "pointer",
-      padding: "10px 11px",
-      alignSelf: "end"
-    }
+    className: "opt-row half-day"
   }, React.createElement("span", {
-    style: {
-      fontSize: 16,
-      fontWeight: 700
-    }
+    className: "opt-title"
   }, "Half day"), React.createElement("span", {
     className: "switch",
     "data-on": half,
@@ -2950,75 +2648,40 @@ function ManualLeaveCard({
   }, React.createElement("span", {
     className: "knob"
   }))), React.createElement("button", {
-    className: "btn primary",
+    className: "btn primary h38",
     onClick: commit,
-    disabled: !sid || !date,
-    style: {
-      height: 38
-    }
+    disabled: !sid || !date
   }, React.createElement(Icon, {
     name: "plus",
     size: 14
   }), " Add")), withSid.length === 0 && React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Nobody has a SID yet \u2014 open the Team tab, edit a person, and fill in their SID."), grouped.length > 0 && React.createElement("div", {
-    style: {
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-      marginTop: 6
-    }
+    className: "col-10 mt6"
   }, grouped.map(({
     sid: s,
     person,
     records: list
   }) => React.createElement("div", {
     key: s,
-    style: {
-      display: "flex",
-      gap: 10,
-      alignItems: "flex-start"
-    }
+    className: "row-10-top"
   }, React.createElement("div", {
-    style: {
-      minWidth: 140,
-      fontSize: 16
-    }
+    className: "leave-person"
   }, React.createElement("div", {
-    style: {
-      fontWeight: 700
-    }
+    className: "bold"
   }, person ? person.name : s), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontFamily: "var(--font-mono)",
-      fontSize: 16
-    }
+    className: "muted mono"
   }, s)), React.createElement("div", {
-    style: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 6,
-      flex: 1
-    }
+    className: "row-wrap-6 grow"
   }, list.map(r => React.createElement("span", {
     key: r.sid + "|" + r.date,
     className: "res-chip",
     "data-on": "true",
     title: r.frac === 0.5 ? "Half day" : "Full day"
   }, React.createElement("span", {
-    style: {
-      fontFamily: "var(--font-mono)"
-    }
+    className: "mono"
   }, r.date), r.frac === 0.5 && React.createElement("span", {
-    style: {
-      fontSize: 16,
-      fontWeight: 800,
-      opacity: 0.7
-    }
+    className: "half-tag"
   }, "\xB7\xBD"), React.createElement("button", {
     className: "x",
     onClick: () => onRemove(r.sid, r.date),
@@ -3036,105 +2699,19 @@ function SprintSettingsCard({
   onVelCfg
 }) {
   const cfg = velCfg || {};
-  const up = cfg.upcoming || {};
-  const future = cfg.future || [];
-  const resolvedUp = velCfgResolved && velCfgResolved.upcoming || {};
   const usedCount = velCfgResolved ? velCfgResolved.pastSprintCount : sprints.length;
-  const detected = sprints.filter(s => s.name !== resolvedUp.name).length;
-  const numStyle = {
-    fontFamily: "var(--font-mono)",
-    fontWeight: 700,
-    fontSize: 16,
-    padding: "9px 11px",
-    borderRadius: 9,
-    border: "1px solid var(--border)",
-    background: "var(--surface-2)",
-    color: "var(--text)",
-    width: "100%",
-    boxSizing: "border-box"
-  };
-  const roStyle = {
-    ...numStyle,
-    background: "var(--surface)",
-    color: "var(--text-dim)",
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    minHeight: 38,
-    boxSizing: "border-box"
-  };
-  const setUp = patch => {
-    const merged = {
-      ...up,
-      ...patch
-    };
-    merged.end = endDateFromWorkDays(merged.start, merged.workingDays);
-    onVelCfg({
-      upcoming: merged
-    });
-  };
-  const holidays = up.start && up.end ? VP.holidaysInRange(up.start, up.end) : [];
-  const setFuture = next => onVelCfg({
-    future: next
-  });
-  const updateFuture = (i, patch) => setFuture(future.map((f, j) => {
-    if (j !== i) return f;
-    const merged = {
-      ...f,
-      ...patch
-    };
-    merged.end = endDateFromWorkDays(merged.start, merged.workingDays);
-    return merged;
-  }));
-  const removeFuture = i => setFuture(future.filter((_, j) => j !== i));
-  const addFuture = () => {
-    const plannedNames = [...sprints.map(s => s.name), resolvedUp.name, ...future.map(f => f.name).filter(Boolean)];
-    const prevEnd = future.length ? future[future.length - 1].end : up.end;
-    const wd = up.workingDays || 10;
-    const start = prevEnd ? VP.shiftWorkingDays(prevEnd, 1) : "";
-    const end = endDateFromWorkDays(start, wd);
-    setFuture([...future, {
-      name: VP.nextSprintName(plannedNames) || "",
-      workingDays: wd,
-      start,
-      end
-    }]);
-  };
-  const datedPast = useMemo(() => {
-    const names = sprints.map(s => s.name).filter(n => n && n !== resolvedUp.name);
-    if (!names.length) return [];
-    const dated = VP.buildSprintCalendar(names, {
-      current: resolvedUp.name,
-      currentStart: up.start,
-      workingDays: up.workingDays || 10
-    });
-    return dated.filter(s => s.name !== resolvedUp.name);
-  }, [sprints, resolvedUp.name, up.start, up.workingDays]);
+  const upName = velCfgResolved && velCfgResolved.upcoming && velCfgResolved.upcoming.name || "";
+  const pastCount = sprints.filter(s => s.name !== upName).length;
   return React.createElement("div", {
     className: "person-card settings-card"
   }, React.createElement("div", {
-    className: "section-label",
-    style: {
-      margin: 0
-    }
-  }, "Sprint & velocity"), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
-  }, "One cadence for the whole team \u2014 these settings are shared across every product; the product tabs just filter the view. Velocity per person = ", React.createElement("b", null, "(avg points per past sprint \xF7 past-sprint length)"), " \xD7 ", React.createElement("b", null, "(upcoming working days \u2212 federal holidays \u2212 that person's leave)"), ". Holidays and each person's leave are pulled automatically."), React.createElement("div", {
-    className: "section-label",
-    style: {
-      marginTop: 14,
-      marginBottom: 6,
-      fontSize: 16
-    }
+    className: "section-label m0"
+  }, "Velocity basis"), React.createElement("div", {
+    className: "muted"
+  }, "Velocity per person = ", React.createElement("b", null, "(avg points per past sprint \xF7 past-sprint length)"), " \xD7 ", React.createElement("b", null, "(upcoming working days \u2212 federal holidays \u2212 that person's leave)"), ". Holidays and leave are pulled automatically. The sprint calendar itself \u2014 which sprints are past or future, and their dates \u2014 is now defined in the ", React.createElement("b", null, "Sprints"), " tab."), React.createElement("div", {
+    className: "section-label sub-label"
   }, "Past sprints (history basis)"), React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 10
-    }
+    className: "grid-2"
   }, React.createElement("div", {
     className: "field"
   }, React.createElement("label", null, "Past sprint length (working days)"), React.createElement("input", {
@@ -3145,13 +2722,9 @@ function SprintSettingsCard({
     onChange: e => onVelCfg({
       pastSprintDays: Math.max(1, Math.min(40, Math.round(Number(e.target.value) || 10)))
     }),
-    style: numStyle
+    className: "num-field"
   }), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16,
-      marginTop: 4
-    }
+    className: "muted mt4"
   }, "Divides the average to get points/day. Past sprints were 2-week = 10.")), React.createElement("div", {
     className: "field"
   }, React.createElement("label", null, "Sprints to average over"), React.createElement("input", {
@@ -3162,204 +2735,10 @@ function SprintSettingsCard({
     onChange: e => onVelCfg({
       pastSprintCount: Math.max(0, Math.round(Number(e.target.value) || 0))
     }),
-    style: numStyle
+    className: "num-field"
   }), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16,
-      marginTop: 4
-    }
-  }, "0 = auto. Using ", React.createElement("b", null, usedCount || "—"), " (", detected, " detected from your tickets). Empty sprints count as 0."))), React.createElement("div", {
-    className: "section-label",
-    style: {
-      marginTop: 16,
-      marginBottom: 6,
-      fontSize: 16
-    }
-  }, "Upcoming sprint (the one you're planning)"), React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 110px 1fr 1fr",
-      gap: 10
-    }
-  }, React.createElement("div", {
-    className: "field"
-  }, React.createElement("label", null, "Sprint #"), React.createElement("input", {
-    value: up.name || "",
-    placeholder: resolvedUp.name || "26.4.1",
-    onChange: e => setUp({
-      name: e.target.value
-    }),
-    style: numStyle
-  })), React.createElement("div", {
-    className: "field"
-  }, React.createElement("label", null, "Working days"), React.createElement("input", {
-    type: "number",
-    min: 0,
-    max: 40,
-    value: up.workingDays || 0,
-    onChange: e => setUp({
-      workingDays: Math.max(0, Math.min(40, Math.round(Number(e.target.value) || 0)))
-    }),
-    style: numStyle
-  })), React.createElement("div", {
-    className: "field"
-  }, React.createElement("label", null, "Start date"), React.createElement(DatePicker, {
-    value: up.start || "",
-    onChange: v => setUp({
-      start: v
-    }),
-    placeholder: "Pick start"
-  })), React.createElement("div", {
-    className: "field"
-  }, React.createElement("label", null, "End date ", React.createElement("span", {
-    className: "muted",
-    style: {
-      fontWeight: 400
-    }
-  }, "\xB7 calculated")), React.createElement("div", {
-    style: roStyle,
-    title: "Calculated from the start date and working days"
-  }, React.createElement(Icon, {
-    name: "cal",
-    size: 13
-  }), React.createElement("span", {
-    style: {
-      fontFamily: "var(--font-mono)"
-    }
-  }, up.end ? fmtDate(up.end) : "—")))), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
-  }, "Planning ", React.createElement("b", null, resolvedUp.name || "—"), !up.name && resolvedUp.name ? " (auto, next after your latest sprint)" : "", ".", " ", up.start && up.end ? holidays.length ? React.createElement("span", null, holidays.length, " federal holiday", holidays.length > 1 ? "s" : "", " in range (", holidays.map(fmtDate).join(", "), ") \u2014 subtracted for everyone. Leave is subtracted per person.") : React.createElement("span", null, "No federal holidays in range. Leave is subtracted per person from the leave calendar.") : React.createElement("span", null, "Pick the start date and working days \u2014 the end date is calculated for you.")), React.createElement("div", {
-    className: "section-label",
-    style: {
-      marginTop: 18,
-      marginBottom: 6,
-      fontSize: 16,
-      display: "flex",
-      alignItems: "center",
-      gap: 8
-    }
-  }, React.createElement("span", null, "Future sprints (planning ahead)"), React.createElement("button", {
-    className: "btn sm",
-    onClick: addFuture
-  }, React.createElement(Icon, {
-    name: "plus",
-    size: 12
-  }), " Add sprint")), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16,
-      marginBottom: future.length ? 8 : 0
-    }
-  }, "Queue sprints you're planning beyond the upcoming one. Each end date is calculated from its start and working days. Points you assign into these sprints are ", React.createElement("b", null, "not"), " counted toward velocity."), future.map((f, i) => React.createElement("div", {
-    key: i,
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 110px 1fr 1fr auto",
-      gap: 10,
-      alignItems: "end",
-      marginBottom: 8
-    }
-  }, React.createElement("div", {
-    className: "field"
-  }, i === 0 && React.createElement("label", null, "Sprint #"), React.createElement("input", {
-    value: f.name || "",
-    placeholder: "26.4.2",
-    onChange: e => updateFuture(i, {
-      name: e.target.value
-    }),
-    style: numStyle
-  })), React.createElement("div", {
-    className: "field"
-  }, i === 0 && React.createElement("label", null, "Working days"), React.createElement("input", {
-    type: "number",
-    min: 0,
-    max: 40,
-    value: f.workingDays || 0,
-    onChange: e => updateFuture(i, {
-      workingDays: Math.max(0, Math.min(40, Math.round(Number(e.target.value) || 0)))
-    }),
-    style: numStyle
-  })), React.createElement("div", {
-    className: "field"
-  }, i === 0 && React.createElement("label", null, "Start date"), React.createElement(DatePicker, {
-    value: f.start || "",
-    onChange: v => updateFuture(i, {
-      start: v
-    }),
-    placeholder: "Pick start"
-  })), React.createElement("div", {
-    className: "field"
-  }, i === 0 && React.createElement("label", null, "End date \xB7 calculated"), React.createElement("div", {
-    style: roStyle,
-    title: "Calculated from the start date and working days"
-  }, React.createElement(Icon, {
-    name: "cal",
-    size: 13
-  }), React.createElement("span", {
-    style: {
-      fontFamily: "var(--font-mono)"
-    }
-  }, f.end ? fmtDate(f.end) : "—"))), React.createElement("button", {
-    className: "iconbtn",
-    onClick: () => removeFuture(i),
-    "aria-label": "Remove sprint",
-    title: "Remove",
-    style: {
-      height: 38
-    }
-  }, React.createElement(Icon, {
-    name: "trash",
-    size: 14
-  })))), React.createElement("div", {
-    className: "section-label",
-    style: {
-      marginTop: 18,
-      marginBottom: 6,
-      fontSize: 16
-    }
-  }, "All historical sprints (", datedPast.length, ")"), datedPast.length === 0 ? React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
-  }, "No historical sprints yet \u2014 import tickets to populate the calendar.") : React.createElement(React.Fragment, null, !up.start && React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16,
-      marginBottom: 6
-    }
-  }, "Set the upcoming sprint's start date to back-calculate each historical date range."), React.createElement("div", {
-    style: {
-      display: "flex",
-      flexDirection: "column",
-      gap: 4
-    }
-  }, datedPast.map(s => React.createElement("div", {
-    key: s.id,
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 12,
-      fontSize: 16,
-      padding: "4px 0",
-      borderBottom: "1px solid var(--border)"
-    }
-  }, React.createElement("span", {
-    style: {
-      fontFamily: "var(--font-mono)",
-      fontWeight: 700,
-      minWidth: 80
-    }
-  }, s.name), React.createElement("span", {
-    className: "muted",
-    style: {
-      fontFamily: "var(--font-mono)"
-    }
-  }, s.start && s.end ? fmtRange(s.start, s.end) : "—"))))));
+    className: "muted mt4"
+  }, "0 = auto. Using ", React.createElement("b", null, usedCount || "—"), " (", pastCount, " past sprint", pastCount === 1 ? "" : "s", " defined). Empty sprints count as 0."))));
 }
 function ImportHistoryModal({
   people,
@@ -3406,10 +2785,7 @@ function ImportHistoryModal({
     className: "modal-scrim",
     onClick: onClose
   }, React.createElement("div", {
-    className: "modal",
-    style: {
-      width: "min(640px, 100%)"
-    },
+    className: "modal modal-md",
     onClick: e => e.stopPropagation()
   }, React.createElement("div", {
     className: "modal-head"
@@ -3422,11 +2798,7 @@ function ImportHistoryModal({
   }))), React.createElement("div", {
     className: "modal-body"
   }, React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16,
-      marginTop: -4
-    }
+    className: "muted mt-neg4"
   }, "In Jira, run an issue-navigator query for completed tickets across the sprints you want to seed, then choose ", React.createElement("b", null, "Export \xB7 HTML"), ". Drop the file here (or paste its contents) \u2014 we'll bucket points per assignee per sprint and store them as starting velocity."), React.createElement("div", {
     className: "drop-zone",
     onClick: chooseFile,
@@ -3436,38 +2808,21 @@ function ImportHistoryModal({
     name: "download",
     size: 18
   }), React.createElement("div", null, React.createElement("div", {
-    style: {
-      fontWeight: 700
-    }
+    className: "bold"
   }, fileName ? fileName : "Choose an HTML export…"), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "or paste the HTML below")), React.createElement("input", {
     ref: fileRef,
     type: "file",
     accept: ".html,.htm,text/html",
     onChange: onFile,
-    style: {
-      display: "none"
-    }
+    className: "hidden"
   })), React.createElement("textarea", {
     value: html,
     onChange: e => setHtml(e.target.value),
     placeholder: "<html>\u2026paste Jira export here\u2026</html>",
     spellCheck: false,
-    style: {
-      fontFamily: "var(--font-mono)",
-      fontSize: 16,
-      padding: 11,
-      borderRadius: 9,
-      minHeight: 140,
-      border: "1px solid var(--border)",
-      background: "var(--surface-2)",
-      color: "var(--text)",
-      resize: "vertical"
-    }
+    className: "paste-area"
   }), preview && React.createElement("div", {
     className: "preview-strip",
     "data-empty": !preview.ticketCount
@@ -3490,20 +2845,11 @@ function ImportHistoryModal({
   }, "Sprints"), React.createElement("span", {
     className: "v"
   }, preview.sprints.length)), React.createElement("div", {
-    style: {
-      flex: 1
-    }
+    className: "spacer"
   }), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16,
-      fontFamily: "var(--font-mono)"
-    }
+    className: "muted mono"
   }, preview.sprints.slice(0, 6).join(" · "))) : React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "No matching rows yet \u2014 make sure the export contains assignee, points, and a sprint label."))), React.createElement("div", {
     className: "modal-foot"
   }, React.createElement("button", {
@@ -3558,10 +2904,7 @@ function ImportIcalModal({
     className: "modal-scrim",
     onClick: onClose
   }, React.createElement("div", {
-    className: "modal",
-    style: {
-      width: "min(640px, 100%)"
-    },
+    className: "modal modal-md",
     onClick: e => e.stopPropagation()
   }, React.createElement("div", {
     className: "modal-head"
@@ -3574,11 +2917,7 @@ function ImportIcalModal({
   }))), React.createElement("div", {
     className: "modal-body"
   }, React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16,
-      marginTop: -4
-    }
+    className: "muted mt-neg4"
   }, "Export your team's leave calendar as iCalendar (.ics) \u2014 typically from Google Calendar (", React.createElement("i", null, "Settings \u2192 Export"), ") or your HRIS. We match events to people by attendee or summary text, then subtract those days from sprint capacity."), React.createElement("div", {
     className: "drop-zone",
     onClick: chooseFile,
@@ -3588,38 +2927,21 @@ function ImportIcalModal({
     name: "cal",
     size: 18
   }), React.createElement("div", null, React.createElement("div", {
-    style: {
-      fontWeight: 700
-    }
+    className: "bold"
   }, fileName ? fileName : "Choose a .ics file…"), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "or paste the calendar contents below")), React.createElement("input", {
     ref: fileRef,
     type: "file",
     accept: ".ics,text/calendar",
     onChange: onFile,
-    style: {
-      display: "none"
-    }
+    className: "hidden"
   })), React.createElement("textarea", {
     value: text,
     onChange: e => setText(e.target.value),
     placeholder: "BEGIN:VCALENDAR\u2026END:VCALENDAR",
     spellCheck: false,
-    style: {
-      fontFamily: "var(--font-mono)",
-      fontSize: 16,
-      padding: 11,
-      borderRadius: 9,
-      minHeight: 140,
-      border: "1px solid var(--border)",
-      background: "var(--surface-2)",
-      color: "var(--text)",
-      resize: "vertical"
-    }
+    className: "paste-area"
   }), preview && React.createElement("div", {
     className: "preview-strip",
     "data-empty": !preview.eventCount
@@ -3636,19 +2958,11 @@ function ImportIcalModal({
   }, "People matched"), React.createElement("span", {
     className: "v"
   }, preview.peopleHit)), React.createElement("div", {
-    style: {
-      flex: 1
-    }
+    className: "spacer"
   }), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Weekends are skipped automatically.")) : React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "No matching events \u2014 names in attendees or event titles need to match a team member."))), React.createElement("div", {
     className: "modal-foot"
   }, React.createElement("button", {
@@ -3721,10 +3035,7 @@ function ImportTicketsModal({
     className: "modal-scrim",
     onClick: onClose
   }, React.createElement("div", {
-    className: "modal",
-    style: {
-      width: "min(640px, 100%)"
-    },
+    className: "modal modal-md",
     onClick: e => e.stopPropagation()
   }, React.createElement("div", {
     className: "modal-head"
@@ -3737,11 +3048,7 @@ function ImportTicketsModal({
   }))), React.createElement("div", {
     className: "modal-body"
   }, React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16,
-      marginTop: -4
-    }
+    className: "muted mt-neg4"
   }, "In Jira, run an issue-navigator query for the tickets you want on the board, then choose ", React.createElement("b", null, "Export \xB7 HTML"), ". Drop the file here (or paste it) \u2014 we read Key, Summary, Assignee, Sprint, Epic, Story Points, and Description. Tickets with a sprint land in that sprint; the rest go to the backlog. ", React.createElement("b", null, "People are created from the assignees.")), React.createElement("div", {
     className: "drop-zone",
     onClick: chooseFile,
@@ -3751,38 +3058,21 @@ function ImportTicketsModal({
     name: "download",
     size: 18
   }), React.createElement("div", null, React.createElement("div", {
-    style: {
-      fontWeight: 700
-    }
+    className: "bold"
   }, fileName ? fileName : "Choose an HTML export…"), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "or paste the HTML below")), React.createElement("input", {
     ref: fileRef,
     type: "file",
     accept: ".html,.htm,text/html",
     onChange: onFile,
-    style: {
-      display: "none"
-    }
+    className: "hidden"
   })), React.createElement("textarea", {
     value: html,
     onChange: e => setHtml(e.target.value),
     placeholder: "<html>\u2026paste Jira export here\u2026</html>",
     spellCheck: false,
-    style: {
-      fontFamily: "var(--font-mono)",
-      fontSize: 16,
-      padding: 11,
-      borderRadius: 9,
-      minHeight: 140,
-      border: "1px solid var(--border)",
-      background: "var(--surface-2)",
-      color: "var(--text)",
-      resize: "vertical"
-    }
+    className: "paste-area"
   }), preview && React.createElement("div", {
     className: "preview-strip",
     "data-empty": !preview.rowCount
@@ -3817,20 +3107,11 @@ function ImportTicketsModal({
   }, "New sprints"), React.createElement("span", {
     className: "v"
   }, known.newSprints)), React.createElement("div", {
-    style: {
-      flex: 1
-    }
+    className: "spacer"
   }), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16,
-      fontFamily: "var(--font-mono)"
-    }
+    className: "muted mono"
   }, ["DX", "LX", "RC"].filter(p => preview.projects[p]).map(p => `${p} ${preview.projects[p]}`).join(" · "))) : React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "No tickets found \u2014 the export needs a table with a Key column (DX-\u2026, LX-\u2026, RCR-\u2026)."))), React.createElement("div", {
     className: "modal-foot"
   }, React.createElement("button", {
@@ -3953,29 +3234,6 @@ function DebugView({
   const arrow = key => sort.key === key ? sort.dir === 1 ? " ▲" : " ▼" : "";
   const ql = q.trim().toLowerCase();
   const match = g => !ql || (g.person?.name || "unassigned").toLowerCase().includes(ql) || (g.person?.sid || "").toLowerCase().includes(ql);
-  const cell = {
-    padding: "4px 8px",
-    borderBottom: "1px solid var(--border)",
-    fontSize: 16,
-    whiteSpace: "nowrap"
-  };
-  const head = {
-    ...cell,
-    color: "var(--text-faint)",
-    fontWeight: 800,
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-    fontSize: 16,
-    position: "sticky",
-    top: 0,
-    background: "var(--surface-2)"
-  };
-  const sortHead = key => ({
-    ...head,
-    cursor: "pointer",
-    color: sort.key === key ? "var(--text)" : "var(--text-faint)",
-    userSelect: "none"
-  });
   return React.createElement("div", {
     className: "wrap"
   }, React.createElement("div", {
@@ -3986,70 +3244,35 @@ function DebugView({
     value: q,
     onChange: e => setQ(e.target.value),
     placeholder: "filter by name / sid\u2026",
-    style: {
-      fontSize: 16,
-      padding: "8px 11px",
-      borderRadius: 9,
-      border: "1px solid var(--border)",
-      background: "var(--surface-2)",
-      color: "var(--text)",
-      minWidth: 200
-    }
+    className: "text-input min200"
   })), React.createElement("div", {
-    className: "person-card settings-card",
-    style: {
-      marginBottom: 16
-    }
+    className: "person-card settings-card"
   }, React.createElement("div", {
-    className: "section-label",
-    style: {
-      margin: 0
-    }
+    className: "section-label m0"
   }, "Sprints in the calendar (", sprints.length, ") \xB7 current = index ", currentIdx), React.createElement("div", {
-    style: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 6
-    }
+    className: "row-wrap-6"
   }, sprints.map((s, i) => {
     const planned = plannedSet.has(String(s.name));
     const rel = planned ? "planning" : i === currentIdx ? "current" : i < currentIdx ? "past" : "future";
     const color = planned ? "var(--rc)" : rel === "current" ? "var(--good)" : rel === "past" ? "var(--text-faint)" : "var(--accent)";
     return React.createElement("span", {
       key: s.id,
-      className: "res-chip",
+      className: "res-chip tinted",
       title: `index ${i} · ${rel}${VP.isUndated(s) ? " · undated" : ""}`,
       style: {
-        borderColor: color,
-        color
+        "--chip-color": color
       }
     }, React.createElement("span", {
-      style: {
-        fontFamily: "var(--font-mono)"
-      }
+      className: "mono"
     }, i, ": ", s.name || "(unnamed)"));
   })), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Velocity counts a person's completed (Done, points>0) work in every past sprint \u2014 sprints still being planned (in ", React.createElement("b", {
-    style: {
-      color: "var(--rc)"
-    }
+    className: "rc-text"
   }, "red"), ") and tickets marked excluded never count.")), React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-      marginBottom: 12
-    }
+    className: "row-8 mb12"
   }, React.createElement("span", {
-    className: "muted",
-    style: {
-      fontSize: 16,
-      fontWeight: 700
-    }
+    className: "muted bold"
   }, "Order people by"), React.createElement("div", {
     className: "mode-toggle",
     role: "tablist",
@@ -4061,10 +3284,7 @@ function DebugView({
     "data-active": groupSort === "velocity",
     onClick: () => setGroupSort("velocity")
   }, "Velocity")), React.createElement("span", {
-    className: "muted",
-    style: {
-      fontSize: 16
-    }
+    className: "muted"
   }, "Click a column header below to sort rows by ticket, pts, or sprints.")), ordered.filter(match).map(g => {
     const series = g.id !== "_none" ? derived[g.id] || [] : [];
     const sum = series.reduce((a, b) => a + b, 0);
@@ -4073,103 +3293,58 @@ function DebugView({
     const totalPts = g.tickets.reduce((a, t) => a + (Number(t.points) || 0), 0);
     const sorted = [...g.tickets].sort(compareRows);
     return React.createElement("div", {
-      className: "person-card",
-      key: g.id,
-      style: {
-        marginBottom: 14
-      }
+      className: "person-card mb14",
+      key: g.id
     }, React.createElement("div", {
-      className: "pc-head",
-      style: {
-        justifyContent: "space-between"
-      }
+      className: "pc-head spread"
     }, React.createElement("div", null, React.createElement("div", {
       className: "pc-name"
     }, g.person ? g.person.name : "Unassigned"), React.createElement("div", {
       className: "pc-sid"
     }, g.person ? `${g.person.project} · ${g.person.type} · sid: ${g.person.sid || "—"} · goal ${g.person.goal || 0}` : "no person")), React.createElement("div", {
-      style: {
-        textAlign: "right",
-        fontFamily: "var(--font-mono)",
-        fontSize: 16
-      }
-    }, React.createElement("div", null, React.createElement("b", {
-      style: {
-        fontSize: 16
-      }
-    }, g.id !== "_none" ? usesGoal ? g.person?.goal || 0 : Math.round(avg) : "—"), " velocity ", g.id !== "_none" && usesGoal ? "(goal)" : ""), React.createElement("div", {
+      className: "dbg-vel-sum"
+    }, React.createElement("div", null, React.createElement("b", null, g.id !== "_none" ? usesGoal ? g.person?.goal || 0 : Math.round(avg) : "—"), " velocity ", g.id !== "_none" && usesGoal ? "(goal)" : ""), React.createElement("div", {
       className: "muted"
     }, "series [", series.join(", "), "] \xB7 ", g.tickets.length, " tickets \xB7 ", totalPts, " pts total"))), React.createElement("div", {
-      style: {
-        overflowX: "auto",
-        marginTop: 8
-      }
+      className: "scroll-x mt8"
     }, React.createElement("table", {
-      style: {
-        borderCollapse: "collapse",
-        width: "100%"
-      }
+      className: "dbg-table"
     }, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", {
-      style: sortHead("ticket"),
+      className: "sortable",
+      "data-active": sort.key === "ticket",
       onClick: () => toggleSort("ticket")
     }, "Key", arrow("ticket")), React.createElement("th", {
-      style: sortHead("pts"),
+      className: "sortable",
+      "data-active": sort.key === "pts",
       onClick: () => toggleSort("pts")
     }, "Pts", arrow("pts")), React.createElement("th", {
-      style: sortHead("sprints"),
+      className: "sortable",
+      "data-active": sort.key === "sprints",
       onClick: () => toggleSort("sprints")
-    }, "Sprint(s)", arrow("sprints")), React.createElement("th", {
-      style: head
-    }, "Resolution"), React.createElement("th", {
-      style: head
-    }, "Feeds velocity?"), React.createElement("th", {
-      style: {
-        ...head,
-        textAlign: "center"
-      }
+    }, "Sprint(s)", arrow("sprints")), React.createElement("th", null, "Resolution"), React.createElement("th", null, "Feeds velocity?"), React.createElement("th", {
+      className: "ta-c"
     }, "Velocity"), React.createElement("th", {
-      style: {
-        ...head,
-        whiteSpace: "normal"
-      }
+      className: "wrap-normal"
     }, "Summary"))), React.createElement("tbody", null, sorted.map(t => {
       const c = contribution(t);
       const ov = VP.velocityOverride(t);
       return React.createElement("tr", {
         key: t.id,
-        style: ov === "exclude" ? {
-          opacity: 0.55
-        } : null
+        "data-excluded": ov === "exclude"
       }, React.createElement("td", {
+        className: "key",
         style: {
-          ...cell,
-          fontFamily: "var(--font-mono)",
-          color: PROJ_COLOR[VP.projectForKey(t.key)] || "var(--text)"
+          "--key-color": PROJ_COLOR[VP.projectForKey(t.key)] || "var(--text)"
         }
       }, t.key), React.createElement("td", {
-        style: {
-          ...cell,
-          fontFamily: "var(--font-mono)",
-          textAlign: "right",
-          fontWeight: 700
-        }
+        className: "mono ta-r"
       }, t.points), React.createElement("td", {
-        style: {
-          ...cell,
-          fontFamily: "var(--font-mono)"
-        }
-      }, (t.sprints || []).join(", ") || "—"), React.createElement("td", {
-        style: cell
-      }, t.resolution || "—"), React.createElement("td", {
-        style: {
-          ...cell,
-          color: c.ok ? "var(--good)" : "var(--text-faint)"
-        }
+        className: "mono"
+      }, (t.sprints || []).join(", ") || "—"), React.createElement("td", null, t.resolution || "—"), React.createElement("td", {
+        className: "feeds",
+        "data-ok": c.ok
       }, c.ok ? `✓ ${c.why}` : `✗ ${c.why}`), React.createElement("td", {
-        style: {
-          ...cell,
-          textAlign: "center"
-        }
+        className: "ta-c"
       }, React.createElement("div", {
         className: "seg vel-seg",
         onClick: e => e.stopPropagation()
@@ -4186,20 +3361,11 @@ function DebugView({
         onClick: () => onVelocityOverride(t.id, "exclude"),
         title: "Never count this ticket toward velocity"
       }, "Excl"))), React.createElement("td", {
-        style: {
-          ...cell,
-          whiteSpace: "normal",
-          color: "var(--text-dim)",
-          maxWidth: 360
-        }
+        className: "summary"
       }, t.summary));
     })))));
   }), ordered.filter(match).length === 0 && React.createElement("div", {
-    className: "empty-state",
-    style: {
-      padding: 28,
-      fontSize: 16
-    }
+    className: "empty-state pad28"
   }, "No ", project, " tickets to show."));
 }
 Object.assign(window, {
@@ -4210,10 +3376,162 @@ Object.assign(window, {
   DebugView
 });
 
+/* ===== sprints.jsx ===== */
+
+function Sprints({
+  sprints,
+  projects,
+  onAdd,
+  onUpdate,
+  onRemove,
+  onDetect,
+  onExport,
+  onImport
+}) {
+  const fileRef = useRef(null);
+  const sorted = useMemo(() => [...sprints].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num)), [sprints]);
+  const pastCount = sorted.filter(s => s.status !== "future").length;
+  const futureCount = sorted.length - pastCount;
+  function pickFile() {
+    fileRef.current?.click();
+  }
+  function onFile(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => onImport(String(reader.result || ""));
+    reader.readAsText(f);
+    e.target.value = "";
+  }
+  return React.createElement("div", {
+    className: "wrap"
+  }, React.createElement("div", {
+    className: "team-head"
+  }, React.createElement("div", null, React.createElement("h2", null, "Sprints"), React.createElement("div", {
+    className: "sub"
+  }, "The shared sprint calendar \u2014 one number per sprint across ", projects.map(p => p.id).join(" / "), ", kept in its own save file. ", sorted.length, " sprint", sorted.length === 1 ? "" : "s", " \xB7 ", pastCount, " past \xB7 ", futureCount, " future.")), React.createElement("div", {
+    className: "row-8"
+  }, React.createElement("button", {
+    className: "btn",
+    onClick: pickFile
+  }, React.createElement(Icon, {
+    name: "download",
+    size: 14,
+    className: "rot-180"
+  }), " Import"), React.createElement("button", {
+    className: "btn",
+    onClick: onExport
+  }, React.createElement(Icon, {
+    name: "download",
+    size: 14
+  }), " Export"), React.createElement("button", {
+    className: "btn",
+    onClick: onDetect
+  }, React.createElement(Icon, {
+    name: "history",
+    size: 14
+  }), " Detect from tickets"), React.createElement("button", {
+    className: "btn primary",
+    onClick: onAdd
+  }, React.createElement(Icon, {
+    name: "plus",
+    size: 14
+  }), " Add sprint"), React.createElement("input", {
+    ref: fileRef,
+    type: "file",
+    accept: "application/json,.json",
+    onChange: onFile,
+    className: "hidden"
+  }))), React.createElement("div", {
+    className: "person-card settings-card"
+  }, React.createElement("div", {
+    className: "muted"
+  }, "Each sprint has a number (e.g. ", React.createElement("span", {
+    className: "mono"
+  }, "26.3.6"), "), a ", React.createElement("b", null, "Past / Future"), " status, working days, and a start date \u2014 the end date is calculated. ", React.createElement("b", null, "Future"), " sprints are the ones you're planning; their points don't count toward velocity, and the earliest future sprint is what the Planner schedules."), sorted.length === 0 ? React.createElement("div", {
+    className: "empty-state pad28"
+  }, "No sprints yet \u2014 add one, or \u201CDetect from tickets\u201D.") : React.createElement("div", {
+    className: "scroll-x"
+  }, React.createElement("div", {
+    className: "sprint-grid"
+  }, React.createElement("div", {
+    className: "sprint-head"
+  }, "Sprint #"), React.createElement("div", {
+    className: "sprint-head"
+  }, "Projects"), React.createElement("div", {
+    className: "sprint-head"
+  }, "Status"), React.createElement("div", {
+    className: "sprint-head"
+  }, "Working days"), React.createElement("div", {
+    className: "sprint-head"
+  }, "Start date"), React.createElement("div", {
+    className: "sprint-head"
+  }, "End \xB7 calc"), React.createElement("div", {
+    className: "sprint-head"
+  }), sorted.map(s => React.createElement(React.Fragment, {
+    key: s.id
+  }, React.createElement("input", {
+    className: "num-field",
+    value: s.num || "",
+    placeholder: "26.3.6",
+    onChange: e => onUpdate(s.id, {
+      num: e.target.value
+    })
+  }), React.createElement("div", {
+    className: "sprint-labels mono"
+  }, projects.map(p => `${p.id} ${s.num || "—"}`).join(" · ")), React.createElement("div", {
+    className: "seg sprint-status"
+  }, React.createElement("button", {
+    "data-on": s.status !== "future",
+    onClick: () => onUpdate(s.id, {
+      status: "past"
+    })
+  }, "Past"), React.createElement("button", {
+    "data-on": s.status === "future",
+    onClick: () => onUpdate(s.id, {
+      status: "future"
+    })
+  }, "Future")), React.createElement("input", {
+    type: "number",
+    min: 0,
+    max: 40,
+    className: "num-field",
+    value: s.workingDays || 0,
+    onChange: e => onUpdate(s.id, {
+      workingDays: Math.max(0, Math.min(40, Math.round(Number(e.target.value) || 0)))
+    })
+  }), React.createElement(DatePicker, {
+    value: s.start || "",
+    onChange: v => onUpdate(s.id, {
+      start: v
+    }),
+    placeholder: "Pick start"
+  }), React.createElement("div", {
+    className: "ro-field",
+    title: "Calculated from the start date + working days"
+  }, React.createElement(Icon, {
+    name: "cal",
+    size: 13
+  }), React.createElement("span", {
+    className: "mono"
+  }, s.end ? fmtDate(s.end) : "—")), React.createElement("button", {
+    className: "iconbtn",
+    onClick: () => onRemove(s.id),
+    "aria-label": "Remove sprint",
+    title: "Remove"
+  }, React.createElement(Icon, {
+    name: "trash",
+    size: 14
+  }))))))));
+}
+window.Sprints = Sprints;
+
 /* ===== app.jsx ===== */
 
 let _tid = 0;
 const PERSIST_KEY = "vp.state.v1";
+const SPRINTS_KEY = "vp.sprints.v1";
+const SPRINTS_FILE = "velocity-sprints.json";
 function loadSaved() {
   try {
     return JSON.parse(localStorage.getItem(PERSIST_KEY)) || {};
@@ -4221,10 +3539,62 @@ function loadSaved() {
     return {};
   }
 }
+function loadSprints() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SPRINTS_KEY));
+    return Array.isArray(s) ? s : null;
+  } catch (_) {
+    return null;
+  }
+}
 const SAVED = loadSaved();
 if (Array.isArray(SAVED.leave)) {
   VP.LEAVE.length = 0;
   VP.LEAVE.push(...SAVED.leave);
+}
+let _sid = 0;
+const newSprintId = () => "sp_" + ++_sid + "_" + Math.random().toString(36).slice(2, 7);
+function sprintEnd(start, workingDays) {
+  return start ? endDateFromWorkDays(start, workingDays) : "";
+}
+function seedSprintDefs(tickets, doneRes, velCfg) {
+  const cfg = velCfg || {};
+  const baseDays = cfg.pastSprintDays || 10;
+  const doneSet = new Set((doneRes || []).map(r => String(r).toLowerCase()));
+  const futures = [];
+  if (cfg.upcoming && cfg.upcoming.name && String(cfg.upcoming.name).trim()) futures.push(cfg.upcoming);
+  (cfg.future || []).forEach(f => {
+    if (f && f.name && String(f.name).trim()) futures.push(f);
+  });
+  const futureNums = new Set(futures.map(f => VP.parseSprintNumber(f.name) || f.name));
+  const map = new Map();
+  (tickets || []).forEach(t => (t.sprints || []).forEach(s => {
+    const n = VP.parseSprintNumber(s) || s;
+    if (n && !futureNums.has(n) && !map.has(n)) {
+      map.set(n, {
+        id: newSprintId(),
+        num: n,
+        status: "past",
+        workingDays: baseDays,
+        start: "",
+        end: ""
+      });
+    }
+  }));
+  futures.forEach(f => {
+    const n = VP.parseSprintNumber(f.name) || f.name;
+    const wd = f.workingDays || baseDays;
+    const start = f.start || "";
+    map.set(n, {
+      id: newSprintId(),
+      num: n,
+      status: "future",
+      workingDays: wd,
+      start,
+      end: start ? sprintEnd(start, wd) : f.end || ""
+    });
+  });
+  return [...map.values()].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num));
 }
 function App() {
   const [project, setProject] = useState(() => SAVED.project || "DX");
@@ -4239,14 +3609,13 @@ function App() {
   const [velCfg, setVelCfg] = useState(() => ({
     pastSprintDays: 10,
     pastSprintCount: 0,
-    upcoming: {
-      workingDays: 10,
-      start: "",
-      end: ""
-    },
-    future: [],
     ...(SAVED.velCfg || {})
   }));
+  const [sprintDefs, setSprintDefs] = useState(() => {
+    const stored = loadSprints();
+    if (stored) return stored;
+    return seedSprintDefs(SAVED.tickets || [], SAVED.doneRes || [...VP.DONE_RESOLUTIONS], SAVED.velCfg || {});
+  });
   const [descTicket, setDescTicket] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [jiraBase, setJiraBase] = useState(() => SAVED.jiraBase != null ? SAVED.jiraBase : "https://jira.example.com");
@@ -4260,52 +3629,49 @@ function App() {
   const [folderReconnect, setFolderReconnect] = useState(false);
   const dirHandle = useRef(null);
   const writeTimer = useRef(null);
+  const sprintWriteTimer = useRef(null);
   const fsSupported = !!(window.FSStore && window.FSStore.supported());
-  const sprintsList = useMemo(() => {
-    const nums = [];
-    tickets.forEach(t => (t.sprints || []).forEach(s => nums.push(s)));
-    return VP.buildSprintCalendar(nums, {});
-  }, [tickets]);
-  const pastSprintNames = useMemo(() => {
-    const done = new Set(doneRes.map(r => String(r).toLowerCase()));
-    const set = new Set();
-    tickets.forEach(t => {
-      if (t.resolution && done.has(String(t.resolution).toLowerCase())) {
-        (t.sprints || []).forEach(s => {
-          const n = VP.parseSprintNumber(s) || s;
-          if (n) set.add(n);
-        });
-      }
-    });
-    return [...set].sort((a, b) => VP.sprintSortKey(a) - VP.sprintSortKey(b));
-  }, [tickets, doneRes]);
-  const upcomingName = velCfg.upcoming && velCfg.upcoming.name && velCfg.upcoming.name.trim() || VP.nextSprintName(pastSprintNames);
-  const currentSprintIdx = pastSprintNames.length;
+  const sortedSprints = useMemo(() => [...sprintDefs].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num)), [sprintDefs]);
+  const sprintsList = useMemo(() => sortedSprints.map(s => ({
+    id: s.id,
+    name: s.num,
+    start: s.start || null,
+    end: s.end || null
+  })), [sortedSprints]);
+  const pastSprintNames = useMemo(() => sortedSprints.filter(s => s.status !== "future").map(s => s.num), [sortedSprints]);
+  const futureDefs = useMemo(() => sortedSprints.filter(s => s.status === "future"), [sortedSprints]);
+  const upcomingDef = futureDefs[0] || null;
+  const upcomingName = upcomingDef ? upcomingDef.num : "";
+  const currentSprintIdx = useMemo(() => {
+    const i = sprintsList.findIndex(s => futureDefs.some(f => f.num === s.name));
+    return i < 0 ? sprintsList.length : i;
+  }, [sprintsList, futureDefs]);
   const velCfgResolved = useMemo(() => ({
     pastSprintDays: velCfg.pastSprintDays || 10,
     pastSprintCount: velCfg.pastSprintCount > 0 ? velCfg.pastSprintCount : pastSprintNames.length,
-    upcoming: {
-      ...(velCfg.upcoming || {
-        workingDays: 10,
-        start: "",
-        end: ""
-      }),
-      name: upcomingName
+    upcoming: upcomingDef ? {
+      name: upcomingDef.num,
+      workingDays: upcomingDef.workingDays || 0,
+      start: upcomingDef.start || "",
+      end: upcomingDef.end || ""
+    } : {
+      name: "",
+      workingDays: 0,
+      start: "",
+      end: ""
     },
-    future: velCfg.future || []
-  }), [velCfg, pastSprintNames.length, upcomingName]);
+    future: futureDefs.map(f => ({
+      name: f.num,
+      workingDays: f.workingDays,
+      start: f.start,
+      end: f.end
+    }))
+  }), [velCfg, pastSprintNames.length, upcomingDef, futureDefs]);
   const onVelCfg = patch => setVelCfg(c => ({
     ...c,
     ...patch
   }));
-  const plannedSprintNames = useMemo(() => {
-    const names = [];
-    if (upcomingName) names.push(upcomingName);
-    (velCfg.future || []).forEach(f => {
-      if (f && f.name && f.name.trim()) names.push(f.name.trim());
-    });
-    return names;
-  }, [upcomingName, velCfg.future]);
+  const plannedSprintNames = useMemo(() => futureDefs.map(f => f.num), [futureDefs]);
   const snapshot = () => ({
     v: 1,
     people,
@@ -4330,6 +3696,21 @@ function App() {
     }
   }, [people, tickets, velCfg, leaveOverlay, jiraBase, doneRes, customRes, project, folder]);
   useEffect(() => {
+    try {
+      localStorage.setItem(SPRINTS_KEY, JSON.stringify(sprintDefs));
+    } catch (_) {}
+    if (folder && dirHandle.current && window.FSStore) {
+      clearTimeout(sprintWriteTimer.current);
+      const payload = {
+        version: 1,
+        sprints: sprintDefs
+      };
+      sprintWriteTimer.current = setTimeout(() => {
+        window.FSStore.write(dirHandle.current, payload, SPRINTS_FILE).catch(() => {});
+      }, 500);
+    }
+  }, [sprintDefs, folder]);
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       if (!fsSupported) return;
@@ -4338,8 +3719,10 @@ function App() {
       dirHandle.current = h;
       if ((await window.FSStore.permission(h, false)) === "granted") {
         const data = await window.FSStore.read(h);
+        const sp = await window.FSStore.read(h, SPRINTS_FILE);
         if (cancelled) return;
         if (data) applyData(data);
+        if (sp && Array.isArray(sp.sprints)) applySprints(sp.sprints);
         setFolder({
           name: h.name
         });
@@ -4404,6 +3787,106 @@ function App() {
     velocityOverride: mode || null,
     excludeFromVelocity: undefined
   } : x));
+  const onAddSprint = () => setSprintDefs(prev => {
+    const sorted = [...prev].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num));
+    const tail = sorted.filter(s => s.status === "future").pop() || sorted[sorted.length - 1] || null;
+    const wd = tail && tail.workingDays || velCfg.pastSprintDays || 10;
+    const start = tail && tail.end ? VP.shiftWorkingDays(tail.end, 1) : "";
+    const num = VP.nextSprintName(sorted.map(s => s.num)) || "";
+    return [...prev, {
+      id: newSprintId(),
+      num,
+      status: "future",
+      workingDays: wd,
+      start,
+      end: sprintEnd(start, wd)
+    }];
+  });
+  const onUpdateSprint = (id, patch) => setSprintDefs(prev => prev.map(s => {
+    if (s.id !== id) return s;
+    const m = {
+      ...s,
+      ...patch
+    };
+    if ("num" in patch) m.num = VP.parseSprintNumber(patch.num) || patch.num;
+    m.end = sprintEnd(m.start, m.workingDays);
+    return m;
+  }));
+  const onRemoveSprint = id => setSprintDefs(prev => prev.filter(s => s.id !== id));
+  const onDetectSprints = () => setSprintDefs(prev => {
+    const have = new Set(prev.map(s => s.num));
+    const nums = new Set();
+    tickets.forEach(t => (t.sprints || []).forEach(s => {
+      const n = VP.parseSprintNumber(s) || s;
+      if (n) nums.add(n);
+    }));
+    const added = [];
+    nums.forEach(n => {
+      if (!have.has(n)) added.push({
+        id: newSprintId(),
+        num: n,
+        status: "past",
+        workingDays: velCfg.pastSprintDays || 10,
+        start: "",
+        end: ""
+      });
+    });
+    if (!added.length) {
+      toast("No new sprints found on tickets", "info");
+      return prev;
+    }
+    toast(`Added ${added.length} sprint${added.length === 1 ? "" : "s"} from tickets`);
+    return [...prev, ...added].sort((a, b) => VP.sprintSortKey(a.num) - VP.sprintSortKey(b.num));
+  });
+  const applySprints = arr => {
+    if (!Array.isArray(arr)) return;
+    setSprintDefs(arr.map(s => {
+      const num = VP.parseSprintNumber(s.num) || s.num || "";
+      const workingDays = Math.max(0, Math.round(Number(s.workingDays) || 0));
+      const start = s.start || "";
+      return {
+        id: s.id || newSprintId(),
+        num,
+        status: s.status === "future" ? "future" : "past",
+        workingDays,
+        start,
+        end: sprintEnd(start, workingDays)
+      };
+    }));
+  };
+  const onExportSprints = () => {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      sprints: sprintDefs
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json"
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `velocity-sprints-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast("Sprints exported");
+  };
+  const onImportSprints = txt => {
+    try {
+      const d = JSON.parse(txt);
+      const arr = Array.isArray(d) ? d : Array.isArray(d.sprints) ? d.sprints : null;
+      if (!arr) {
+        toast("No sprints in that file", "err");
+        return;
+      }
+      applySprints(arr);
+      toast(`Imported ${arr.length} sprint${arr.length === 1 ? "" : "s"}`);
+    } catch {
+      toast("Invalid sprints file", "err");
+    }
+  };
   const onExportData = () => {
     const payload = {
       version: 1,
@@ -4468,14 +3951,9 @@ function App() {
     setTickets([]);
     setVelCfg({
       pastSprintDays: 10,
-      pastSprintCount: 0,
-      upcoming: {
-        workingDays: 10,
-        start: "",
-        end: "",
-        name: ""
-      }
+      pastSprintCount: 0
     });
+    setSprintDefs([]);
     setLeaveOverlay([]);
     setJiraBase("https://jira.example.com");
     setDoneRes([...VP.DONE_RESOLUTIONS]);
@@ -4483,6 +3961,7 @@ function App() {
     setProject("DX");
     try {
       localStorage.removeItem(PERSIST_KEY);
+      localStorage.removeItem(SPRINTS_KEY);
     } catch (_) {}
     toast("All data cleared", "info");
   };
@@ -4491,11 +3970,17 @@ function App() {
       const h = await window.FSStore.connect();
       dirHandle.current = h;
       const existing = await window.FSStore.read(h);
+      const existingSprints = await window.FSStore.read(h, SPRINTS_FILE);
       if (existing && (existing.people || existing.tickets || existing.velCfg)) {
         applyData(existing);
+        if (existingSprints && Array.isArray(existingSprints.sprints)) applySprints(existingSprints.sprints);
         toast(`Connected “${h.name}” · loaded its data`);
       } else {
         await window.FSStore.write(h, snapshot());
+        await window.FSStore.write(h, {
+          version: 1,
+          sprints: sprintDefs
+        }, SPRINTS_FILE);
         toast(`Connected “${h.name}” · auto-saving here`);
       }
       setFolder({
@@ -4516,7 +4001,9 @@ function App() {
       }
       dirHandle.current = h;
       const data = await window.FSStore.read(h);
+      const sp = await window.FSStore.read(h, SPRINTS_FILE);
       if (data) applyData(data);
+      if (sp && Array.isArray(sp.sprints)) applySprints(sp.sprints);
       setFolder({
         name: h.name
       });
@@ -4722,6 +4209,10 @@ function App() {
     label: "Team",
     icon: "users"
   }, {
+    id: "sprints",
+    label: "Sprints",
+    icon: "cal"
+  }, {
     id: "settings",
     label: "Settings",
     icon: "gear"
@@ -4749,7 +4240,7 @@ function App() {
   }, React.createElement("span", {
     className: "dot",
     style: {
-      background: PROJ_COLOR[p.id]
+      "--dot-color": PROJ_COLOR[p.id]
     }
   }), p.id, React.createElement("span", {
     className: "cnt"
@@ -4781,25 +4272,13 @@ function App() {
     "data-active": view === n.id,
     onClick: () => setView(n.id)
   }, n.label))), React.createElement("div", {
-    style: {
-      flex: 1
-    }
+    className: "spacer"
   }), React.createElement("div", {
-    className: "muted",
-    style: {
-      fontSize: 16,
-      display: "flex",
-      alignItems: "center",
-      gap: 7
-    }
+    className: "muted nav-proj"
   }, React.createElement("span", {
-    className: "dot",
+    className: "dot nav-dot",
     style: {
-      width: 8,
-      height: 8,
-      borderRadius: "50%",
-      background: PROJ_COLOR[project],
-      display: "inline-block"
+      "--dot-color": PROJ_COLOR[project]
     }
   }), VP.PROJECTS.find(p => p.id === project)?.name)), React.createElement("main", {
     className: "content"
@@ -4827,6 +4306,15 @@ function App() {
     onAdd: onAddPerson,
     onEdit: onEditPerson,
     onRemove: onRemovePerson
+  }), view === "sprints" && React.createElement(Sprints, {
+    sprints: sprintDefs,
+    projects: VP.PROJECTS,
+    onAdd: onAddSprint,
+    onUpdate: onUpdateSprint,
+    onRemove: onRemoveSprint,
+    onDetect: onDetectSprints,
+    onExport: onExportSprints,
+    onImport: onImportSprints
   }), view === "settings" && React.createElement(Settings, {
     jiraBase: jiraBase,
     setJiraBase: setJiraBase,
