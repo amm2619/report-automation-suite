@@ -4,11 +4,22 @@ This branch (`report-suite`) holds the **ReportSuite** project only. The
 sprint-planner / velocity-tracker app lives on its own `sprint-planner`
 branch. `main` mirrors this `report-suite` branch.
 
+## Source of truth — one file, no build step
+
+The main deliverable **is** the ReportSuite HTML app, a single self-contained
+file that holds all markup, CSS, and JavaScript (app logic + embedded
+`pptxgenjs` bundle). **Edit that file directly.** There is no build step and
+no separate source tree.
+
+> A former modular `src/` + `build.sh` pipeline used to concatenate the app
+> from ~32 JS modules. It drifted 2,600+ lines behind the hand-edited HTML
+> (the build produced a stale, older-version app), so it was removed to keep
+> a single source of truth. **Do not reintroduce a second representation of
+> the app** — one file that anyone can open in a browser is the whole point.
+
 ## Primary file
 
-The main deliverable is the ReportSuite HTML app, a single self-contained
-file that holds all markup, CSS, and JavaScript (app logic + embedded
-`pptxgenjs` bundle). It is named `Jira_ReportSuite_v<version>_<date>.html`
+It is named `Jira_ReportSuite_v<version>_<date>.html`
 and the version lives in three places that must stay in sync:
 
 1. `<title>ReportSuite vX.YY</title>` (document head)
