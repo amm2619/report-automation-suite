@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- Material Icons: self-hosted inline SVG sprite -->
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ReportSuite v10.9</title>
+<title>ReportSuite v11.0</title>
 <style>
 
 :root{
@@ -482,7 +482,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(
 .rb-guide .rb-ready b{color:var(--tx)}
 .rb-guide .rb-hint{color:var(--mu)}
 .rb-guide .rb-note{color:var(--a4)}
-/* ── Run All Reports — primary hero action ─────────────────── */
+/* ── Run selected — primary hero action ─────────────────────── */
 .run-all-hero{display:flex;align-items:center;gap:16px;padding:17px 22px;margin-bottom:22px;cursor:pointer;border-radius:var(--r);border:1px solid rgba(54,179,126,.35);background:linear-gradient(120deg,rgba(20,60,40,.55) 0%,var(--s2) 70%);transition:border-color .15s,background .15s,transform .15s}
 .run-all-hero:hover{border-color:rgba(54,179,126,.7);background:linear-gradient(120deg,rgba(20,60,40,.72) 0%,var(--s3) 70%);transform:translateY(-1px)}
 .run-all-hero:focus-visible{outline:2px solid var(--a3);outline-offset:2px}
@@ -516,6 +516,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(
 .report-card.pmr .rc-icon{background:var(--a2d);border-color:var(--a2b)}
 .report-card.sprint .rc-icon{background:var(--a4d);border-color:var(--a4b)}
 .rc-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--s4);color:var(--di);border:1px solid var(--bd);letter-spacing:.3px;text-transform:uppercase}
+.rc-check{flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:2px;margin:-2px -2px 0 0;z-index:2}
+.rc-check input{width:17px;height:17px;cursor:pointer;accent-color:var(--a3)}
+.batch-sec{border-top:1px solid var(--bd);padding:12px 0 4px}
+.batch-sec:first-child{border-top:none;padding-top:0}
 .rc-name{font-size:var(--fs-base);font-weight:700;color:var(--tx);margin-bottom:5px}
 .rc-desc{font-size:var(--fs-xs);color:var(--mu);line-height:1.6;margin-bottom:12px}
 .rc-steps{display:flex;gap:4px;flex-wrap:wrap}
@@ -1160,22 +1164,22 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
 
       <div id="recent-reports-slot"></div>
 
-      <div class="run-all-hero" onclick="startWizard('batch')" role="button" tabindex="0"
-           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();startWizard('batch')}">
+      <div class="run-all-hero">
         <div class="rah-icon"><span class="mi">dynamic_feed</span></div>
         <div class="rah-text">
-          <div class="rah-title">Run All Reports</div>
-          <div class="rah-desc">Pick which reports to include, enter all parameters once, and generate everything together.</div>
+          <div class="rah-title">Run selected reports</div>
+          <div class="rah-desc">Tick the reports you want and run them together — or click any card to run just that one.</div>
         </div>
-        <span class="rah-arrow">&rarr;</span>
+        <button class="btn btn-primary" id="run-selected-btn" onclick="runSelectedReports()">Run selected (<span id="run-sel-count">4</span>)&nbsp;&rarr;</button>
       </div>
 
-      <div class="home-section-label">Or run a single report</div>
+      <div class="home-section-label">Reports</div>
       <div class="report-grid">
 
         <div class="report-card weekly" onclick="startWizard('weekly')">
           <div class="rc-header">
             <div class="rc-icon"><span class="mi" style="font-size:28px">newspaper</span></div>
+            <label class="rc-check" onclick="event.stopPropagation()" title="Include in Run selected"><input type="checkbox" data-batch="weekly" checked onchange="onBatchSelChange()"></label>
           </div>
           <div class="rc-name">Weekly Digest</div>
           <div class="rc-desc">Status update of tickets updated in a date window, with Confluence markup.</div>
@@ -1188,6 +1192,7 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
         <div class="report-card eos" onclick="startWizard('eos')">
           <div class="rc-header">
             <div class="rc-icon"><span class="mi" style="font-size:28px">flag</span></div>
+            <label class="rc-check" onclick="event.stopPropagation()" title="Include in Run selected"><input type="checkbox" data-batch="eos" checked onchange="onBatchSelChange()"></label>
           </div>
           <div class="rc-name">End of Sprint</div>
           <div class="rc-desc">Per-project review with topic routing and Confluence markup.</div>
@@ -1200,6 +1205,7 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
         <div class="report-card pmr" onclick="startWizard('pmr')">
           <div class="rc-header">
             <div class="rc-icon"><span class="mi" style="font-size:28px">bar_chart</span></div>
+            <label class="rc-check" onclick="event.stopPropagation()" title="Include in Run selected"><input type="checkbox" data-batch="pmr" checked onchange="onBatchSelChange()"></label>
           </div>
           <div class="rc-name">PMR</div>
           <div class="rc-desc">Monthly Program Review with agenda and per-topic slides.</div>
@@ -1212,6 +1218,7 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
         <div class="report-card sprint" onclick="startWizard('sprint')">
           <div class="rc-header">
             <div class="rc-icon"><span class="mi" style="font-size:28px">task_alt</span></div>
+            <label class="rc-check" onclick="event.stopPropagation()" title="Include in Run selected"><input type="checkbox" data-batch="sprint" checked onchange="onBatchSelChange()"></label>
           </div>
           <div class="rc-name">Sprint Plan/Report</div>
           <div class="rc-desc">Velocity metrics and VBA macro for the Excel sprint package.</div>
@@ -2085,7 +2092,7 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
 //
 // ==========================================================
 
-const APP_VERSION='v10.9';
+const APP_VERSION='v11.0';
 
 // ============================================================
 // STATE
@@ -10296,7 +10303,7 @@ function buildStandaloneHtml(title, bodyContent){
   var css=":root{--bg:#070910;--s1:#0c0f18;--s2:#111520;--s3:#171c2a;--s4:#1d2336;--bd:#1f2840;--bd2:#2b3652;--a1:#5b9cf6;--a1d:rgba(91,156,246,.09);--a1b:rgba(91,156,246,.2);--a2:#a07cf5;--a2d:rgba(160,124,245,.09);--a2b:rgba(160,124,245,.2);--a3:#3ecf8e;--a3d:rgba(62,207,142,.08);--a3b:rgba(62,207,142,.2);--a4:#f5a741;--a4d:rgba(245,167,65,.08);--a4b:rgba(245,167,65,.2);--a5:#f56b6b;--a5d:rgba(245,107,107,.08);--a5b:rgba(245,107,107,.2);--tx:#dde4f5;--mu:#6b7a9c;--di:#384060;--mono:'Consolas','Cascadia Code','Menlo',monospace;--sans:'Segoe UI','Inter','Arial',sans-serif;--r:8px;--r2:5px;--fs-base:13px;--fs-sm:12px;--fs-xs:11px;--fs-lg:14px;--fs-xl:16px}*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(--fs-base);line-height:1.55;padding:28px 32px 80px;min-height:100vh}a{color:var(--a1);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap}.bd-done{background:var(--a3d);color:var(--a3)}.bd-blk{background:var(--a5d);color:var(--a5)}.bd-prog{background:var(--a1d);color:var(--a1)}.bd-rev{background:var(--a4d);color:var(--a4)}.bd-open{background:var(--s4);color:var(--mu)}.nstr{color:var(--di);font-style:italic;font-size:var(--fs-sm);padding:3px 0}.rpt-frame{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:18px;max-width:1200px;margin-left:auto;margin-right:auto}.rpt-bar{background:var(--s2);border-bottom:1px solid var(--bd);padding:9px 14px;display:flex;align-items:center;justify-content:space-between}.rbd-row{display:flex;gap:5px}.rbd{width:8px;height:8px;border-radius:50%}.rbd-r{background:#ff7b7b}.rbd-y{background:#ffb347}.rbd-g{background:#4dd89a}.rpt-bar-fn{font-family:var(--mono);font-size:var(--fs-xs);color:var(--mu)}.rpt-body{padding:22px 26px}.rpt-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px;margin-bottom:20px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;border-left:4px solid var(--a1)}.rpt-hdr h1{font-size:17px;font-weight:600;color:var(--tx)}.rpt-hdr .rsub{font-size:var(--fs-xs);color:var(--mu);margin-top:3px}.r-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:18px}.r-tab{padding:8px 15px;font-size:var(--fs-sm);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-tab:hover{color:var(--tx)}.r-tab.active{color:var(--a1);border-bottom-color:var(--a1)}.r-panel{display:none}.r-panel.active{display:block}.r-tabs-sticky{position:sticky;top:0;z-index:10;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-tabs-sticky .r-tab{padding:8px 14px}.r-subtabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:14px}.r-subtab{padding:6px 13px;font-size:var(--fs-xs);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-subtab:hover{color:var(--tx)}.r-subtab.active{color:var(--a2);border-bottom-color:var(--a2)}.r-sub-panel{display:none}.r-sub-panel.active{display:block}.r-subtabs-sticky{position:sticky;top:37px;z-index:9;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-subtabs-sticky .r-subtab{padding:6px 12px}.r-card{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:14px 18px;margin-bottom:10px}.r-card.l1{border-left:3px solid var(--a1)}.r-card.l2{border-left:3px solid var(--a2)}.r-card.l3{border-left:3px solid var(--a3)}.r-card.lw{border-left:3px solid var(--a4)}.r-card.lr{border-left:3px solid var(--a5)}.r-card h3{font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}.stats-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.stat{background:var(--s3);border:1px solid var(--bd);border-radius:5px;padding:10px 15px}.stat .sv{font-size:20px;font-weight:600;color:var(--a1)}.stat .sl{font-size:var(--fs-xs);color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.tw{overflow-x:auto;border-radius:5px;border:1px solid var(--bd);margin:8px 0}.rt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);background:var(--s2)}.rt thead th{background:var(--s3);color:var(--mu);padding:8px 11px;font-weight:600;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}.rt tbody td{padding:7px 11px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--tx)}.rt tbody tr:last-child td{border-bottom:none}.tk-c{font-family:var(--mono);font-size:var(--fs-xs);color:var(--a1);white-space:nowrap}.bluf-label{display:block;font-size:var(--fs-xs);font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.bluf-field{padding:4px 0;font-size:var(--fs-sm);line-height:1.6;color:var(--tx);min-height:20px}.bluf-field:empty::before{content:attr(data-placeholder);color:var(--di)}.conf-pre{background:#04060c;color:#9bbbd4;border:1px solid var(--bd);border-radius:5px;padding:12px 14px;font-family:var(--mono);font-size:var(--fs-xs);line-height:1.7;white-space:pre;overflow:auto;max-height:400px;margin-top:8px}.slide{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--a2);border-radius:8px;padding:16px 20px;margin-bottom:14px}.slide h2{font-size:var(--fs-base);font-weight:600;color:var(--a2);margin-bottom:10px}.slide h3{font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 5px}.agenda-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:3px}.agenda-list li{padding:6px 13px;border-left:2px solid var(--bd);font-size:var(--fs-sm);border-radius:0 5px 5px 0}.agenda-list li.has{border-left-color:var(--a3);color:var(--tx);background:var(--a3d)}.agenda-list li.nstr{border-left-color:var(--di);color:var(--mu);font-style:italic}.ptabs{margin-bottom:12px}.ptab{display:inline-block;padding:4px 12px;border-radius:var(--r2);font-size:var(--fs-sm);font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--s3);color:var(--mu);margin:0 4px 4px 0}.ptab.active{background:var(--a1d);color:var(--a1);border-color:var(--a1b)}.muted{color:var(--mu)}.mono{font-family:var(--mono)}";
   var inlineJS="function switchRtab(btn){\n  var rtabs=btn.parentElement;\n  var idx=Array.from(rtabs.children).indexOf(btn);\n  rtabs.querySelectorAll('.r-tab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=rtabs.parentElement;\n  cont.querySelectorAll(':scope > .r-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchRstab(btn){\n  var stabs=btn.parentElement;\n  var idx=Array.from(stabs.children).indexOf(btn);\n  stabs.querySelectorAll('.r-subtab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=stabs.parentElement;\n  cont.querySelectorAll(':scope > .r-sub-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchPtab(btn,proj){\n  var cont=btn.closest('.ptabs').parentElement;\n  cont.querySelectorAll('.ptab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  cont.querySelectorAll('[data-ptab-panel]').forEach(function(p){\n    p.style.display=p.dataset.ptabPanel===proj?'block':'none';\n  });\n}\nfunction filterDbg(inp,tableId){\n  var val=inp.value.toLowerCase().trim();\n  var tbody=document.querySelector('#'+tableId+' tbody');\n  if(!tbody) return;\n  tbody.querySelectorAll('tr').forEach(function(tr){\n    tr.style.display=(!val||tr.textContent.toLowerCase().includes(val))?'':'none';\n  });\n}\ndocument.addEventListener('click',function(e){\n  var a=e.target.closest('.agenda-list a');\n  if(a){e.preventDefault();var t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'});}\n});";
   return '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">\n'
-    + '<title>ReportSuite v10.9</title>\n'
+    + '<title>ReportSuite v11.0</title>\n'
     + '<style>'+css+'</style>\n'
     + '</head>\n<body style="margin:0;padding:0">\n'
     + bodyContent
@@ -12951,9 +12958,9 @@ const WIZARDS = {
     panels: ['wiz-sprint-upload', 'wiz-sprint-report'],
   },
   batch: {
-    name: 'Run All Reports',
+    name: 'Run Selected Reports',
     icon: mi(APP_ICONS.weekly),
-    steps: ['Choose Reports & Params', 'All Reports'],
+    steps: ['Parameters', 'Reports'],
   },
   spin: {
     name: 'Spin Plan',
@@ -13115,13 +13122,77 @@ function mmpNav(dir) {
   wrap.parentElement.replaceChild(tmpDiv.firstElementChild, wrap);
 }
 
+// ── Unified "Run selected" surface ───────────────────────────────────────────
+// The home report cards carry checkboxes; the selection lives in S._batchSel and
+// drives a single "Run selected" action. Spin is excluded — it's a live dashboard,
+// not a generated report. Only the picked reports' param sections are shown.
+const BATCH_REPORTS = ['weekly', 'eos', 'sprint', 'pmr'];
+// Reports that need a parameter step before running (sprint needs none).
+const BATCH_PARAM_REPORTS = ['weekly', 'eos', 'pmr'];
+
+function _batchSel() {
+  if (!S._batchSel) S._batchSel = { weekly: true, eos: true, sprint: true, pmr: true };
+  return S._batchSel;
+}
+
+// Sync S._batchSel from the home card checkboxes and refresh the run button.
+function onBatchSelChange() {
+  const sel = _batchSel();
+  BATCH_REPORTS.forEach(function (k) {
+    const cb = document.querySelector('input[data-batch="' + k + '"]');
+    if (cb) sel[k] = cb.checked;
+  });
+  updateRunSelectedBar();
+}
+
+function updateRunSelectedBar() {
+  const sel = _batchSel();
+  const n = BATCH_REPORTS.filter(function (k) { return sel[k]; }).length;
+  const cnt = document.getElementById('run-sel-count');
+  if (cnt) cnt.textContent = n;
+  const btn = document.getElementById('run-selected-btn');
+  if (btn) {
+    btn.disabled = n === 0;
+    btn.style.opacity = n === 0 ? '.45' : '';
+    btn.style.cursor  = n === 0 ? 'not-allowed' : '';
+  }
+}
+
+// Entry point for the "Run selected" button — replaces the old batch card/hero.
+function runSelectedReports() {
+  const sel = _batchSel();
+  const chosen = BATCH_REPORTS.filter(function (k) { return sel[k]; });
+  if (!chosen.length) { alert('Tick at least one report to run.'); return; }
+  if (!(S.files.issues && S.files.issues.length)) {
+    alert('Load an Issues CSV first — use the drop zone in the header.');
+    return;
+  }
+  rebuildTickets();
+  _activeWizard = 'batch';
+  S.currentPage = 'batch';
+  const wiz = WIZARDS['batch'];
+  document.getElementById('wiz-title').innerHTML = wiz.icon + '&nbsp;&nbsp;' + esc(wiz.name);
+  document.getElementById('home').classList.add('hidden');
+  document.getElementById('wizard').classList.add('active');
+  const needsParams = BATCH_PARAM_REPORTS.some(function (k) { return sel[k]; });
+  if (needsParams) {
+    _activeStep = 0;
+    renderWizardSteps(wiz.steps, 0);
+    renderWizardContent('batch', 0);
+  } else {
+    // Nothing to configure (e.g. Sprint only) — go straight to the report output.
+    runBatchReports();
+  }
+}
+
 function runBatchReports() {
   console.log('[Batch] runBatchReports fired');
   rebuildTickets(); // ensure allTickets is current before runners check it
-  const doWeekly = !!(document.getElementById('batch-weekly')?.checked);
-  const doEOS    = !!(document.getElementById('batch-eos')?.checked);
-  const doSprint = !!(document.getElementById('batch-sprint')?.checked);
-  const doPMR    = !!(document.getElementById('batch-pmr')?.checked);
+  const sel = _batchSel();
+  const doWeekly = !!sel.weekly;
+  const doEOS    = !!sel.eos;
+  const doSprint = !!sel.sprint;
+  const doPMR    = !!sel.pmr;
 
   const p = S._wizParams || {};
   // Weekly: read from date range picker state
@@ -13350,26 +13421,31 @@ function renderWizardContent(type, step) {
   }
   // Batch: init date picker immediately (synchronous) + other pickers after paint
   if (type === 'batch' && step === 0) {
-    // Seed _drp immediately so params are ready when Run is clicked
-    const _batchP = S._wizParams || {};
-    const _bDefEnd   = new Date().toISOString().slice(0,10);
-    const _bDefStart = new Date(Date.now()-7*864e5).toISOString().slice(0,10);
-    DRP.init('batch-wk', _batchP.wStart || _bDefStart, _batchP.wEnd || _bDefEnd);
+    const sel = _batchSel();
+    const p = S._wizParams || {};
+    // Seed the weekly date picker immediately so params are ready when Run is clicked.
+    if (sel.weekly) {
+      const _bDefEnd   = new Date().toISOString().slice(0,10);
+      const _bDefStart = new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+      DRP.init('batch-wk', p.wStart || _bDefStart, p.wEnd || _bDefEnd);
+    }
     setTimeout(function() {
-      const now = new Date();
-      const p = S._wizParams || {};
-      // PMR: auto-select previous month
-      const val = (p.pmrMonth) || prevMonthYYYYMM();
       const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      const [myr,mmo] = val.split('-').map(Number);
-      mmpSelect(val, MONTHS[mmo-1] + ' ' + myr);
+      // PMR: auto-select previous month
+      if (sel.pmr) {
+        const val = (p.pmrMonth) || prevMonthYYYYMM();
+        const [myr,mmo] = val.split('-').map(Number);
+        mmpSelect(val, MONTHS[mmo-1] + ' ' + myr);
+      }
       // EOS: pre-select sprints
-      const cal = S.cfg.sprint_calendar || [];
-      const today = new Date().toISOString().slice(0,10);
-      const curIdx = cal.findIndex(s => s.start <= today && today <= s.end);
-      const cur = cal[curIdx]; const prev = cal[curIdx-1];
-      if (prev) { const elc = document.getElementById('batch-eos-cur'); if(elc) elc.value = p.eosCur || prev.sprint; }
-      if (cur)  { const elf = document.getElementById('batch-eos-fut'); if(elf) elf.value = p.eosFut || cur.sprint; }
+      if (sel.eos) {
+        const cal = S.cfg.sprint_calendar || [];
+        const today = new Date().toISOString().slice(0,10);
+        const curIdx = cal.findIndex(s => s.start <= today && today <= s.end);
+        const cur = cal[curIdx]; const prev = cal[curIdx-1];
+        if (prev) { const elc = document.getElementById('batch-eos-cur'); if(elc) elc.value = p.eosCur || prev.sprint; }
+        if (cur)  { const elf = document.getElementById('batch-eos-fut'); if(elf) elf.value = p.eosFut || cur.sprint; }
+      }
     }, 50);
   }
   if (type === 'pmr' && step === 1) {
@@ -13559,24 +13635,15 @@ function getWizardStepHTML(type, step) {
 
   // ── BATCH step 0: pick reports + params ────────────────────
   if (type === 'batch' && step === 0) {
-    console.log('[Batch step 0] S.files.issues:', S.files.issues ? S.files.issues.length + ' rows' : 'null');
-    console.log('[Batch step 0] S.files.epics:', S.files.epics ? S.files.epics.length + ' rows' : 'null');
+    const sel = _batchSel();
     const cal = S.cfg.sprint_calendar || [];
-    const today = new Date().toISOString().slice(0,10);
     const sprintOpts = cal.map(s=>`<option value="${esc(s.sprint)}">${esc(s.sprint)}</option>`).join('');
-    const hasIssues = !!(S.files.issues && S.files.issues.length);
-    const hasEpics  = !!(S.files.epics  && S.files.epics.length);
-    const filesOk = hasIssues; // epics optional — warn but don't block
-    const warn = !hasIssues
-      ? `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--s2);border:1px solid var(--a5b);border-left:3px solid var(--a5);border-radius:var(--r2);margin-bottom:12px">
-          <span class="mi" style="font-size:18px;color:var(--a5);flex-shrink:0">error</span>
-          <div style="flex:1">
-            <div style="font-size:var(--fs-sm);font-weight:600;color:var(--a5);margin-bottom:2px">Issues CSV required</div>
-            <div class="u-muted-xs">Drop your issues CSV onto the header drop zone before running.</div>
-          </div>
-          <button class="btn btn-ghost btn-sm" onclick="exitWizard()" style="flex-shrink:0"><span class="mi" style="font-size:14px;margin-right:3px">arrow_back</span>Go load files</button>
-        </div>`
-      : !hasEpics
+    const hasEpics = !!(S.files.epics && S.files.epics.length);
+    const LABELS = { weekly:'Weekly Digest', eos:'End of Sprint', sprint:'Sprint Plan/Report', pmr:'PMR' };
+    const chosen = BATCH_REPORTS.filter(k => sel[k]);
+    const chips = chosen.map(k => `<span class="rc-step-pip">${esc(LABELS[k])}</span>`).join(' ');
+    // Epics warning only when a report that uses topic routing is selected.
+    const warn = (!hasEpics && (sel.eos || sel.pmr))
       ? `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--s2);border:1px solid var(--a4b);border-left:3px solid var(--a4);border-radius:var(--r2);margin-bottom:12px">
           <span class="mi" style="font-size:18px;color:var(--a4);flex-shrink:0">warning</span>
           <div style="flex:1">
@@ -13585,25 +13652,16 @@ function getWizardStepHTML(type, step) {
           </div>
         </div>`
       : '';
-    return `
-<div class="pg-title">Choose Reports &amp; Parameters</div>
-${warn}
-<div class="card l1" style="margin-bottom:12px">
-  <div style="padding:0 0 12px">
-    <div class="fl" class="u-section-hdr">Reports to run</div>
-    <div style="display:flex;flex-wrap:wrap;gap:12px">
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:var(--fs-sm)"><input type="checkbox" id="batch-weekly" checked> Weekly Digest</label>
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:var(--fs-sm)"><input type="checkbox" id="batch-eos" checked> End of Sprint</label>
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:var(--fs-sm)"><input type="checkbox" id="batch-sprint" checked> Sprint Plan/Report</label>
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:var(--fs-sm)"><input type="checkbox" id="batch-pmr" checked> PMR</label>
-    </div>
-  </div>
-  <div style="border-top:1px solid var(--bd);padding:12px 0 4px">
-    <div class="fl" class="u-section-hdr">Weekly — Date Range</div>
+    // Only render the parameter sections for the reports that were picked.
+    let sections = '';
+    if (sel.weekly) sections += `
+  <div class="batch-sec">
+    <div class="fl u-section-hdr">Weekly — Date Range</div>
     ${DRP.build('batch-wk', { startId:'batch-w-start', endId:'batch-w-end' })}
-  </div>
-  <div style="border-top:1px solid var(--bd);padding:12px 0">
-    <div class="fl" class="u-section-hdr">EOS — Sprints</div>
+  </div>`;
+    if (sel.eos) sections += `
+  <div class="batch-sec">
+    <div class="fl u-section-hdr">End of Sprint — Sprints</div>
     <div class="field-row">
       <div class="fl">Current Sprint</div>
       <select id="batch-eos-cur" style="flex:1"><option value="">select</option>${sprintOpts}</select>
@@ -13612,16 +13670,22 @@ ${warn}
       <div class="fl">Future Sprint</div>
       <select id="batch-eos-fut" style="flex:1"><option value="">select</option>${sprintOpts}</select>
     </div>
-  </div>
-  <div style="border-top:1px solid var(--bd);padding:12px 0 4px">
-    <div class="fl" class="u-section-hdr">PMR — Month</div>
+  </div>`;
+    if (sel.pmr) sections += `
+  <div class="batch-sec">
+    <div class="fl u-section-hdr">PMR — Month</div>
     ${buildMonthPicker()}
-  </div>
-</div>
+  </div>`;
+    const genLabel = 'Generate ' + chosen.length + ' report' + (chosen.length !== 1 ? 's' : '');
+    return `
+<div class="pg-title">Parameters</div>
+<div style="font-size:var(--fs-sm);color:var(--mu);margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px"><span>Running:</span>${chips}</div>
+${warn}
+<div class="card l1" style="margin-bottom:20px">${sections || '<div class="u-muted-xs">No parameters needed for the selected reports.</div>'}</div>
 <div class="step-nav">
   <button class="btn btn-ghost btn-sm" onclick="exitWizard()"><span class="mi" style="font-size:14px;margin-right:3px">arrow_back</span>Home</button>
   <div class="spacer"></div>
-  ${filesOk ? '<button class="btn btn-primary" onclick="runBatchReports()">Run Selected Reports &rarr;</button>' : '<button class="btn btn-primary" style="opacity:.45;cursor:not-allowed" onclick="alert(\'Load an Issues CSV first — use the drop zone in the header.\')">Run Selected Reports &rarr;</button>'}
+  <button class="btn btn-primary" onclick="runBatchReports()"><span class="mi" style="font-size:14px;margin-right:3px">play_arrow</span>${genLabel}</button>
 </div>`;
   }
 
@@ -16738,6 +16802,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   // Re-apply saved overrides back into topic rules (they modify S.topics in memory)
   reapplyOverridesToTopics();
   updateStatusBar();
+  updateRunSelectedBar(); // sync the "Run selected (N)" button with default card selection
   // Date defaults are now set when wizard steps render (elements don't exist until then)
   const hasSaved=localStorage.getItem(LS_KEY);
   const dot=document.getElementById('cfg-dirty-dot');
