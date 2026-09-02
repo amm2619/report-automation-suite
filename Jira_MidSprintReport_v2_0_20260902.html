@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- Material Icons: self-hosted inline SVG sprite -->
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EOS Report v1.0</title>
+<title>Mid-Sprint Report v2.0</title>
 <style>
 
 :root{
@@ -219,6 +219,35 @@ input[type=checkbox]{width:14px;height:14px;accent-color:var(--a1);cursor:pointe
 .eos-proj-group.active{display:block}
 .eos-view-panel{display:none}
 .eos-view-panel.active{display:block}
+
+/* Mid-sprint: clock + exceptions panel */
+.eos-clock{display:flex;align-items:center;gap:10px;margin:2px 0 12px}
+.eos-clock-day{font-size:var(--fs-xs);font-weight:700;color:var(--tx);white-space:nowrap}
+.eos-clock-track{flex:1;height:6px;border-radius:3px;background:var(--s4);overflow:hidden;min-width:80px}
+.eos-clock-fill{height:100%;background:var(--a1);border-radius:3px}
+.eos-clock-left{font-size:var(--fs-xs);color:var(--mu);white-space:nowrap}
+.eos-attention{background:var(--s2);border:1px solid var(--a5b);border-left:4px solid var(--a5);border-radius:8px;padding:14px 18px;margin-bottom:18px}
+.eos-attention.ok{border-color:var(--a3b);border-left-color:var(--a3)}
+.eos-attention-head{display:flex;align-items:center;gap:7px;font-size:var(--fs-lg);font-weight:700;color:var(--a5);margin-bottom:4px}
+.eos-attention.ok .eos-attention-head{color:var(--a3);margin-bottom:0}
+.eos-attention-count{margin-left:auto;font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.5px}
+.eos-attention-note,.eos-att-note{font-size:var(--fs-xs);color:var(--mu)}
+.eos-att-group{margin-top:12px}
+.eos-att-group-head{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);font-weight:600;color:var(--tx)}
+.eos-att-count{font-family:var(--mono);font-size:var(--fs-xs);color:var(--mu);background:var(--s4);border:1px solid var(--bd);border-radius:10px;padding:0 7px}
+.eos-att-note{margin:1px 0 6px}
+.eos-att-row{display:flex;align-items:baseline;gap:9px;padding:4px 0;border-top:1px solid var(--bd);font-size:var(--fs-sm)}
+.eos-att-key{flex-shrink:0;font-family:var(--mono);font-size:var(--fs-xs)}
+.eos-att-sum{flex:1;min-width:0;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.eos-att-thread{flex-shrink:0;font-size:var(--fs-xs);color:var(--mu)}
+.eos-att-who{flex-shrink:0;font-size:var(--fs-xs);color:var(--mu)}
+.eos-att-who.none{color:var(--a4);font-style:italic}
+.eos-att-age{flex-shrink:0;font-size:var(--fs-xs);font-weight:600;color:var(--a5)}
+.eos-att-more>summary{cursor:pointer;font-size:var(--fs-xs);color:var(--mu);padding:5px 0;list-style:none}
+.eos-att-more>summary::-webkit-details-marker{display:none}
+.eos-att-more>summary::before{content:'\25B8';margin-right:5px;display:inline-block;transition:transform .15s}
+.eos-att-more[open]>summary::before{transform:rotate(90deg)}
+.eos-att-more>summary:hover{color:var(--tx)}
 
 /* EOS mission-outcome layout */
 .eos-section-head{font-size:var(--fs-lg);font-weight:700;color:var(--tx);margin:18px 0 8px;display:flex;align-items:center;gap:7px}
@@ -1122,9 +1151,9 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
   <!-- HEADER -->
   <div id="app-header">
     <div class="app-logo" onclick="exitWizard()" style="cursor:pointer" title="Go to home">
-      <div class="app-logo-icon">EOS</div>
-      <span class="app-logo-text">EOS Report</span>
-      <span class="app-logo-ver">v1.0</span>
+      <div class="app-logo-icon">MSR</div>
+      <span class="app-logo-text">Mid-Sprint Report</span>
+      <span class="app-logo-ver">v2.0</span>
     </div>
     <div class="header-sep"></div>
     <div id="header-status">
@@ -1160,8 +1189,8 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
 
     <!-- HOME -->
     <div id="home">
-      <div class="home-eyebrow">Jira EOS Report</div>
-      <div class="home-title">End of Sprint report</div>
+      <div class="home-eyebrow">Jira Mid-Sprint Report</div>
+      <div class="home-title">Mid-sprint review</div>
       <div class="home-sub">Drop your Jira HTML exports in the header, then run the report. Settings and data persist between sessions.</div>
 
       <div id="readiness-bar"></div>
@@ -1175,8 +1204,8 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
           <div class="rc-header">
             <div class="rc-icon"><span class="mi" style="font-size:28px">flag</span></div>
           </div>
-          <div class="rc-name">End of Sprint</div>
-          <div class="rc-desc">Per-project review with topic routing and Confluence markup.</div>
+          <div class="rc-name">Mid-Sprint Review</div>
+          <div class="rc-desc">Where the sprint stands at the halfway mark: what needs a decision, what is landing, what is queued.</div>
           <div class="rc-steps">
             <span class="rc-step-pip">Sprints</span>
             <span class="rc-step-pip">Report</span>
@@ -1232,7 +1261,7 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
         <div class="settings-nav-group collapsible" id="snavhdr-reports" onclick="toggleNavGroup('reports')"><span>Report options</span><span class="nav-chev">&#9662;</span></div>
         <div class="settings-nav-sub" id="snavgrp-reports">
         <div class="settings-nav-item" id="snav-eos" onclick="switchSettings('eos')">
-          <span class="settings-nav-icon"><span class="mi">flag</span></span>End of Sprint
+          <span class="settings-nav-icon"><span class="mi">flag</span></span>Mid-Sprint
         </div>
         </div>
         <div class="settings-nav-group collapsible" id="snavhdr-routing" onclick="toggleNavGroup('routing')"><span>Advanced &middot; Routing</span><span class="nav-chev">&#9662;</span></div>
@@ -1356,7 +1385,7 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
 
         <!-- == END OF SPRINT == -->
         <div id="settings-eos" class="settings-pane">
-          <div class="stn-page-title">End of Sprint</div>
+          <div class="stn-page-title">Mid-Sprint</div>
           <div class="stn-page-desc">Per-project report title and MTL story point range for the EOS cover sheet.</div>
           <div class="stn-section">
             <div class="stn-section-hdr" style="display:flex;align-items:center">
@@ -1669,7 +1698,7 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
 //
 // ==========================================================
 
-const APP_VERSION='v1.0';
+const APP_VERSION='v2.0';
 
 // ============================================================
 // STATE
@@ -1703,9 +1732,9 @@ const S = {
       status_order: ['Blocked','Done','Closed','Reviewing','In Test','In Progress','Open']
     },
     eos_projects: {
-      DX: { report_title: '(U) DataXplorer End of Sprint Report', mtl_points: '5-10' },
-      LX: { report_title: '(U) LinkXplorer End of Sprint Report', mtl_points: '5-10' },
-      RC: { report_title: '(U) RC End of Sprint Report', mtl_points: '5-10' }
+      DX: { report_title: '(U) DataXplorer Mid-Sprint Report', mtl_points: '5-10' },
+      LX: { report_title: '(U) LinkXplorer Mid-Sprint Report', mtl_points: '5-10' },
+      RC: { report_title: '(U) RC Mid-Sprint Report', mtl_points: '5-10' }
     },
     eos_ai_prompt_enabled: true,
     eos_ai_prompt: 'You are summarizing Jira tickets for a government contract sprint review briefing. Create a summary that is easy to read out loud. Use a single paragraph, less than 300 words. Do not include ticket numbers. Combine similar tasks into cohesive statements. Every sentence must start with the portion marking (U).\n\nFor completed work, start with: "(U) During this sprint, the team..."\nFor planned work, start with: "(U) For the next sprint, the team plans to..."',
@@ -1866,7 +1895,7 @@ const S = {
         seedVersion: 0
       };
     })(),
-    // Leave empty so initState() populates from DEFAULT_SPRINT_CALENDAR (single source of truth).
+    // Leave empty so ensureMonthlySprints() fills it from the month calendar.
     sprint_calendar: [],
     schedule_blurbs: ['TBD','TBD','TBD','TBD'],
     excluded_assignees: ["xtavery", "beblant", "cdgold", "kahurd", "twspeng", "rhle", "gjmcgar", "vvillar", "amweste"],
@@ -1931,7 +1960,7 @@ S.topics = [{"topic_id":"tile","header":"Tier 0: Priority 1: Strategic Surge Sup
 // ============================================================
 const PAGE_TITLES = {
   files:'Files', config:'Configuration', topics:'Topics', people:'Excluded People',
-  weekly:'Weekly Digest', eos:'End of Sprint', pmr:'PMR', sprint:'Sprint Plan/Report',
+  eos:'Mid-Sprint',
     overrides:'Rule Overrides', classification:'Classification'
 };
 
@@ -2292,16 +2321,78 @@ function extractSprintName(raw) {
   return cleanSpinSprint(s);
 }
 
+const MONTH_ABBR = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+
+// Reduce whatever Jira calls a sprint to the canonical YY.Q.S id.
+//   "LX 26.2.3[EXT]"  -> "26.2.3"   (already canonical, passed through)
+//   "DX 2026-03"      -> "26.2.3"   (year+month, now that a sprint is a month)
+//   "DX March 2026"   -> "26.2.3"
+// Anything unrecognised comes back cleaned but otherwise untouched, which is
+// the old behaviour. A bare "26.03" is deliberately NOT parsed: whether 26 is
+// the fiscal or calendar year is ambiguous, and guessing wrong would silently
+// file work under the wrong sprint.
 function cleanSpinSprint(raw) {
-  // Strip [EXT], [EXT][COMPLETED], and project prefix (e.g. "LX ", "DX ")
-  // Input: "LX 26.2.6[EXT]" or "LX 26.2.6 [EXT][COMPLETED]"
-  // Output: "26.2.6"
   let s = (raw || '').trim();
   s = s.replace(/\s*\[EXT\](?:\[COMPLETED\])?/gi, '').trim();
-  // Extract just the sprint number (YY.Q.S pattern)
-  const numMatch = s.match(/(\d{2,4}\.\d+\.\d+)/);
-  if (numMatch) return numMatch[1];
+
+  const canonical = s.match(/(\d{2,4}\.\d+\.\d+)/);
+  if (canonical) return canonical[1];
+
+  const ym = s.match(/\b(20\d{2})[-./](0?[1-9]|1[0-2])\b/);
+  if (ym) return fiscalSprintId(+ym[1], +ym[2]);
+
+  const named = s.match(/\b([A-Za-z]{3,9})\.?,?\s+(20\d{2})\b/) ||
+                s.match(/\b(20\d{2})\s+([A-Za-z]{3,9})\b/);
+  if (named) {
+    const yearFirst = /^\d/.test(named[1]);
+    const monthWord = (yearFirst ? named[2] : named[1]).slice(0,3).toLowerCase();
+    const year = +(yearFirst ? named[1] : named[2]);
+    if (MONTH_ABBR[monthWord]) return fiscalSprintId(year, MONTH_ABBR[monthWord]);
+  }
   return s;
+}
+
+// ── Sprint clock ────────────────────────────────────────────────────────────
+// Where we are inside a sprint. A mid-sprint report is read at the halfway
+// mark, so every count needs a denominator and a sense of runway left.
+// Working days are what actually matter for "can this still land", so both
+// calendar and working days are reported.
+function countWorkdays(startISO, endISO){
+  if(!startISO || !endISO) return 0;
+  let n = 0;
+  const d = new Date(startISO + 'T00:00:00Z');
+  const end = new Date(endISO + 'T00:00:00Z');
+  while(d <= end){
+    const day = d.getUTCDay();
+    if(day !== 0 && day !== 6) n++;
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return n;
+}
+
+function sprintClock(sprintId, todayISO){
+  const cal = (S.cfg.sprint_calendar || []).find(e => e.sprint === sprintId);
+  if(!cal || !cal.start || !cal.end) return null;
+  const today = todayISO || new Date().toISOString().slice(0,10);
+  const dayMs = 864e5;
+  const start = new Date(cal.start + 'T00:00:00Z');
+  const end   = new Date(cal.end   + 'T00:00:00Z');
+  const now   = new Date(today     + 'T00:00:00Z');
+  const totalDays = Math.round((end - start) / dayMs) + 1;
+  // Clamp so a report run before or after the window still reads sensibly.
+  const rawElapsed = Math.round((now - start) / dayMs) + 1;
+  const elapsedDays = Math.min(Math.max(rawElapsed, 0), totalDays);
+  const phase = now < start ? 'future' : now > end ? 'past' : 'current';
+  const cappedToday = phase === 'past' ? cal.end : phase === 'future' ? cal.start : today;
+  const workdaysTotal = countWorkdays(cal.start, cal.end);
+  const workdaysElapsed = phase === 'future' ? 0 : countWorkdays(cal.start, cappedToday);
+  return {
+    sprint: sprintId, start: cal.start, end: cal.end, phase,
+    totalDays, elapsedDays, remainingDays: Math.max(totalDays - elapsedDays, 0),
+    workdaysTotal, workdaysElapsed,
+    workdaysRemaining: Math.max(workdaysTotal - workdaysElapsed, 0),
+    pctElapsed: totalDays ? Math.round((elapsedDays / totalDays) * 100) : 0,
+  };
 }
 
 // Collect all sprint values from a row (Jira exports sprint as repeated columns)
@@ -2573,7 +2664,7 @@ function renderReadinessBar(){
   } else {
     const notes=[];
     if(!hasEpics) notes.push('Epics not loaded — topic routing by epic will be limited');
-    guide='<span class="rb-ready"><b>Ready to run:</b> End of Sprint</span>'
+    guide='<span class="rb-ready"><b>Ready to run:</b> Mid-Sprint Review</span>'
         + notes.map(n=>'<span class="rb-note">'+esc(n)+'</span>').join('');
   }
   el.innerHTML='<div class="rb-pills">'+pills+'</div><div class="rb-guide">'+guide+'</div>';
@@ -2916,7 +3007,7 @@ function updateRecentReports(reportType, draft) {
     const recent = raw ? JSON.parse(raw) : [];
     // Remove existing entry for this type, add new one at front
     const filtered = recent.filter(r => r.reportType !== reportType);
-    const labels = {weekly:'Weekly Digest',eos:'End of Sprint',pmr:'PMR',sprint:'Sprint Plan',spin:'Spin Plan',batch:'All Reports'};
+    const labels = {eos:'Mid-Sprint Review'};
     const paramStr = _draftParamSummary(reportType, draft.wizParams);
     filtered.unshift({ reportType, ts: draft.ts, label: labels[reportType] || reportType, params: paramStr, issuesFile: draft.issuesFile });
     localStorage.setItem(RECENT_LS_KEY, JSON.stringify(filtered.slice(0, 5)));
@@ -3085,6 +3176,17 @@ function cfgSet(key, val){
   S.cfg[key]=val;
 }
 function _migrateCfg(){
+  // Sprints became calendar months. Rows that aren't month-aligned are from the
+  // old two-week cadence and describe spans that no longer exist, so drop them;
+  // a hand-edited row that happens to be a whole month survives.
+  if(Array.isArray(S.cfg.sprint_calendar) && S.cfg.sprint_calendar.length){
+    const monthly = S.cfg.sprint_calendar.filter(isMonthAligned);
+    if(monthly.length !== S.cfg.sprint_calendar.length){
+      console.info('[calendar] dropped ' + (S.cfg.sprint_calendar.length - monthly.length) +
+                   ' pre-monthly sprint rows');
+      S.cfg.sprint_calendar = monthly;
+    }
+  }
   // Promote legacy jira_base_url → jira_url, then drop the alias key
   if(!S.cfg.jira_url && S.cfg.jira_base_url) S.cfg.jira_url = S.cfg.jira_base_url;
   delete S.cfg.jira_base_url;
@@ -3231,9 +3333,7 @@ function populateConfigFields(){
   setVal('cfg-ga-release-blurb', S.cfg.graph_analytics_blurb||'');
   setVal('cfg-afx-release-lbl',  S.cfg.afx_release_label||'');
   // Seed sprint calendar with defaults only when completely empty (not when user has a small calendar)
-  if(S.cfg.sprint_calendar.length===0){
-    S.cfg.sprint_calendar=DEFAULT_SPRINT_CALENDAR.map(s=>({...s}));
-  }
+  ensureMonthlySprints();
   renderClassPresets();
   // Render tag boxes (safe to call repeatedly)
   renderTagBox('tags-backend','backend_components');
@@ -3504,9 +3604,7 @@ function clsSelectorRefreshAll() {
 function renderCalendarPane(){
   // Dedicated render for the Sprint Calendar settings pane.
   // Seeds defaults only when calendar is completely empty, then renders cal + prefixes.
-  if(S.cfg.sprint_calendar.length===0){
-    S.cfg.sprint_calendar=DEFAULT_SPRINT_CALENDAR.map(s=>({...s}));
-  }
+  ensureMonthlySprints();
   renderSprintCal();
   renderSprintPrefixRows();
 }
@@ -3601,29 +3699,56 @@ function tagKeydown(e,input,cfgKey){
   input.value='';
 }function focusTagIn(box){ box.querySelector('.tag-in').focus(); }
 
-// Pre-computed sprint calendar: FY26 Q2 remainder through FY27 Q2
-// Format: YY.Q.S — 2-week sprints, US Federal FY (Q1=Oct-Dec, Q2=Jan-Mar, Q3=Apr-Jun, Q4=Jul-Sep)
-const DEFAULT_SPRINT_CALENDAR = (function(){
-  const sprints = [];
-  // FY26 Q2 (remaining — already passed but include for reference)
-  const q2_26 = [
-    {sprint:'26.2.5',start:'2026-03-04',end:'2026-03-17'},
-    {sprint:'26.2.6',start:'2026-03-18',end:'2026-03-31'},
-  ];
-  // FY26 Q3 (Apr 1 – Jun 30, 2026) — 6 sprints of 2 weeks each
-  const q3_26_dates = ['2026-04-01','2026-04-15','2026-04-29','2026-05-13','2026-05-27','2026-06-10'];
-  const q3_26 = q3_26_dates.map((s,i)=>({sprint:`26.3.${i+1}`,start:s,end:addDays(s,13)}));
-  // FY26 Q4 (Jul 1 – Sep 30, 2026) — 6 sprints
-  const q4_26_dates = ['2026-07-01','2026-07-15','2026-07-29','2026-08-12','2026-08-26','2026-09-09'];
-  const q4_26 = q4_26_dates.map((s,i)=>({sprint:`26.4.${i+1}`,start:s,end:addDays(s,13)}));
-  // FY27 Q1 (Oct 1 – Dec 31, 2026) — 6 sprints
-  const q1_27_dates = ['2026-10-01','2026-10-15','2026-10-29','2026-11-12','2026-11-26','2026-12-10'];
-  const q1_27 = q1_27_dates.map((s,i)=>({sprint:`27.1.${i+1}`,start:s,end:addDays(s,13)}));
-  // FY27 Q2 (Jan 1 – Mar 31, 2027) — 6 sprints
-  const q2_27_dates = ['2027-01-06','2027-01-20','2027-02-03','2027-02-17','2027-03-03','2027-03-17'];
-  const q2_27 = q2_27_dates.map((s,i)=>({sprint:`27.2.${i+1}`,start:s,end:addDays(s,13)}));
-  return [...q2_26,...q3_26,...q4_26,...q1_27,...q2_27];
-})();
+// Sprints are calendar months, first day to last. The calendar is therefore
+// derived rather than hand-maintained: it can never run out, and it can never
+// drift from the real month boundaries.
+//
+// Sprint IDs stay in the established YY.Q.S shape on a US Federal fiscal year
+// (Q1=Oct-Dec, Q2=Jan-Mar, Q3=Apr-Jun, Q4=Jul-Sep), with S now the month's
+// position in the quarter, 1-3. March 2026 is 26.2.3.
+const FY_QUARTER_START = {1:10, 2:1, 3:4, 4:7};
+
+function fiscalSprintId(year, month){
+  const fy  = month >= 10 ? year + 1 : year;
+  const q   = month >= 10 ? 1 : month <= 3 ? 2 : month <= 6 ? 3 : 4;
+  const idx = ((month - FY_QUARTER_START[q] + 12) % 12) + 1;
+  return String(fy).slice(-2) + '.' + q + '.' + idx;
+}
+
+function monthlySprintEntry(year, month){
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const pad = n => String(n).padStart(2,'0');
+  return { sprint: fiscalSprintId(year, month),
+           start: year + '-' + pad(month) + '-01',
+           end:   year + '-' + pad(month) + '-' + pad(lastDay) };
+}
+
+// A monthly sprint runs 1st to last. Anything else in a stored calendar is
+// left over from the old two-week cadence and no longer describes reality.
+function isMonthAligned(entry){
+  if(!entry || !entry.start || !entry.end) return false;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(entry.start);
+  if(!m || m[3] !== '01') return false;
+  const y = +m[1], mo = +m[2];
+  return entry.end === monthlySprintEntry(y, mo).end;
+}
+
+// Fill in any months missing from the calendar around today, leaving existing
+// rows (including hand-edited ones) alone.
+function ensureMonthlySprints(monthsBack, monthsForward){
+  const cal = S.cfg.sprint_calendar = S.cfg.sprint_calendar || [];
+  const have = new Set(cal.map(e => e.sprint));
+  const now = new Date();
+  const back = monthsBack === undefined ? 12 : monthsBack;
+  const fwd  = monthsForward === undefined ? 12 : monthsForward;
+  for(let off = -back; off <= fwd; off++){
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + off, 1));
+    const entry = monthlySprintEntry(d.getUTCFullYear(), d.getUTCMonth() + 1);
+    if(!have.has(entry.sprint)){ cal.push(entry); have.add(entry.sprint); }
+  }
+  cal.sort((a,b) => String(a.start).localeCompare(String(b.start)));
+  return cal;
+}
 
 function addDays(dateStr, days){
   const d=new Date(dateStr+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+days);
@@ -3948,17 +4073,55 @@ function eosCleanThreadName(header){
     .trim() || String(header||'');
 }
 
+const EOS_DONE_STATUSES = new Set(['done','closed','resolved','complete','completed']);
+// Work that has not moved at all. At the halfway mark of a month this is the
+// strongest leading indicator of a miss there is.
+const EOS_NOT_STARTED_STATUSES = new Set(['open','to do','todo','backlog','new','not started','reopened']);
+// A week of silence inside a month-long sprint is a stall, not noise. The
+// threshold is deliberately relative to the cadence, not a fixed fortnight.
+const EOS_STALL_DAYS = 7;
+// "Not started" only means something once the sprint is genuinely underway. On
+// day 2 of a month everything is unstarted and saying so is noise, so it is
+// only raised as an exception past this much of the sprint.
+const EOS_NOT_STARTED_AFTER_PCT = 40;
+// An attention list is only useful if a lead can read it. Longer groups
+// collapse behind a disclosure rather than running to hundreds of rows.
+const EOS_ATTENTION_VISIBLE = 8;
+
+const eosIsDone = t => EOS_DONE_STATUSES.has(String(t.status||'').trim().toLowerCase());
+// Case-insensitive so a workflow that spells it BLOCKED still registers.
+const eosIsBlocked = t => String(t.status||'').trim().toLowerCase() === 'blocked';
+const eosIsNotStarted = t => EOS_NOT_STARTED_STATUSES.has(String(t.status||'').trim().toLowerCase());
+
+function eosDaysSinceUpdate(ticket, todayISO){
+  if(!ticket || !ticket.updated_dt) return null;
+  const now = todayISO ? new Date(todayISO + 'T00:00:00Z') : new Date();
+  const then = new Date(ticket.updated_dt);
+  if(isNaN(then)) return null;
+  return Math.floor((now - then) / 864e5);
+}
+
+// In flight but untouched for a week or more.
+function eosIsStalled(ticket, todayISO){
+  if(eosIsDone(ticket) || eosIsBlocked(ticket) || eosIsNotStarted(ticket)) return false;
+  const days = eosDaysSinceUpdate(ticket, todayISO);
+  return days !== null && days >= EOS_STALL_DAYS;
+}
+
 // Sort a project's topics into mission-outcome categories. Each topic becomes
-// one "thread" placed in exactly one bucket based on its ticket mix:
-//   risk      — has blocked tickets
-//   delivered — has Done/Closed/Resolved tickets in the current sprint
-//   advanced  — has current-sprint tickets, none done yet
-//   progress  — only future-sprint tickets queued
-// Blocked tickets that match no topic collect into a synthetic risk thread.
-// Returns { order: [category,...], pulse: {delivered,advancing,upcoming,impediments} }.
-// Pure + deterministic so runEOS and buildEOSConfluence can both call it.
-function eosCategorizeThreads(topics, results, blocked){
-  const DONE = new Set(['done','closed','resolved']);
+// one "thread" placed in the bucket matching what it has most substantially
+// done — delivery first, then work in motion, then queued work. Blockers are
+// an ATTRIBUTE of a thread, never a bucket that claims it: a thread that
+// shipped eight things and carries one blocker belongs under what it landed,
+// with the blocker shown against it. (Filing it under risk instead is what
+// used to make "Delivered to users: 9" sit above "Delivered — 0 threads".)
+// Only a thread with nothing but blockers lands in the risk bucket.
+//
+// Exceptions needing a lead's attention are collected separately, as items
+// rather than threads, so nothing is hidden inside a category.
+// Returns { order, pulse, attention }. Pure + deterministic so runEOS and
+// buildEOSConfluence can both call it.
+function eosCategorizeThreads(topics, results, blocked, todayISO){
   const blkByHeader = {}, blkUnattributed = [];
   (blocked||[]).forEach(t=>{
     const {best} = findBestMatch(t, topics);
@@ -3966,42 +4129,134 @@ function eosCategorizeThreads(topics, results, blocked){
     else blkUnattributed.push(t);
   });
   const cats = {
-    delivered:{key:'delivered', label:'Delivered to Users',    icon:'check_circle', threads:[]},
-    advanced: {key:'advanced',  label:'Capabilities Advanced', icon:'arrow_upward', threads:[]},
-    progress: {key:'progress',  label:'In Progress',           icon:'play_arrow',   threads:[]},
-    risk:     {key:'risk',      label:'At Risk',               icon:'warning',      threads:[]},
+    delivered:{key:'delivered', label:'Landed so far',   icon:'check_circle', threads:[]},
+    advanced: {key:'advanced',  label:'Advancing',       icon:'arrow_upward', threads:[]},
+    progress: {key:'progress',  label:'Queued for next', icon:'play_arrow',   threads:[]},
+    risk:     {key:'risk',      label:'At risk',         icon:'warning',      threads:[]},
   };
-  let delivered=0, advancing=0, upcoming=0;
+  let delivered=0, advancing=0, notStarted=0, upcoming=0;
+  const attention = { blocked:[], stalled:[], notStarted:[] };
+  const noteAttention = (bucket, ticket, threadName, extra) =>
+    attention[bucket].push(Object.assign({ticket, thread:threadName}, extra||{}));
+
   topics.forEach((topic,tidx)=>{
     const curr = results[topic.header].current;
     const futt = results[topic.header].future;
     const blk  = blkByHeader[topic.header] || [];
-    const done   = curr.filter(t=>DONE.has((t.status||'').toLowerCase()));
-    const active = curr.filter(t=>!DONE.has((t.status||'').toLowerCase()));
-    delivered += done.length; advancing += active.length; upcoming += futt.length;
+    const name = eosCleanThreadName(topic.header);
+
+    const done    = curr.filter(eosIsDone);
+    const active  = curr.filter(t=>!eosIsDone(t));
+    const idle    = active.filter(eosIsNotStarted);
+    const stalled = active.filter(t=>eosIsStalled(t, todayISO));
+
+    delivered += done.length; advancing += active.length - idle.length;
+    notStarted += idle.length; upcoming += futt.length;
+
+    blk.forEach(t=>noteAttention('blocked', t, name));
+    stalled.forEach(t=>noteAttention('stalled', t, name, {days: eosDaysSinceUpdate(t, todayISO)}));
+    idle.forEach(t=>noteAttention('notStarted', t, name));
+
     if(!curr.length && !futt.length && !blk.length) return; // no activity — drop
-    const thread = {topic, tidx, done, active, future:futt, blk, synthetic:null};
-    const catKey = blk.length ? 'risk'
-                 : done.length ? 'delivered'
+    const thread = {topic, tidx, done, active, future:futt, blk, stalled, idle, synthetic:null};
+    const catKey = done.length   ? 'delivered'
                  : active.length ? 'advanced'
-                 : 'progress';
+                 : futt.length   ? 'progress'
+                 : 'risk';
     cats[catKey].threads.push(thread);
   });
+
   if(blkUnattributed.length){
-    cats.risk.threads.push({topic:null, tidx:-1, done:[], active:[], future:[], blk:blkUnattributed, synthetic:'Unattributed impediments'});
+    blkUnattributed.forEach(t=>noteAttention('blocked', t, 'Unattributed'));
+    cats.risk.threads.push({topic:null, tidx:-1, done:[], active:[], future:[], blk:blkUnattributed,
+                            stalled:[], idle:[], synthetic:'Unattributed impediments'});
   }
   return {
     order: [cats.delivered, cats.advanced, cats.progress, cats.risk],
-    pulse: {delivered, advancing, upcoming, impediments:(blocked||[]).length},
+    pulse: {delivered, advancing, notStarted, upcoming, impediments:(blocked||[]).length,
+            stalled: attention.stalled.length},
+    attention,
   };
+}
+
+// Where the sprint is, in days and in working days. A mid-sprint number means
+// nothing without its denominator.
+function buildSprintClockHtml(clock){
+  if(!clock) return '';
+  const note = clock.phase === 'current'
+    ? `${clock.workdaysRemaining} working day${clock.workdaysRemaining!==1?'s':''} left`
+    : clock.phase === 'past' ? 'sprint complete' : 'sprint not started';
+  return `<div class="eos-clock">
+    <span class="eos-clock-day">Day ${clock.elapsedDays} of ${clock.totalDays}</span>
+    <div class="eos-clock-track" role="img" aria-label="${clock.pctElapsed}% of the sprint elapsed">
+      <div class="eos-clock-fill" style="width:${clock.pctElapsed}%"></div>
+    </div>
+    <span class="eos-clock-left">${esc(note)}</span>
+  </div>`;
+}
+
+// The exceptions panel. Items, not threads, so nothing is hidden inside a
+// category, and grouped by the reason a lead would act on them.
+function buildEOSAttentionPanel(attention, base, clock){
+  // Early in a sprint, unstarted work is just work that hasn't come up yet.
+  const sprintUnderway = !clock || clock.phase !== 'current' ||
+                         clock.pctElapsed >= EOS_NOT_STARTED_AFTER_PCT;
+  const notStartedItems = sprintUnderway ? attention.notStarted : [];
+  const groups = [
+    {key:'blocked',    label:'Blocked',                          items:attention.blocked,
+     note:'Waiting on something outside the team.'},
+    {key:'stalled',    label:`Stalled — no update in ${EOS_STALL_DAYS}+ days`, items:attention.stalled,
+     note:'In flight but silent. Most likely to slip without anyone noticing.'},
+    {key:'notStarted', label:'Not started',                      items:notStartedItems,
+     note:clock && clock.phase === 'current'
+       ? `Nothing logged yet with ${clock.workdaysRemaining} working day${clock.workdaysRemaining!==1?'s':''} left.`
+       : 'Nothing logged against these yet.'},
+  ].filter(g => g.items && g.items.length);
+
+  const attRow = it => {
+    const t = it.ticket;
+    const age = it.days !== undefined && it.days !== null ? `<span class="eos-att-age">${it.days}d silent</span>` : '';
+    const who = t.assignee ? `<span class="eos-att-who">${esc(t.assignee)}</span>` : '<span class="eos-att-who none">unassigned</span>';
+    return `<div class="eos-att-row">
+      <span class="eos-att-key">${jiraLink(t.issue_key)}</span>
+      <span class="eos-att-sum">${esc(t.summary||'')}</span>
+      <span class="eos-att-thread">${esc(it.thread||'')}</span>
+      ${who}${age}
+    </div>`;
+  };
+  const total = groups.reduce((n,g)=>n+g.items.length,0);
+  if(!total){
+    const why = sprintUnderway
+      ? 'No blocked, stalled or unstarted work in this sprint.'
+      : `No blocked or stalled work. Unstarted work is not flagged until the sprint is ${EOS_NOT_STARTED_AFTER_PCT}% through.`;
+    return `<div class="eos-attention ok">
+      <div class="eos-attention-head"><span class="mi">check_circle</span>Nothing needs a decision right now</div>
+      <div class="eos-attention-note">${esc(why)}</div>
+    </div>`;
+  }
+  const rows = groups.map(g => `
+    <div class="eos-att-group">
+      <div class="eos-att-group-head">${esc(g.label)}<span class="eos-att-count">${g.items.length}</span></div>
+      <div class="eos-att-note">${esc(g.note)}</div>
+      ${g.items.slice(0, EOS_ATTENTION_VISIBLE).map(attRow).join('')}
+      ${g.items.length > EOS_ATTENTION_VISIBLE
+        ? `<details class="eos-att-more"><summary>${g.items.length - EOS_ATTENTION_VISIBLE} more</summary>
+             ${g.items.slice(EOS_ATTENTION_VISIBLE).map(attRow).join('')}</details>`
+        : ''}
+    </div>`).join('');
+
+  return `<div class="eos-attention">
+    <div class="eos-attention-head"><span class="mi">warning</span>Needs your attention<span class="eos-attention-count">${total} item${total!==1?'s':''}</span></div>
+    ${rows}
+  </div>`;
 }
 
 // Render the collapsed "evidence" ticket tables for one thread, status-grouped.
 function eosThreadEvidence(thread, base){
   let h='';
-  if(thread.done.length)   h+=`<div class="eos-ev-cap">Delivered — ${thread.done.length}</div>${ticketTable(thread.done,base)}`;
+  if(thread.done.length)   h+=`<div class="eos-ev-cap">Landed — ${thread.done.length}</div>${ticketTable(thread.done,base)}`;
   if(thread.active.length) h+=`<div class="eos-ev-cap">In motion — ${thread.active.length}</div>${ticketTable(thread.active,base)}`;
-  if(thread.future.length) h+=`<div class="eos-ev-cap">Queued — ${thread.future.length}</div>${ticketTable(thread.future,base)}`;
+  if(thread.future.length) h+=`<div class="eos-ev-cap">Queued for next — ${thread.future.length}</div>${ticketTable(thread.future,base)}`;
   if(thread.blk.length)    h+=`<div class="eos-ev-cap">Blocked — ${thread.blk.length}</div>${ticketTable(thread.blk,base)}`;
   return h;
 }
@@ -4018,11 +4273,13 @@ function runEOS(){
   const fut = p.eosFut || '';
   if(!cur||!fut){
     const _out=document.getElementById('eos-output');
-    if(_out) _out.innerHTML='<div class="card lr"><div class="card-title">End of Sprint</div><div>No sprints selected. Set sprints in the batch params.</div></div>';
+    if(_out) _out.innerHTML='<div class="card lr"><div class="card-title">Mid-Sprint</div><div>No sprint selected.</div></div>';
     else alert('Select current and future sprints.');
     return;
   }
   const base=S.cfg.jira_url||'';
+  const today=new Date().toISOString().slice(0,10);
+  const clock=sprintClock(cur, today);
 
   S.eosConfluenceTexts={};
   S.eosConfParams={};   // stored so Confluence text can be regenerated at copy time
@@ -4041,8 +4298,8 @@ function runEOS(){
     // Skip projects with no tickets in either sprint
     if(!scoped.length) return;
 
-    const blocked=scoped.filter(t=>t.status==='Blocked');
-    const nonBlocked=scoped.filter(t=>t.status!=='Blocked');
+    const blocked=scoped.filter(eosIsBlocked);
+    const nonBlocked=scoped.filter(t=>!eosIsBlocked(t));
     const results={};
     topics.forEach(t=>results[t.header]={current:[],future:[]});
     const unmatched=[], allTraces=[];
@@ -4080,19 +4337,25 @@ function runEOS(){
     };
 
     // Sort topics into mission-outcome categories and compute pulse metrics.
-    const cat = eosCategorizeThreads(topics, results, blocked);
+    const cat = eosCategorizeThreads(topics, results, blocked, today);
 
     // ── Sprint Pulse band — project + BLUF + outcome-framed vital signs
     let rp=`<div class="eos-pulse">
       <div class="eos-pulse-title">${esc(meta.report_title)}</div>
-      <div class="eos-pulse-bluf"><div class="bluf-label">BLUF — Mission Pulse</div><div class="bluf-field" id="${eosBlufId}" contenteditable="true" data-placeholder="Bottom line: what did this sprint deliver for the mission?"></div></div>
+      ${buildSprintClockHtml(clock)}
+      <div class="eos-pulse-bluf"><div class="bluf-label">BLUF — Mission Pulse</div><div class="bluf-field" id="${eosBlufId}" contenteditable="true" data-placeholder="Bottom line: will this sprint's commitments land, and where do you need help?"></div></div>
       <div class="eos-pulse-metrics">
-        <div class="eos-pulse-metric" data-tone="a3"><span class="v">${cat.pulse.delivered}</span><span class="l">Delivered to users</span></div>
-        <div class="eos-pulse-metric" data-tone="a1"><span class="v">${cat.pulse.advancing}</span><span class="l">Capabilities advancing</span></div>
-        <div class="eos-pulse-metric" data-tone="a2"><span class="v">${cat.pulse.upcoming}</span><span class="l">Queued for next</span></div>
-        <div class="eos-pulse-metric" data-tone="a5"><span class="v">${cat.pulse.impediments}</span><span class="l">Impediments</span></div>
+        <div class="eos-pulse-metric" data-tone="a3"><span class="v">${cat.pulse.delivered}</span><span class="l">Landed so far</span></div>
+        <div class="eos-pulse-metric" data-tone="a1"><span class="v">${cat.pulse.advancing}</span><span class="l">In flight</span></div>
+        <div class="eos-pulse-metric" data-tone="a4"><span class="v">${cat.pulse.notStarted}</span><span class="l">Not started</span></div>
+        <div class="eos-pulse-metric" data-tone="a5"><span class="v">${cat.pulse.stalled}</span><span class="l">Stalled ${EOS_STALL_DAYS}d+</span></div>
+        <div class="eos-pulse-metric" data-tone="a5"><span class="v">${cat.pulse.impediments}</span><span class="l">Blocked</span></div>
       </div>
     </div>`;
+
+    // Exceptions lead. A lead reading at the halfway mark wants what needs a
+    // decision while there is still runway, not an accounting of what shipped.
+    rp+=buildEOSAttentionPanel(cat.attention, base, clock);
 
     // ── Mission engagement — outward-facing narrative sections
     rp+=`<div class="eos-section-head mission"><span class="mi">slideshow</span>Demonstrations &amp; Outreach</div>`;
@@ -4106,7 +4369,7 @@ function runEOS(){
     cat.order.forEach(c=>{
       rp+=`<div class="eos-cat" data-cat="${c.key}"><div class="eos-cat-head"><span class="mi">${c.icon}</span>${esc(c.label)}<span class="eos-cat-count">${c.threads.length} thread${c.threads.length!==1?'s':''}</span></div>`;
       if(!c.threads.length){
-        rp+=`<div class="eos-cat-empty">Nothing in this category this sprint.</div>`;
+        rp+=`<div class="eos-cat-empty">Nothing in this category yet.</div>`;
       } else {
         c.threads.forEach(th=>{
           const name = th.synthetic || eosCleanThreadName(th.topic.header);
@@ -4117,15 +4380,17 @@ function runEOS(){
             : '';
           rp+=`<div class="eos-thread"><div class="eos-thread-head"><h4>(U) ${esc(name)}</h4>${aiBtn}</div>`;
           if(hasNarr){
-            rp+=`<div class="bluf-label" style="margin-top:6px">Mission impact — this sprint</div>`;
-            rp+=`<div class="bluf-field" id="${topicSlug}" contenteditable="true" data-placeholder="What did this thread accomplish or change this sprint?"></div>`;
-            rp+=`<div class="bluf-label" style="margin-top:10px">Looking ahead — next sprint</div>`;
-            rp+=`<div class="bluf-field" id="${topicSlug}-future" contenteditable="true" data-placeholder="What's planned or queued for next sprint?"></div>`;
+            rp+=`<div class="bluf-label" style="margin-top:6px">Mission impact — so far this sprint</div>`;
+            rp+=`<div class="bluf-field" id="${topicSlug}" contenteditable="true" data-placeholder="What has this thread moved or changed so far?"></div>`;
+            rp+=`<div class="bluf-label" style="margin-top:10px">Rest of sprint — what still has to land</div>`;
+            rp+=`<div class="bluf-field" id="${topicSlug}-future" contenteditable="true" data-placeholder="What must still land, and what would help it land?"></div>`;
           }
           const bits=[];
           if(th.done.length)   bits.push(`<span><strong>${th.done.length}</strong> delivered</span>`);
           if(th.active.length) bits.push(`<span><strong>${th.active.length}</strong> in motion</span>`);
           if(th.future.length) bits.push(`<span><strong>${th.future.length}</strong> queued</span>`);
+          if(th.stalled.length) bits.push(`<span><strong class="risk">${th.stalled.length}</strong> stalled</span>`);
+          if(th.idle.length)   bits.push(`<span><strong>${th.idle.length}</strong> not started</span>`);
           if(th.blk.length)    bits.push(`<span><strong class="risk">${th.blk.length}</strong> blocked</span>`);
           if(bits.length) rp+=`<div class="eos-thread-progress">${bits.join('')}</div>`;
           const total = th.done.length+th.active.length+th.future.length+th.blk.length;
@@ -4195,14 +4460,14 @@ function runEOS(){
 
   const html=`
   <div class="rpt-frame" id="rptf1">
-    ${buildRptBar({icon:'flag',iconColor:'var(--a2)',title:'End of Sprint',
+    ${buildRptBar({icon:'flag',iconColor:'var(--a2)',title:'Mid-Sprint',
       subtitle:`${cur} / ${fut}`,
       frameId:'rptf1',reportType:'eos',
       primaryBtn:{label:'Copy for Confluence',icon:'content_copy',onclick:'openEOSConfluencePicker()'}})}
     <div class="rpt-body"><div class="rpt-body-inner">
       <div class="rpt-hdr" style="border-left-color:var(--a2)">
-        <div><h1>End of Sprint Review</h1><div class="rsub">Current: ${esc(cur)} &nbsp;/&nbsp; Future: ${esc(fut)}</div></div>
-        <span class="badge" style="background:var(--a2d);color:var(--a2);border:1px solid var(--a2b)">EOS &nbsp;·&nbsp; ${renderedCount} project${renderedCount!==1?'s':''}</span>
+        <div><h1>Mid-Sprint Review</h1><div class="rsub">Sprint ${esc(cur)}${clock ? ` &nbsp;·&nbsp; day ${clock.elapsedDays} of ${clock.totalDays} &nbsp;·&nbsp; ${clock.workdaysRemaining} working day${clock.workdaysRemaining!==1?'s':''} left` : ''} &nbsp;/&nbsp; next: ${esc(fut)}</div></div>
+        <span class="badge" style="background:var(--a2d);color:var(--a2);border:1px solid var(--a2b)">MID-SPRINT &nbsp;·&nbsp; ${renderedCount} project${renderedCount!==1?'s':''}</span>
       </div>
       <div class="eos-bar">
         <div class="eos-badge" data-color="${firstColor}">${esc(firstProj)}</div>
@@ -4317,9 +4582,15 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
 
   // Sort topics into the same mission-outcome categories as the on-screen
   // report so the exported page reads as the identical mission brief.
-  const cat = eosCategorizeThreads(topics, results, blocked);
+  const today = new Date().toISOString().slice(0,10);
+  const clock = sprintClock(cur, today);
+  const cat = eosCategorizeThreads(topics, results, blocked, today);
 
   let lines=[`h1. ${meta.report_title}`,''];
+  if(clock){
+    lines.push(`(U) Sprint ${cur} — day ${clock.elapsedDays} of ${clock.totalDays}, ` +
+      `${clock.workdaysRemaining} working day${clock.workdaysRemaining!==1?'s':''} remaining.`,'');
+  }
   // Project-level BLUF (reads the current DOM so user-typed text is included)
   const blufId=`bluf-eos-${proj.toLowerCase()}`;
   const blufEl=document.getElementById(blufId);
@@ -4327,7 +4598,25 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
   if(blufTxt) lines.push(`(U) BLUF: ${blufTxt}`,'');
 
   // ── Sprint pulse — outcome-framed vital signs ──────────────────────────
-  lines.push(`(U) Sprint Pulse: ${cat.pulse.delivered} delivered to users · ${cat.pulse.advancing} capabilities advancing · ${cat.pulse.upcoming} queued for next sprint · ${cat.pulse.impediments} impediments`,'');
+  lines.push(`(U) Sprint Pulse: ${cat.pulse.delivered} landed · ${cat.pulse.advancing} in flight · ` +
+    `${cat.pulse.notStarted} not started · ${cat.pulse.stalled} stalled ${EOS_STALL_DAYS}d+ · ` +
+    `${cat.pulse.impediments} blocked`,'');
+
+  // ── Needs attention — exceptions lead, same as the on-screen report ────
+  const attnGroups = [
+    ['Blocked', cat.attention.blocked],
+    [`Stalled — no update in ${EOS_STALL_DAYS}+ days`, cat.attention.stalled],
+    ['Not started', cat.attention.notStarted],
+  ].filter(g => g[1] && g[1].length);
+  lines.push('h2. (U) Needs Attention','');
+  if(!attnGroups.length){
+    lines.push('* (U) _Nothing blocked, stalled or unstarted._','');
+  } else {
+    attnGroups.forEach(([label, items]) => {
+      lines.push(`h3. (U) ${label} (${items.length})`,'');
+      lines.push(tableFromKeys(items.map(i=>i.ticket)),'');
+    });
+  }
 
   // ── Mission engagement — outward-facing narrative leads ────────────────
   lines.push(...emitAddl('Demonstrations'));
@@ -4341,26 +4630,28 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
       const name = th.synthetic || eosCleanThreadName(th.topic.header);
       lines.push(`h3. (U) ${name}`);
       const prog=[];
-      if(th.done.length)   prog.push(`${th.done.length} delivered`);
-      if(th.active.length) prog.push(`${th.active.length} in motion`);
-      if(th.future.length) prog.push(`${th.future.length} queued`);
-      if(th.blk.length)    prog.push(`${th.blk.length} blocked`);
+      if(th.done.length)    prog.push(`${th.done.length} landed`);
+      if(th.active.length)  prog.push(`${th.active.length} in motion`);
+      if(th.stalled.length) prog.push(`${th.stalled.length} stalled`);
+      if(th.idle.length)    prog.push(`${th.idle.length} not started`);
+      if(th.future.length)  prog.push(`${th.future.length} queued`);
+      if(th.blk.length)     prog.push(`${th.blk.length} blocked`);
       if(prog.length) lines.push(`_(${prog.join(' · ')})_`,'');
       // Current-sprint summary above the current-sprint tables.
       if(th.tidx >= 0){
         const sEl=document.getElementById(`bluf-eos-${proj.toLowerCase()}-${th.tidx}`);
         const sTxt=(sEl&&sEl.innerText.trim())||'';
-        if(sTxt) lines.push(`(U) Mission impact: ${sTxt}`,'');
+        if(sTxt) lines.push(`(U) Mission impact so far: ${sTxt}`,'');
       }
-      if(th.done.length)   lines.push('h4. (U) Delivered','', tableFromKeys(th.done),'');
+      if(th.done.length)   lines.push('h4. (U) Landed','', tableFromKeys(th.done),'');
       if(th.active.length) lines.push('h4. (U) In Motion','', tableFromKeys(th.active),'');
       // Next-sprint summary above the future-sprint tables.
       if(th.tidx >= 0){
         const fEl=document.getElementById(`bluf-eos-${proj.toLowerCase()}-${th.tidx}-future`);
         const fTxt=(fEl&&fEl.innerText.trim())||'';
-        if(fTxt) lines.push(`(U) Looking ahead: ${fTxt}`,'');
+        if(fTxt) lines.push(`(U) Rest of sprint: ${fTxt}`,'');
       }
-      if(th.future.length) lines.push('h4. (U) Queued','', tableFromKeys(th.future),'');
+      if(th.future.length) lines.push('h4. (U) Queued for next','', tableFromKeys(th.future),'');
       if(th.blk.length)    lines.push('h4. (U) Blocked','', tableFromKeys(th.blk),'');
     });
   });
@@ -4651,15 +4942,18 @@ function wireEOSPrioritizationListeners(proj) {
 // ============================================================
 // SPRINT METRICS
 // ============================================================
-const EOS_SPRINT_WINDOW=7; // visible sprints before "show more"
+const EOS_SPRINT_WINDOW=7; // visible sprints (months) before "show more"
 
 function populateEOSSprints(){
   const cal=S.cfg.sprint_calendar||[];
   if(!cal.length) return;
   const today=new Date().toISOString().slice(0,10);
   const curIdx=cal.findIndex(s=>s.start<=today&&today<=s.end);
-  // EOS reports on the sprint that just ended; default Current Sprint to prev, Future to active
-  const defCur=curIdx>0?curIdx-1:(curIdx===0?0:cal.length-2>=0?cal.length-2:0);
+  // A mid-sprint report is about the sprint we are standing in, so default to
+  // the one containing today — not the one that just ended, which is what an
+  // end-of-sprint report wanted. Falling back to the last known sprint keeps
+  // the picker useful if today sits outside the calendar entirely.
+  const defCur=curIdx>=0?curIdx:Math.max(cal.length-1,0);
 
   const selCur=document.getElementById('eos-cur');
   const selFut=document.getElementById('eos-fut');
@@ -4685,7 +4979,7 @@ function populateEOSSprints(){
   };
 
   buildOptions(selCur,defCur,showAll);
-  // Default future = the active sprint (one after the just-ended sprint)
+  // Future = the sprint after the one being reported on.
   const defFutIdx=Math.min(defCur+1,cal.length-1);
   buildOptions(selFut,defFutIdx,showAll);
 
@@ -5482,7 +5776,7 @@ function buildStandaloneHtml(title, bodyContent){
   var css=":root{--bg:#0a1417;--s1:#0e1a1e;--s2:#122227;--s3:#172a30;--s4:#1d343a;--bd:#22383f;--bd2:#2e4a53;--a1:#7cc4c8;--a1d:rgba(124,196,200,.10);--a1b:rgba(124,196,200,.24);--a2:#a8a6d2;--a2d:rgba(168,166,210,.10);--a2b:rgba(168,166,210,.24);--a3:#84c8a0;--a3d:rgba(132,200,160,.09);--a3b:rgba(132,200,160,.24);--a4:#e0b684;--a4d:rgba(224,182,132,.09);--a4b:rgba(224,182,132,.24);--a5:#e19191;--a5d:rgba(225,145,145,.09);--a5b:rgba(225,145,145,.24);--tx:#e7efec;--mu:#a3b8b7;--di:#7d9599;--hover:rgba(124,196,200,.05);--mono:'Consolas','Cascadia Code','Menlo',monospace;--sans:'Segoe UI','Inter','Arial',sans-serif;--r:10px;--r2:6px;--fs-base:13px;--fs-sm:12px;--fs-xs:11px;--fs-lg:14px;--fs-xl:16px}*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(--fs-base);line-height:1.55;padding:28px 32px 80px;min-height:100vh}a{color:var(--a1);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap}.bd-done{background:var(--a3d);color:var(--a3)}.bd-blk{background:var(--a5d);color:var(--a5)}.bd-prog{background:var(--a1d);color:var(--a1)}.bd-rev{background:var(--a4d);color:var(--a4)}.bd-open{background:var(--s4);color:var(--mu)}.nstr{color:var(--di);font-style:italic;font-size:var(--fs-sm);padding:3px 0}.rpt-frame{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:18px;max-width:1200px;margin-left:auto;margin-right:auto}.rpt-bar{background:var(--s2);border-bottom:1px solid var(--bd);padding:9px 14px;display:flex;align-items:center;justify-content:space-between}.rbd-row{display:flex;gap:5px}.rbd{width:8px;height:8px;border-radius:50%}.rbd-r{background:#ff7b7b}.rbd-y{background:#ffb347}.rbd-g{background:#4dd89a}.rpt-bar-fn{font-family:var(--mono);font-size:var(--fs-xs);color:var(--mu)}.rpt-body{padding:22px 26px}.rpt-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px;margin-bottom:20px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;border-left:4px solid var(--a1)}.rpt-hdr h1{font-size:17px;font-weight:600;color:var(--tx)}.rpt-hdr .rsub{font-size:var(--fs-xs);color:var(--mu);margin-top:3px}.r-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:18px}.r-tab{padding:8px 15px;font-size:var(--fs-sm);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-tab:hover{color:var(--tx)}.r-tab.active{color:var(--a1);border-bottom-color:var(--a1)}.r-panel{display:none}.r-panel.active{display:block}.r-tabs-sticky{position:sticky;top:0;z-index:10;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-tabs-sticky .r-tab{padding:8px 14px}.r-subtabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:14px}.r-subtab{padding:6px 13px;font-size:var(--fs-xs);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-subtab:hover{color:var(--tx)}.r-subtab.active{color:var(--a2);border-bottom-color:var(--a2)}.r-sub-panel{display:none}.r-sub-panel.active{display:block}.r-subtabs-sticky{position:sticky;top:37px;z-index:9;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-subtabs-sticky .r-subtab{padding:6px 12px}.r-card{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:14px 18px;margin-bottom:10px}.r-card.l1{border-left:3px solid var(--a1)}.r-card.l2{border-left:3px solid var(--a2)}.r-card.l3{border-left:3px solid var(--a3)}.r-card.lw{border-left:3px solid var(--a4)}.r-card.lr{border-left:3px solid var(--a5)}.r-card h3{font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}.stats-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.stat{background:var(--s3);border:1px solid var(--bd);border-radius:5px;padding:10px 15px}.stat .sv{font-size:20px;font-weight:600;color:var(--a1)}.stat .sl{font-size:var(--fs-xs);color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.tw{overflow-x:auto;border-radius:5px;border:1px solid var(--bd);margin:8px 0}.rt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);background:var(--s2)}.rt thead th{background:var(--s3);color:var(--mu);padding:8px 11px;font-weight:600;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}.rt tbody td{padding:7px 11px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--tx)}.rt tbody tr:last-child td{border-bottom:none}.tk-c{font-family:var(--mono);font-size:var(--fs-xs);color:var(--a1);white-space:nowrap}.bluf-label{display:block;font-size:var(--fs-xs);font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.bluf-field{padding:4px 0;font-size:var(--fs-sm);line-height:1.6;color:var(--tx);min-height:20px}.bluf-field:empty::before{content:attr(data-placeholder);color:var(--di)}.conf-pre{background:#04060c;color:#9bbbd4;border:1px solid var(--bd);border-radius:5px;padding:12px 14px;font-family:var(--mono);font-size:var(--fs-xs);line-height:1.7;white-space:pre;overflow:auto;max-height:400px;margin-top:8px}.slide{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--a2);border-radius:8px;padding:16px 20px;margin-bottom:14px}.slide h2{font-size:var(--fs-base);font-weight:600;color:var(--a2);margin-bottom:10px}.slide h3{font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 5px}.agenda-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:3px}.agenda-list li{padding:6px 13px;border-left:2px solid var(--bd);font-size:var(--fs-sm);border-radius:0 5px 5px 0}.agenda-list li.has{border-left-color:var(--a3);color:var(--tx);background:var(--a3d)}.agenda-list li.nstr{border-left-color:var(--di);color:var(--mu);font-style:italic}.ptabs{margin-bottom:12px}.ptab{display:inline-block;padding:4px 12px;border-radius:var(--r2);font-size:var(--fs-sm);font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--s3);color:var(--mu);margin:0 4px 4px 0}.ptab.active{background:var(--a1d);color:var(--a1);border-color:var(--a1b)}.muted{color:var(--mu)}.mono{font-family:var(--mono)}";
   var inlineJS="function switchRtab(btn){\n  var rtabs=btn.parentElement;\n  var idx=Array.from(rtabs.children).indexOf(btn);\n  rtabs.querySelectorAll('.r-tab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=rtabs.parentElement;\n  cont.querySelectorAll(':scope > .r-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchRstab(btn){\n  var stabs=btn.parentElement;\n  var idx=Array.from(stabs.children).indexOf(btn);\n  stabs.querySelectorAll('.r-subtab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=stabs.parentElement;\n  cont.querySelectorAll(':scope > .r-sub-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchPtab(btn,proj){\n  var cont=btn.closest('.ptabs').parentElement;\n  cont.querySelectorAll('.ptab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  cont.querySelectorAll('[data-ptab-panel]').forEach(function(p){\n    p.style.display=p.dataset.ptabPanel===proj?'block':'none';\n  });\n}\nfunction filterDbg(inp,tableId){\n  var val=inp.value.toLowerCase().trim();\n  var tbody=document.querySelector('#'+tableId+' tbody');\n  if(!tbody) return;\n  tbody.querySelectorAll('tr').forEach(function(tr){\n    tr.style.display=(!val||tr.textContent.toLowerCase().includes(val))?'':'none';\n  });\n}\ndocument.addEventListener('click',function(e){\n  var a=e.target.closest('.agenda-list a');\n  if(a){e.preventDefault();var t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'});}\n});";
   return '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">\n'
-    + '<title>EOS Report v1.0</title>\n'
+    + '<title>Mid-Sprint Report v2.0</title>\n'
     + '<style>'+css+'</style>\n'
     + '</head>\n<body style="margin:0;padding:0">\n'
     + bodyContent
@@ -5633,7 +5927,7 @@ function buildGuideNav(overlay) {
   const GUIDE_SECTIONS = [
     { id:'start',     label:'Getting Started' },
     { id:'files',     label:'Your Files' },
-    { id:'eos',       label:'End of Sprint' },
+    { id:'eos',       label:'Mid-Sprint' },
     { id:'config',    label:'Settings' },
     { id:'tips',      label:'Tips' },
   ];
@@ -5730,11 +6024,11 @@ function openGuide(){
 
           <!-- ════════ END OF SPRINT ════════ -->
           <div id="guide-eos" style="scroll-margin-top:12px"></div>
-          <h3 class="u-a2-hdr" data-guide-section="eos">End of Sprint (EOS)</h3>
+          <h3 class="u-a2-hdr" data-guide-section="eos">Mid-Sprint Review</h3>
           <div style="background:var(--s3);border:1px solid var(--bd);border-radius:var(--r2);padding:14px 18px;margin-bottom:12px">
             <ol style="margin:0;padding-left:18px;color:var(--tx);font-size:var(--fs-sm);line-height:2.2">
               <li>Drop <strong>Issues + Epics HTML exports</strong></li>
-              <li>Click <strong>End of Sprint</strong> &rarr; pick Current &amp; Future sprints</li>
+              <li>Click <strong>Mid-Sprint Review</strong> &rarr; confirm the sprint (defaults to the one you are in)</li>
               <li>Click <strong>Generate</strong></li>
               <li>Fill in the <strong>BLUF</strong> and <strong>Summary</strong> boxes for each topic</li>
               <li>Fill in <strong>Deployments</strong>, <strong>User Engagement</strong>, <strong>Demonstrations</strong> (or leave blank for NSTR)</li>
@@ -5938,7 +6232,7 @@ const REPORT_TYPES = Object.freeze({
 
 const WIZARDS = {
   eos: {
-    name: 'End of Sprint',
+    name: 'Mid-Sprint Review',
     icon: mi(APP_ICONS.eos),
     steps: ['Files', 'Sprints', 'Report'],
     panels: ['wiz-eos-upload', 'wiz-eos-params', 'wiz-eos-report'],
@@ -6176,21 +6470,21 @@ function getWizardStepHTML(type, step) {
 <div class="pg-title">${esc(WIZARDS[type].steps[1])}</div>
 <div class="card l1" style="margin-bottom:20px">
 <div class="field-row">
-  <div class="fl">Current Sprint</div>
+  <div class="fl">Sprint</div>
   <div style="display:flex;gap:6px;align-items:center">
     <select id="eos-cur" style="flex:1"></select>
     <span class="u-muted-xs" id="eos-cur-dates"></span>
   </div>
 </div>
 <div class="field-row">
-  <div class="fl">Future Sprint</div>
+  <div class="fl">Next sprint</div>
   <div style="display:flex;gap:6px;align-items:center">
     <select id="eos-fut" style="flex:1"></select>
     <span class="u-muted-xs" id="eos-fut-dates"></span>
   </div>
 </div>
 <div style="margin-top:6px;font-size:var(--fs-xs);color:var(--mu)">
-  Selecting a current sprint auto-sets future to the next one. &nbsp;
+  Defaults to the sprint you are in now; the next sprint follows automatically. &nbsp;
   <a id="eos-sprint-more" href="#" style="display:none;color:var(--a1)" onclick="event.preventDefault();eosToggleShowAll()"></a>
 </div>
 </div>
@@ -6211,7 +6505,7 @@ function runReportAndAdvance(type) {
   // Read the param values NOW, before re-rendering destroys the input elements
   const cur = (document.getElementById('eos-cur')?.value || '').trim();
   const fut = (document.getElementById('eos-fut')?.value || '').trim();
-  if (!cur || !fut) { alert('Select current and future sprints.'); return; }
+  if (!cur || !fut) { alert('Select the sprint and the one after it.'); return; }
   S._wizParams = { eosCur: cur, eosFut: fut };
 
   const _lastStep = WIZARDS[type].steps.length - 1;
@@ -6338,7 +6632,7 @@ function switchSettings(section) {
   const _titles = {
     manage: 'Manage Data',
     config:'Jira / API', appearance:'Appearance',
-    eos:'End of Sprint',
+    eos:'Mid-Sprint',
     topics:'Topics', overrides:'Rule Overrides', classification:'Classification', calendar:'Sprint Calendar'
   };
   document.getElementById('settings-title').textContent = _titles[section] || 'Settings';
@@ -6411,12 +6705,10 @@ window.addEventListener('DOMContentLoaded',()=>{
   loadAppAppearance();
   const _vb=document.querySelector('.app-logo-ver'); if(_vb) _vb.textContent=APP_VERSION;
   loadSavedCfg();
-  // A first run has nothing in localStorage, and loadSavedCfg returns early in
-  // that case — so seed the calendar here rather than leaving the sprint
-  // pickers empty until the user happens to open Settings.
-  if(!S.cfg.sprint_calendar || !S.cfg.sprint_calendar.length){
-    S.cfg.sprint_calendar = DEFAULT_SPRINT_CALENDAR.map(s => ({...s}));
-  }
+  // Fill the calendar at startup: loadSavedCfg returns early on a first run,
+  // and a stored calendar goes stale as months pass. Either way the sprint
+  // picker must never come up empty.
+  ensureMonthlySprints();
   initEpicsFromStorage(); // restore epics from cache
   renderRecentReports();  // show recent reports on home screen
   setTimeout(populateEOSSprints, 0);
@@ -6665,7 +6957,7 @@ function runTests() {
       var titleEl = el('wiz-title');
       if (!wizEl.classList.contains('active'))  return 'wizard not active after startWizard';
       if (!homeEl.classList.contains('hidden')) return 'home not hidden after startWizard';
-      if (!titleEl.innerHTML.includes('End of Sprint')) return 'wiz-title wrong: ' + titleEl.innerHTML;
+      if (!titleEl.innerHTML.includes('Mid-Sprint')) return 'wiz-title wrong: ' + titleEl.innerHTML;
       return true;
     });
   });
@@ -6892,6 +7184,130 @@ function runTests() {
     var asEpics = detectJiraHtmlType('export.html', ['Issue key','Project','Summary','Epic Name']);
     if (asEpics !== 'epics')   return 'epics export routed to: ' + asEpics;
     return true;
+  });
+
+  t('fiscalSprintId maps calendar months onto the FY quarter', function() {
+    var cases = [[2026,3,'26.2.3'], [2026,1,'26.2.1'], [2026,10,'27.1.1'],
+                 [2025,12,'26.1.3'], [2026,9,'26.4.3'], [2026,4,'26.3.1']];
+    for (var i = 0; i < cases.length; i++) {
+      var got = fiscalSprintId(cases[i][0], cases[i][1]);
+      if (got !== cases[i][2]) return cases[i][0]+'-'+cases[i][1]+' -> '+got+' (expected '+cases[i][2]+')';
+    }
+    return true;
+  });
+
+  t('monthlySprintEntry spans the whole calendar month', function() {
+    var feb = monthlySprintEntry(2026, 2);          // 28 days, non-leap
+    if (feb.start !== '2026-02-01') return 'start wrong: ' + feb.start;
+    if (feb.end   !== '2026-02-28') return 'end wrong: ' + feb.end;
+    var leap = monthlySprintEntry(2028, 2);
+    if (leap.end !== '2028-02-29') return 'leap-year end wrong: ' + leap.end;
+    return true;
+  });
+
+  t('isMonthAligned rejects the old two-week rows', function() {
+    if (!isMonthAligned({sprint:'26.2.3', start:'2026-03-01', end:'2026-03-31'})) return 'rejected a whole month';
+    if (isMonthAligned({sprint:'26.2.5', start:'2026-03-04', end:'2026-03-17'}))  return 'accepted a two-week span';
+    if (isMonthAligned({sprint:'x', start:'2026-03-01', end:'2026-03-30'}))       return 'accepted a short month';
+    return true;
+  });
+
+  t('ensureMonthlySprints fills gaps and leaves existing rows alone', function() {
+    var saved = S.cfg.sprint_calendar;
+    S.cfg.sprint_calendar = [{sprint:'26.2.3', start:'2026-03-01', end:'2026-03-31', note:'kept'}];
+    ensureMonthlySprints(2, 2);
+    var cal = S.cfg.sprint_calendar;
+    var kept = cal.find(function(e){ return e.sprint === '26.2.3'; });
+    var sortedOk = cal.every(function(e,i){ return i === 0 || cal[i-1].start <= e.start; });
+    S.cfg.sprint_calendar = saved;
+    if (!kept || kept.note !== 'kept') return 'existing row was replaced';
+    if (cal.length < 5)                return 'expected at least 5 months, got ' + cal.length;
+    if (!sortedOk)                     return 'calendar not sorted by start date';
+    return true;
+  });
+
+  t('cleanSpinSprint canonicalises the monthly sprint spellings', function() {
+    var cases = [['LX 26.2.3[EXT]','26.2.3'], ['DX 2026-03','26.2.3'],
+                 ['DX March 2026','26.2.3'], ['Mar 2026','26.2.3'], ['26.2.6','26.2.6']];
+    for (var i = 0; i < cases.length; i++) {
+      var got = cleanSpinSprint(cases[i][0]);
+      if (got !== cases[i][1]) return '"'+cases[i][0]+'" -> '+got+' (expected '+cases[i][1]+')';
+    }
+    // Ambiguous two-digit forms are deliberately left alone rather than guessed
+    if (cleanSpinSprint('26.03') !== '26.03') return '26.03 should pass through untouched';
+    return true;
+  });
+
+  t('sprintClock counts calendar and working days', function() {
+    var saved = S.cfg.sprint_calendar;
+    S.cfg.sprint_calendar = [{sprint:'26.2.3', start:'2026-03-01', end:'2026-03-31'}];
+    var c = sprintClock('26.2.3', '2026-03-16');   // a Monday, halfway
+    S.cfg.sprint_calendar = saved;
+    if (!c)                       return 'no clock returned';
+    if (c.totalDays !== 31)       return 'totalDays ' + c.totalDays;
+    if (c.elapsedDays !== 16)     return 'elapsedDays ' + c.elapsedDays;
+    if (c.phase !== 'current')    return 'phase ' + c.phase;
+    if (c.workdaysTotal !== 22)   return 'workdaysTotal ' + c.workdaysTotal;
+    if (c.workdaysRemaining !== 11) return 'workdaysRemaining ' + c.workdaysRemaining;
+    if (c.pctElapsed !== 52)      return 'pctElapsed ' + c.pctElapsed;
+    return true;
+  });
+
+  t('sprintClock clamps a report run outside the sprint window', function() {
+    var saved = S.cfg.sprint_calendar;
+    S.cfg.sprint_calendar = [{sprint:'26.2.3', start:'2026-03-01', end:'2026-03-31'}];
+    var past   = sprintClock('26.2.3', '2026-05-02');
+    var future = sprintClock('26.2.3', '2026-01-05');
+    S.cfg.sprint_calendar = saved;
+    if (past.phase !== 'past' || past.elapsedDays !== 31)     return 'past clamp wrong';
+    if (future.phase !== 'future' || future.elapsedDays !== 0) return 'future clamp wrong';
+    return true;
+  });
+
+  t('blocked detection is case-insensitive', function() {
+    return (eosIsBlocked({status:'BLOCKED'}) && eosIsBlocked({status:' blocked '}) &&
+            !eosIsBlocked({status:'In Progress'})) || 'eosIsBlocked is still case-sensitive';
+  });
+
+  t('eosIsStalled needs silence, not just being open', function() {
+    var old = new Date(Date.now() - 20*864e5).toISOString();
+    var fresh = new Date(Date.now() - 2*864e5).toISOString();
+    if (!eosIsStalled({status:'In Progress', updated_dt: old}))  return 'a 20-day-silent ticket is not stalled';
+    if (eosIsStalled({status:'In Progress', updated_dt: fresh})) return 'a 2-day-old update counts as stalled';
+    if (eosIsStalled({status:'Open', updated_dt: old}))          return 'not-started counted as stalled';
+    if (eosIsStalled({status:'Done', updated_dt: old}))          return 'done work counted as stalled';
+    return true;
+  });
+
+  t('a thread that delivered AND is blocked still counts as landed', function() {
+    // The bug this replaces: one blocker sent the whole thread to At Risk, so
+    // the pulse could read "9 landed" above a "Landed — 0 threads" category.
+    var topics = [{topic_id:'T1', header:'Tier 1: Priority 1: Test Thread', projects:['DX'],
+                   epic_keys:[], keywords:['test thread'], exclude_keywords:[], components:[], labels:[]}];
+    var done  = {issue_key:'DX-1', summary:'shipped', status:'Done',    project_bucket:'DX',
+                 epic_link:'', labels:'', components:[], match_blob:'test thread'};
+    var block = {issue_key:'DX-2', summary:'stuck',   status:'Blocked', project_bucket:'DX',
+                 epic_link:'', labels:'', components:[], match_blob:'test thread'};
+    var results = {}; results[topics[0].header] = {current:[done], future:[]};
+    var cat = eosCategorizeThreads(topics, results, [block]);
+    var landed = cat.order.find(function(c){ return c.key === 'delivered'; });
+    var risk   = cat.order.find(function(c){ return c.key === 'risk'; });
+    if (cat.pulse.delivered !== 1)  return 'pulse.delivered ' + cat.pulse.delivered;
+    if (landed.threads.length !== 1) return 'landed threads ' + landed.threads.length + ' (blocker stole the thread again)';
+    if (risk.threads.length !== 0)   return 'risk threads ' + risk.threads.length;
+    if (cat.attention.blocked.length !== 1) return 'blocker missing from the attention list';
+    return true;
+  });
+
+  t('a thread with nothing but blockers is the only thing left at risk', function() {
+    var topics = [{topic_id:'T1', header:'Tier 1: Priority 1: Test Thread', projects:['DX'],
+                   epic_keys:[], keywords:['test thread'], exclude_keywords:[], components:[], labels:[]}];
+    var block = {issue_key:'DX-2', summary:'stuck', status:'Blocked', project_bucket:'DX',
+                 epic_link:'', labels:'', components:[], match_blob:'test thread'};
+    var results = {}; results[topics[0].header] = {current:[], future:[]};
+    var cat = eosCategorizeThreads(topics, results, [block]);
+    var risk = cat.order.find(function(c){ return c.key === 'risk'; });
+    return risk.threads.length === 1 || 'expected 1 at-risk thread, got ' + risk.threads.length;
   });
 
   t('collectSprints reads every Sprint column from a parsed row', function() {
