@@ -1422,8 +1422,11 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
         <div id="settings-topics" class="settings-pane">
           <div class="stn-page-title">Topics</div>
           <div class="stn-page-desc">Define how tickets route to report sections. Evaluated in order: Epic Key &#8594; Exact Phrase &#8594; Exclude check &#8594; Keyword. Lowest tier_rank wins.</div>
-          <div style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             <button class="btn btn-primary btn-sm" onclick="addTopic()"><span class="mi" style="font-size:13px;margin-right:2px">add</span>Add Topic</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportTopics()"><span class="mi" style="font-size:14px;margin-right:3px">download</span>Export</button>
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer"><span class="mi" style="font-size:14px;margin-right:3px">upload</span>Import<input type="file" accept=".json" style="display:none" onchange="importTopics(this);this.value=''"></label>
+            <span id="topics-import-msg" class="u-muted-xs"></span>
           </div>
           <div id="topics-list"></div>
         </div>
