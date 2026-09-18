@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- Material Icons: self-hosted inline SVG sprite -->
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mid-Sprint Report v2.0</title>
+<title>Mid-Sprint Report v2.1</title>
 <style>
 
 :root{
@@ -248,6 +248,16 @@ input[type=checkbox]{width:14px;height:14px;accent-color:var(--a1);cursor:pointe
 .eos-att-more>summary::before{content:'\25B8';margin-right:5px;display:inline-block;transition:transform .15s}
 .eos-att-more[open]>summary::before{transform:rotate(90deg)}
 .eos-att-more>summary:hover{color:var(--tx)}
+.bluf-suggest{display:flex;align-items:flex-start;gap:10px;margin-top:6px;padding:8px 11px;background:var(--s3);border:1px dashed var(--bd2);border-radius:var(--r2)}
+.bluf-suggest-txt{flex:1;min-width:0;font-size:var(--fs-xs);color:var(--mu);line-height:1.5}
+.bluf-suggest button{flex-shrink:0}
+.ask-field{border-left:3px solid var(--a4)}
+.eos-asks{background:var(--s2);border:1px solid var(--a4b);border-left:4px solid var(--a4);border-radius:8px;padding:12px 16px;margin-bottom:18px}
+.eos-asks-head{display:flex;align-items:center;gap:7px;font-size:var(--fs-base);font-weight:700;color:var(--a4);margin-bottom:6px}
+.eos-asks-count{margin-left:auto;font-family:var(--mono);font-size:var(--fs-xs);color:var(--mu);background:var(--s4);border:1px solid var(--bd);border-radius:10px;padding:0 7px}
+.eos-ask-row{display:flex;align-items:baseline;gap:10px;padding:4px 0;border-top:1px solid var(--bd);font-size:var(--fs-sm)}
+.eos-ask-thread{flex-shrink:0;font-size:var(--fs-xs);color:var(--mu);min-width:120px}
+.eos-ask-txt{flex:1;min-width:0;color:var(--tx)}
 
 /* EOS mission-outcome layout */
 .eos-section-head{font-size:var(--fs-lg);font-weight:700;color:var(--tx);margin:18px 0 8px;display:flex;align-items:center;gap:7px}
@@ -1153,7 +1163,7 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
     <div class="app-logo" onclick="exitWizard()" style="cursor:pointer" title="Go to home">
       <div class="app-logo-icon">MSR</div>
       <span class="app-logo-text">Mid-Sprint Report</span>
-      <span class="app-logo-ver">v2.0</span>
+      <span class="app-logo-ver">v2.1</span>
     </div>
     <div class="header-sep"></div>
     <div id="header-status">
@@ -1698,7 +1708,7 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
 //
 // ==========================================================
 
-const APP_VERSION='v2.0';
+const APP_VERSION='v2.1';
 
 // ============================================================
 // STATE
@@ -4179,6 +4189,96 @@ function eosCategorizeThreads(topics, results, blocked, todayISO){
   };
 }
 
+// A factual first sentence for the BLUF. Every clause is something the report
+// already computed, so the draft can never claim more than the data supports.
+// It is offered as a suggestion, never written into the field: what a mission
+// lead reads should be somebody's words, not a template's.
+function buildBlufDraft(pulse, clock){
+  const runway = !clock ? null
+    : clock.phase === 'current'
+      ? `${clock.workdaysRemaining} working day${clock.workdaysRemaining!==1?'s':''} left`
+      : clock.phase === 'past' ? 'the sprint has closed' : 'the sprint has not started';
+
+  const shipped = [];
+  if(pulse.delivered) shipped.push(`${pulse.delivered} item${pulse.delivered!==1?'s':''} landed`);
+  if(pulse.advancing) shipped.push(`${pulse.advancing} in flight`);
+
+  const trouble = [];
+  if(pulse.impediments) trouble.push(`${pulse.impediments} blocked`);
+  if(pulse.stalled)     trouble.push(`${pulse.stalled} stalled`);
+  if(pulse.notStarted)  trouble.push(`${pulse.notStarted} not started`);
+
+  const first = [runway ? runway.charAt(0).toUpperCase() + runway.slice(1) : null,
+                 shipped.length ? shipped.join(' and ') : 'nothing landed yet']
+                .filter(Boolean).join(': ') + '.';
+  const second = trouble.length
+    ? ` ${trouble.join(', ')}${trouble.length > 1 ? '' : ''} — the items under Needs Attention are where help would change the outcome.`
+    : ' Nothing is blocked, stalled or unstarted.';
+  return first + second;
+}
+
+function buildBlufSuggestionHtml(proj, pulse, clock){
+  const draft = buildBlufDraft(pulse, clock);
+  const slug = proj.toLowerCase();
+  return `<div class="bluf-suggest" id="bluf-suggest-${esc(slug)}">
+    <div class="bluf-suggest-txt" id="bluf-suggest-txt-${esc(slug)}">${esc(draft)}</div>
+    <button class="btn btn-ghost btn-xs" onclick="useBlufDraft('${esc(proj)}')">Use this</button>
+  </div>`;
+}
+
+// The suggestion is only useful while the field is empty.
+function onEosBlufInput(proj){
+  const slug = String(proj).toLowerCase();
+  const field = document.getElementById(`bluf-eos-${slug}`);
+  const box   = document.getElementById(`bluf-suggest-${slug}`);
+  if(!field || !box) return;
+  box.style.display = (field.innerText || '').trim() ? 'none' : '';
+}
+
+// Draft restore writes innerText straight onto the fields, which fires no input
+// event, so the suggestion and the asks roll-up have to be resynced by hand.
+function syncEOSAuthoredState(){
+  Object.keys(S.eosConfParams || {}).forEach(proj => {
+    onEosBlufInput(proj);
+    refreshEOSAsks(proj);
+  });
+}
+
+// Drop the suggestion into the field the author owns, then get out of the way.
+function useBlufDraft(proj){
+  const slug = String(proj).toLowerCase();
+  const field = document.getElementById(`bluf-eos-${slug}`);
+  const txt   = document.getElementById(`bluf-suggest-txt-${slug}`);
+  if(!field || !txt) return;
+  field.innerText = txt.textContent || '';
+  const box = document.getElementById(`bluf-suggest-${slug}`);
+  if(box) box.style.display = 'none';
+  field.dispatchEvent(new Event('input', {bubbles:true}));
+  field.focus();
+}
+
+// The asks roll-up. Authors type into per-thread fields, so this is rebuilt
+// live from the DOM rather than at render time, when every field is empty.
+function collectEOSAsks(proj){
+  const out = [];
+  document.querySelectorAll(`[data-eos-ask][data-eos-proj="${CSS.escape(String(proj))}"]`).forEach(el => {
+    const text = (el.innerText || '').trim();
+    if(text) out.push({thread: el.dataset.eosAsk, text});
+  });
+  return out;
+}
+
+function refreshEOSAsks(proj){
+  const host = document.getElementById(`eos-asks-${String(proj).toLowerCase()}`);
+  if(!host) return;
+  const asks = collectEOSAsks(proj);
+  if(!asks.length){ host.innerHTML = ''; return; }
+  host.innerHTML = `<div class="eos-asks">
+    <div class="eos-asks-head"><span class="mi">flag</span>What we're asking of you<span class="eos-asks-count">${asks.length}</span></div>
+    ${asks.map(a => `<div class="eos-ask-row"><span class="eos-ask-thread">${esc(a.thread)}</span><span class="eos-ask-txt">${esc(a.text)}</span></div>`).join('')}
+  </div>`;
+}
+
 // Where the sprint is, in days and in working days. A mid-sprint number means
 // nothing without its denominator.
 function buildSprintClockHtml(clock){
@@ -4343,7 +4443,7 @@ function runEOS(){
     let rp=`<div class="eos-pulse">
       <div class="eos-pulse-title">${esc(meta.report_title)}</div>
       ${buildSprintClockHtml(clock)}
-      <div class="eos-pulse-bluf"><div class="bluf-label">BLUF — Mission Pulse</div><div class="bluf-field" id="${eosBlufId}" contenteditable="true" data-placeholder="Bottom line: will this sprint's commitments land, and where do you need help?"></div></div>
+      <div class="eos-pulse-bluf"><div class="bluf-label">BLUF — Mission Pulse</div><div class="bluf-field" id="${eosBlufId}" contenteditable="true" oninput="onEosBlufInput('${esc(proj)}')" data-placeholder="Bottom line: will this sprint's commitments land, and where do you need help?"></div>${buildBlufSuggestionHtml(proj, cat.pulse, clock)}</div>
       <div class="eos-pulse-metrics">
         <div class="eos-pulse-metric" data-tone="a3"><span class="v">${cat.pulse.delivered}</span><span class="l">Landed so far</span></div>
         <div class="eos-pulse-metric" data-tone="a1"><span class="v">${cat.pulse.advancing}</span><span class="l">In flight</span></div>
@@ -4356,6 +4456,7 @@ function runEOS(){
     // Exceptions lead. A lead reading at the halfway mark wants what needs a
     // decision while there is still runway, not an accounting of what shipped.
     rp+=buildEOSAttentionPanel(cat.attention, base, clock);
+    rp+=`<div id="eos-asks-${proj.toLowerCase()}"></div>`;
 
     // ── Mission engagement — outward-facing narrative sections
     rp+=`<div class="eos-section-head mission"><span class="mi">slideshow</span>Demonstrations &amp; Outreach</div>`;
@@ -4382,6 +4483,8 @@ function runEOS(){
           if(hasNarr){
             rp+=`<div class="bluf-label" style="margin-top:6px">Mission impact — so far this sprint</div>`;
             rp+=`<div class="bluf-field" id="${topicSlug}" contenteditable="true" data-placeholder="What has this thread moved or changed so far?"></div>`;
+            rp+=`<div class="bluf-label" style="margin-top:10px">What we need from you</div>`;
+            rp+=`<div class="bluf-field ask-field" id="${topicSlug}-ask" contenteditable="true" data-placeholder="A decision, a person, a priority call — or leave blank." data-eos-ask="${esc(name)}" data-eos-proj="${esc(proj)}" oninput="refreshEOSAsks('${esc(proj)}')"></div>`;
             rp+=`<div class="bluf-label" style="margin-top:10px">Rest of sprint — what still has to land</div>`;
             rp+=`<div class="bluf-field" id="${topicSlug}-future" contenteditable="true" data-placeholder="What must still land, and what would help it land?"></div>`;
           }
@@ -4484,6 +4587,7 @@ function runEOS(){
   </div>`;
 
   const _out_eos=document.getElementById('eos-output'); if(_out_eos) _out_eos.innerHTML=html;
+  syncEOSAuthoredState();
   S.reportHtml.eos=html;
   autoSaveDraft('eos');
   checkDraftAndRestore('eos');
@@ -4618,6 +4722,14 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
     });
   }
 
+  // ── Asks — what the report wants the lead to actually do ──────────────
+  const asks = (typeof collectEOSAsks === 'function') ? collectEOSAsks(proj) : [];
+  if(asks.length){
+    lines.push("h2. (U) What We're Asking of You",'');
+    asks.forEach(a => lines.push(`* (U) *${a.thread}* — ${a.text}`));
+    lines.push('');
+  }
+
   // ── Mission engagement — outward-facing narrative leads ────────────────
   lines.push(...emitAddl('Demonstrations'));
   lines.push(...emitAddl('User Engagement and New Requirements'));
@@ -4642,6 +4754,11 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
         const sEl=document.getElementById(`bluf-eos-${proj.toLowerCase()}-${th.tidx}`);
         const sTxt=(sEl&&sEl.innerText.trim())||'';
         if(sTxt) lines.push(`(U) Mission impact so far: ${sTxt}`,'');
+      }
+      if(th.tidx >= 0){
+        const aEl=document.getElementById(`bluf-eos-${proj.toLowerCase()}-${th.tidx}-ask`);
+        const aTxt=(aEl&&aEl.innerText.trim())||'';
+        if(aTxt) lines.push(`(U) Ask: ${aTxt}`,'');
       }
       if(th.done.length)   lines.push('h4. (U) Landed','', tableFromKeys(th.done),'');
       if(th.active.length) lines.push('h4. (U) In Motion','', tableFromKeys(th.active),'');
@@ -5776,7 +5893,7 @@ function buildStandaloneHtml(title, bodyContent){
   var css=":root{--bg:#0a1417;--s1:#0e1a1e;--s2:#122227;--s3:#172a30;--s4:#1d343a;--bd:#22383f;--bd2:#2e4a53;--a1:#7cc4c8;--a1d:rgba(124,196,200,.10);--a1b:rgba(124,196,200,.24);--a2:#a8a6d2;--a2d:rgba(168,166,210,.10);--a2b:rgba(168,166,210,.24);--a3:#84c8a0;--a3d:rgba(132,200,160,.09);--a3b:rgba(132,200,160,.24);--a4:#e0b684;--a4d:rgba(224,182,132,.09);--a4b:rgba(224,182,132,.24);--a5:#e19191;--a5d:rgba(225,145,145,.09);--a5b:rgba(225,145,145,.24);--tx:#e7efec;--mu:#a3b8b7;--di:#7d9599;--hover:rgba(124,196,200,.05);--mono:'Consolas','Cascadia Code','Menlo',monospace;--sans:'Segoe UI','Inter','Arial',sans-serif;--r:10px;--r2:6px;--fs-base:13px;--fs-sm:12px;--fs-xs:11px;--fs-lg:14px;--fs-xl:16px}*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(--fs-base);line-height:1.55;padding:28px 32px 80px;min-height:100vh}a{color:var(--a1);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap}.bd-done{background:var(--a3d);color:var(--a3)}.bd-blk{background:var(--a5d);color:var(--a5)}.bd-prog{background:var(--a1d);color:var(--a1)}.bd-rev{background:var(--a4d);color:var(--a4)}.bd-open{background:var(--s4);color:var(--mu)}.nstr{color:var(--di);font-style:italic;font-size:var(--fs-sm);padding:3px 0}.rpt-frame{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:18px;max-width:1200px;margin-left:auto;margin-right:auto}.rpt-bar{background:var(--s2);border-bottom:1px solid var(--bd);padding:9px 14px;display:flex;align-items:center;justify-content:space-between}.rbd-row{display:flex;gap:5px}.rbd{width:8px;height:8px;border-radius:50%}.rbd-r{background:#ff7b7b}.rbd-y{background:#ffb347}.rbd-g{background:#4dd89a}.rpt-bar-fn{font-family:var(--mono);font-size:var(--fs-xs);color:var(--mu)}.rpt-body{padding:22px 26px}.rpt-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px;margin-bottom:20px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;border-left:4px solid var(--a1)}.rpt-hdr h1{font-size:17px;font-weight:600;color:var(--tx)}.rpt-hdr .rsub{font-size:var(--fs-xs);color:var(--mu);margin-top:3px}.r-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:18px}.r-tab{padding:8px 15px;font-size:var(--fs-sm);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-tab:hover{color:var(--tx)}.r-tab.active{color:var(--a1);border-bottom-color:var(--a1)}.r-panel{display:none}.r-panel.active{display:block}.r-tabs-sticky{position:sticky;top:0;z-index:10;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-tabs-sticky .r-tab{padding:8px 14px}.r-subtabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:14px}.r-subtab{padding:6px 13px;font-size:var(--fs-xs);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-subtab:hover{color:var(--tx)}.r-subtab.active{color:var(--a2);border-bottom-color:var(--a2)}.r-sub-panel{display:none}.r-sub-panel.active{display:block}.r-subtabs-sticky{position:sticky;top:37px;z-index:9;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-subtabs-sticky .r-subtab{padding:6px 12px}.r-card{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:14px 18px;margin-bottom:10px}.r-card.l1{border-left:3px solid var(--a1)}.r-card.l2{border-left:3px solid var(--a2)}.r-card.l3{border-left:3px solid var(--a3)}.r-card.lw{border-left:3px solid var(--a4)}.r-card.lr{border-left:3px solid var(--a5)}.r-card h3{font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}.stats-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.stat{background:var(--s3);border:1px solid var(--bd);border-radius:5px;padding:10px 15px}.stat .sv{font-size:20px;font-weight:600;color:var(--a1)}.stat .sl{font-size:var(--fs-xs);color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.tw{overflow-x:auto;border-radius:5px;border:1px solid var(--bd);margin:8px 0}.rt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);background:var(--s2)}.rt thead th{background:var(--s3);color:var(--mu);padding:8px 11px;font-weight:600;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}.rt tbody td{padding:7px 11px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--tx)}.rt tbody tr:last-child td{border-bottom:none}.tk-c{font-family:var(--mono);font-size:var(--fs-xs);color:var(--a1);white-space:nowrap}.bluf-label{display:block;font-size:var(--fs-xs);font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.bluf-field{padding:4px 0;font-size:var(--fs-sm);line-height:1.6;color:var(--tx);min-height:20px}.bluf-field:empty::before{content:attr(data-placeholder);color:var(--di)}.conf-pre{background:#04060c;color:#9bbbd4;border:1px solid var(--bd);border-radius:5px;padding:12px 14px;font-family:var(--mono);font-size:var(--fs-xs);line-height:1.7;white-space:pre;overflow:auto;max-height:400px;margin-top:8px}.slide{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--a2);border-radius:8px;padding:16px 20px;margin-bottom:14px}.slide h2{font-size:var(--fs-base);font-weight:600;color:var(--a2);margin-bottom:10px}.slide h3{font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 5px}.agenda-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:3px}.agenda-list li{padding:6px 13px;border-left:2px solid var(--bd);font-size:var(--fs-sm);border-radius:0 5px 5px 0}.agenda-list li.has{border-left-color:var(--a3);color:var(--tx);background:var(--a3d)}.agenda-list li.nstr{border-left-color:var(--di);color:var(--mu);font-style:italic}.ptabs{margin-bottom:12px}.ptab{display:inline-block;padding:4px 12px;border-radius:var(--r2);font-size:var(--fs-sm);font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--s3);color:var(--mu);margin:0 4px 4px 0}.ptab.active{background:var(--a1d);color:var(--a1);border-color:var(--a1b)}.muted{color:var(--mu)}.mono{font-family:var(--mono)}";
   var inlineJS="function switchRtab(btn){\n  var rtabs=btn.parentElement;\n  var idx=Array.from(rtabs.children).indexOf(btn);\n  rtabs.querySelectorAll('.r-tab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=rtabs.parentElement;\n  cont.querySelectorAll(':scope > .r-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchRstab(btn){\n  var stabs=btn.parentElement;\n  var idx=Array.from(stabs.children).indexOf(btn);\n  stabs.querySelectorAll('.r-subtab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=stabs.parentElement;\n  cont.querySelectorAll(':scope > .r-sub-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchPtab(btn,proj){\n  var cont=btn.closest('.ptabs').parentElement;\n  cont.querySelectorAll('.ptab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  cont.querySelectorAll('[data-ptab-panel]').forEach(function(p){\n    p.style.display=p.dataset.ptabPanel===proj?'block':'none';\n  });\n}\nfunction filterDbg(inp,tableId){\n  var val=inp.value.toLowerCase().trim();\n  var tbody=document.querySelector('#'+tableId+' tbody');\n  if(!tbody) return;\n  tbody.querySelectorAll('tr').forEach(function(tr){\n    tr.style.display=(!val||tr.textContent.toLowerCase().includes(val))?'':'none';\n  });\n}\ndocument.addEventListener('click',function(e){\n  var a=e.target.closest('.agenda-list a');\n  if(a){e.preventDefault();var t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'});}\n});";
   return '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">\n'
-    + '<title>Mid-Sprint Report v2.0</title>\n'
+    + '<title>Mid-Sprint Report v2.1</title>\n'
     + '<style>'+css+'</style>\n'
     + '</head>\n<body style="margin:0;padding:0">\n'
     + bodyContent
@@ -5848,6 +5965,7 @@ function restoreDraft(reportType) {
         const btn = document.getElementById('draft-restore-'+reportType);
         const srcHint = [draft.issuesFile, draft.epicsFile].filter(Boolean).join(', ');
         const hintTxt = srcHint ? ` (${srcHint})` : '';
+        if(reportType === 'eos') syncEOSAuthoredState();
         if(btn){ const orig=btn.textContent; btn.textContent=`✓ ${restored} field${restored!==1?'s':''} restored${hintTxt}`; setTimeout(()=>btn.textContent=orig,3500); }
         if(!restored){ alert('No matching fields found — make sure you generate the report first, then restore the draft.'); }
       }catch(err){ alert('Could not load draft: '+err.message); }
@@ -5910,6 +6028,7 @@ function applyPendingDraft(reportType) {
     if(el&&el.isContentEditable){ el.innerText=text; restored++; }
   });
   if(restored) delete S._pendingDraft[reportType];
+  if(restored && reportType === 'eos') syncEOSAuthoredState();
   return restored;
 }
 
@@ -7308,6 +7427,44 @@ function runTests() {
     var cat = eosCategorizeThreads(topics, results, [block]);
     var risk = cat.order.find(function(c){ return c.key === 'risk'; });
     return risk.threads.length === 1 || 'expected 1 at-risk thread, got ' + risk.threads.length;
+  });
+
+  t('buildBlufDraft states runway and delivery from real counts', function() {
+    var clock = {phase:'current', workdaysRemaining:8, elapsedDays:18, totalDays:30};
+    var draft = buildBlufDraft({delivered:35, advancing:5, notStarted:40, stalled:0, impediments:7}, clock);
+    if (!/8 working days left/.test(draft)) return 'runway missing: ' + draft;
+    if (!/35 items landed/.test(draft))     return 'delivery missing: ' + draft;
+    if (!/7 blocked/.test(draft))           return 'blockers missing: ' + draft;
+    if (!/40 not started/.test(draft))      return 'unstarted missing: ' + draft;
+    return true;
+  });
+
+  t('buildBlufDraft says so plainly when nothing is wrong', function() {
+    var clock = {phase:'current', workdaysRemaining:1, elapsedDays:29, totalDays:30};
+    var draft = buildBlufDraft({delivered:4, advancing:0, notStarted:0, stalled:0, impediments:0}, clock);
+    if (!/1 working day left/.test(draft))  return 'singular day wrong: ' + draft;
+    if (!/Nothing is blocked/.test(draft))  return 'clean-sprint wording missing: ' + draft;
+    return true;
+  });
+
+  t('buildBlufDraft survives a sprint with no calendar entry', function() {
+    var draft = buildBlufDraft({delivered:0, advancing:0, notStarted:0, stalled:0, impediments:0}, null);
+    return (typeof draft === 'string' && draft.length > 0) || 'no draft without a clock';
+  });
+
+  t('collectEOSAsks picks up only filled asks for the right project', function() {
+    var host = document.createElement('div');
+    host.innerHTML =
+      '<div data-eos-ask="Thread A" data-eos-proj="ZZ">Need a decision on scope.</div>' +
+      '<div data-eos-ask="Thread B" data-eos-proj="ZZ">   </div>' +
+      '<div data-eos-ask="Thread C" data-eos-proj="YY">Different project.</div>';
+    document.body.appendChild(host);
+    var asks = collectEOSAsks('ZZ');
+    host.remove();
+    if (asks.length !== 1)                       return 'expected 1 ask, got ' + asks.length;
+    if (asks[0].thread !== 'Thread A')           return 'thread wrong: ' + asks[0].thread;
+    if (!/Need a decision/.test(asks[0].text))   return 'text wrong: ' + asks[0].text;
+    return true;
   });
 
   t('collectSprints reads every Sprint column from a parsed row', function() {

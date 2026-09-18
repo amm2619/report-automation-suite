@@ -77,6 +77,28 @@ hidden inside a category, and rendered by `buildEOSAttentionPanel`:
   the sprint is genuinely underway; on day 2 everything is unstarted.
 - `EOS_ATTENTION_VISIBLE = 8` — longer groups collapse behind a disclosure.
 
+## Authored content: the BLUF draft and the asks
+
+`buildBlufDraft` composes a factual first sentence from `cat.pulse` and the
+clock — every clause is something the report already computed, so it can't
+claim more than the data supports. It is **offered, never written**:
+`buildBlufSuggestionHtml` renders it under the empty BLUF with a *Use this*
+button (`useBlufDraft`). Nothing machine-written reaches Confluence unless
+somebody accepts it or writes their own — what a mission lead reads should be a
+person's words. `onEosBlufInput` hides the suggestion once the field has text.
+
+Each thread carries a **What we need from you** field (`data-eos-ask` +
+`data-eos-proj`, id `bluf-eos-<proj>-<tidx>-ask`). `collectEOSAsks` reads the
+non-empty ones live from the DOM and `refreshEOSAsks` rebuilds the roll-up
+panel on input — it has to be live, because at render time every field is
+empty. The Confluence export carries both a `What We're Asking of You` section
+and a per-thread `(U) Ask:` line.
+
+Draft restore writes `innerText` directly and fires no input event, so both
+restore paths call `syncEOSAuthoredState()` to resync the suggestion and the
+roll-up. Any contenteditable with a stable id is autosaved and restored for
+free, which is why the ask field ids are deterministic.
+
 `buildEOSConfluence()` mirrors the on-screen structure, including the clock line
 and a Needs Attention section. `openEOSConfluencePicker()` drives the per-project
 copy dialog. `report formats/EOS_Format.txt` is the original format reference and
@@ -107,7 +129,7 @@ node --check /tmp/c0.js
 ```
 
 Then open the page and click **[Tests] → Run All** (or call `runTests()`).
-It should be **164/164** green.
+It should be **168/168** green.
 
 `test files/jira_issues_export.html` and `jira_epics_export.html` are
 Jira-shaped fixtures whose sprints are remapped onto the current month and the
