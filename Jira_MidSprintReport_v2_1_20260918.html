@@ -2214,6 +2214,7 @@ const APP_ICONS = {
   overrides:      'rule',
   classification: 'verified_user',
   // Guide-only sections
+  setup:          'play_arrow',
   files:          'folder_open',
   drafts:         'save',
   people:         'group',
@@ -6044,7 +6045,7 @@ function guideScrollTo(id) {
 
 function buildGuideNav(overlay) {
   const GUIDE_SECTIONS = [
-    { id:'start',     label:'Getting Started' },
+    { id:'setup',     label:'Setup — start here' },
     { id:'files',     label:'Your Files' },
     { id:'eos',       label:'Mid-Sprint' },
     { id:'config',    label:'Settings' },
@@ -6053,7 +6054,7 @@ function buildGuideNav(overlay) {
   const nav = overlay.querySelector('#guide-nav');
   if (nav) {
     nav.innerHTML = GUIDE_SECTIONS.map(function(s) {
-      var icon = APP_ICONS[s.id] || 'circle';
+      var icon = APP_ICONS[s.id] || 'info';
       return '<div class="guide-nav-item" data-target="guide-' + s.id + '" onclick="guideScrollTo(\'' + 'guide-' + s.id + '\')">'
         + mi(icon, 'font-size:16px;margin-right:8px')
         + '<span>' + s.label + '</span></div>';
@@ -6062,7 +6063,7 @@ function buildGuideNav(overlay) {
   // Inject icons into h3 headings
   overlay.querySelectorAll('h3[data-guide-section]').forEach(function(h3) {
     var sid = h3.getAttribute('data-guide-section');
-    var icon = APP_ICONS[sid] || 'circle';
+    var icon = APP_ICONS[sid] || 'info';
     var text = h3.textContent.trim();
     h3.innerHTML = mi(icon, 'font-size:15px;margin-right:6px;vertical-align:middle') + text;
   });
@@ -6091,55 +6092,88 @@ function openGuide(){
     overlay.innerHTML=`
       <div style="background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);width:min(960px,96vw);max-height:93vh;display:flex;flex-direction:column;overflow:hidden">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--bd);flex-shrink:0">
-          <span style="font-weight:700;color:var(--tx);font-size:var(--fs-lg)"><span class="mi" style="font-size:18px;margin-right:8px;vertical-align:middle">menu_book</span>Report Suite ${APP_VERSION} — User Guide</span>
+          <span style="font-weight:700;color:var(--tx);font-size:var(--fs-lg)"><span class="mi" style="font-size:18px;margin-right:8px;vertical-align:middle">menu_book</span>Mid-Sprint Report ${APP_VERSION} — User Guide</span>
           <button onclick="document.getElementById('guide-overlay').remove()" style="background:none;border:none;color:var(--mu);font-size:18px;cursor:pointer;padding:2px 8px;border-radius:var(--r2)">✕</button>
         </div>
         <div style="display:flex;flex:1;overflow:hidden">
           <div style="width:175px;flex-shrink:0;background:var(--s2);border-right:1px solid var(--bd);overflow-y:auto;padding:8px 0" id="guide-nav"></div>
           <div style="flex:1;overflow-y:auto;padding:24px 30px;font-size:var(--fs-sm);line-height:1.75;color:var(--tx)" id="guide-body">
 
-          <!-- ════════ GETTING STARTED ════════ -->
-          <div id="guide-start" style="scroll-margin-top:12px"></div>
-          <h3 style="color:var(--a3);font-size:var(--fs-lg);border-bottom:2px solid var(--a3b);padding-bottom:6px;margin:0 0 14px" data-guide-section="start">Getting Started</h3>
+          <!-- ════════ SETUP ════════ -->
+          <div id="guide-setup" style="scroll-margin-top:12px"></div>
+          <h3 style="color:var(--a3);font-size:var(--fs-lg);border-bottom:2px solid var(--a3b);padding-bottom:6px;margin:0 0 14px" data-guide-section="setup">Setup &mdash; start here</h3>
 
-          <div style="background:var(--a3d);border:1px solid var(--a3b);border-radius:var(--r);padding:16px 20px;margin-bottom:16px">
-            <div style="font-weight:700;color:var(--a3);margin-bottom:8px">3 steps. That's it.</div>
-            <ol style="margin:0;padding-left:20px;font-size:var(--fs-sm);line-height:2.2;color:var(--tx)">
-              <li><strong>Export 2 CSVs from Jira</strong> (see JQL below)</li>
-              <li><strong>Drop them onto the app</strong> (the gray bar at the top)</li>
-              <li><strong>Click the report you want</strong> on the home screen</li>
-            </ol>
+          <div style="background:var(--a3d);border:1px solid var(--a3b);border-radius:var(--r);padding:16px 20px;margin-bottom:18px">
+            <div style="font-weight:700;color:var(--a3);margin-bottom:8px">What this app is</div>
+            <p style="margin:0 0 8px;color:var(--tx)">One file. You open it in a web browser and it runs. Nothing to install, no server, no login, and it never sends your data anywhere &mdash; everything happens inside your browser.</p>
+            <p style="margin:0;font-size:var(--fs-xs);color:var(--mu)">Chrome or Edge. Double-click the file, or drag it onto a browser window.</p>
           </div>
 
-          <div style="font-weight:700;color:var(--tx);margin:16px 0 8px">The 2 files you need from Jira</div>
-          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+          <div style="font-weight:700;color:var(--tx);margin:18px 0 8px">Step 1 &mdash; Get two files out of Jira</div>
+          <p style="margin:0 0 10px">In Jira, search for your issues, then use <strong>Export &rarr; HTML (Current fields)</strong>. Do it twice:</p>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:10px">
             <div style="background:var(--s3);border:1px solid var(--bd);border-left:3px solid var(--a1);border-radius:var(--r2);padding:12px 16px">
-              <div style="font-weight:700;color:var(--a1);margin-bottom:4px">1. Issues CSV <span style="color:var(--mu);font-weight:400;font-size:var(--fs-xs)">(required for all reports)</span></div>
-              <div style="font-size:var(--fs-xs);color:var(--mu);margin-bottom:6px">Go to Jira &rarr; Filters &rarr; paste this JQL &rarr; Export &rarr; CSV (All fields)</div>
-              <code style="display:block;background:var(--s2);border:1px solid var(--bd2);border-radius:var(--r2);padding:8px 12px;font-size:var(--fs-xs);color:var(--a1);user-select:all;cursor:text">project in (DX, LX, RCR) ORDER BY updated DESC</code>
+              <div style="font-weight:700;color:var(--a1);margin-bottom:4px">1. Issues <span style="color:var(--mu);font-weight:400;font-size:var(--fs-xs)">(required &mdash; nothing works without it)</span></div>
+              <div style="font-size:var(--fs-xs);color:var(--mu);margin-bottom:6px">Every ticket in the sprint you are reporting on, and the next one.</div>
+              <code style="display:block;background:var(--s2);border:1px solid var(--bd2);border-radius:var(--r2);padding:8px 12px;font-size:var(--fs-xs);color:var(--a1)">project in (DX, LX, RCR) ORDER BY updated DESC</code>
             </div>
             <div style="background:var(--s3);border:1px solid var(--bd);border-left:3px solid var(--a2);border-radius:var(--r2);padding:12px 16px">
-              <div style="font-weight:700;color:var(--a2);margin-bottom:4px">2. Epics CSV <span style="color:var(--mu);font-weight:400;font-size:var(--fs-xs)">(needed for Weekly, EOS, PMR)</span></div>
-              <div style="font-size:var(--fs-xs);color:var(--mu);margin-bottom:6px">Same process, different JQL:</div>
-              <code style="display:block;background:var(--s2);border:1px solid var(--bd2);border-radius:var(--r2);padding:8px 12px;font-size:var(--fs-xs);color:var(--a2);user-select:all;cursor:text">project in (DX, LX, RCR) AND issuetype = Epic</code>
-            </div>
-            <div style="background:var(--s3);border:1px solid var(--bd);border-left:3px solid var(--a4);border-radius:var(--r2);padding:12px 16px">
-              <div style="font-weight:700;color:var(--a4);margin-bottom:4px">3. Roadmap CSV <span style="color:var(--mu);font-weight:400;font-size:var(--fs-xs)">(optional &mdash; only for Spin Plan)</span></div>
-              <div style="font-size:var(--fs-xs);color:var(--mu);margin-bottom:6px">Export from Jira Plans / Roadmap view. Can be CSV or TSV (tab-separated) &mdash; both work.</div>
-              <div style="font-size:var(--fs-xs);color:var(--mu)">Must have a <code>Hierarchy</code> column (Strategy / Program / Epic / Story etc.)</div>
+              <div style="font-weight:700;color:var(--a2);margin-bottom:4px">2. Epics <span style="color:var(--mu);font-weight:400;font-size:var(--fs-xs)">(strongly recommended)</span></div>
+              <div style="font-size:var(--fs-xs);color:var(--mu);margin-bottom:6px">Turns epic keys into readable names. Without it the report still runs, but sections are harder to read.</div>
+              <code style="display:block;background:var(--s2);border:1px solid var(--bd2);border-radius:var(--r2);padding:8px 12px;font-size:var(--fs-xs);color:var(--a2)">project in (DX, LX, RCR) AND issuetype = Epic</code>
             </div>
           </div>
-          <div style="font-size:var(--fs-xs);color:var(--mu);margin-bottom:20px">Drop all files at once &mdash; the app figures out which is which from the column headers. You can also use the <strong>Jira API</strong> panel (configure in Settings) to fetch directly without exporting CSVs.</div>
+          <div style="background:var(--s2);border:1px solid var(--a4b);border-left:3px solid var(--a4);border-radius:var(--r2);padding:12px 16px;margin-bottom:18px">
+            <div style="font-weight:700;color:var(--a4);margin-bottom:6px">The export must include these columns</div>
+            <p style="margin:0 0 6px;font-size:var(--fs-xs);color:var(--mu)">If a column is missing, the thing it feeds quietly stops working &mdash; you get a report, just a wrong one.</p>
+            <ul class="u-list-indent-tight" style="margin:0">
+              <li><strong>Sprint</strong> &mdash; decides which tickets are in the report at all. Most important column.</li>
+              <li><strong>Status</strong> &mdash; splits work into landed / in flight / not started / blocked.</li>
+              <li><strong>Updated</strong> &mdash; finds stalled work. Missing it means &ldquo;Stalled&rdquo; always reads 0.</li>
+              <li><strong>Epic Link</strong>, <strong>Labels</strong>, <strong>Components</strong> &mdash; decide which section a ticket lands in.</li>
+              <li><strong>Assignee</strong> &mdash; tells a lead who to go to.</li>
+              <li><strong>Issue key</strong>, <strong>Summary</strong>, <strong>Issue Type</strong>, <strong>Created</strong>, <strong>Resolved</strong>.</li>
+            </ul>
+          </div>
+
+          <div style="font-weight:700;color:var(--tx);margin:18px 0 8px">Step 2 &mdash; Drop them on the app</div>
+          <p style="margin:0 0 18px">Drag both files onto the bar at the top of the window. The app works out which is which. You are ready when the two chips up there turn green and the home screen says <strong>Ready to run</strong>.</p>
+
+          <div style="font-weight:700;color:var(--tx);margin:18px 0 8px">Step 3 &mdash; Set it up once</div>
+          <p style="margin:0 0 8px">Open <strong>Settings</strong> (top right). You only do this once &mdash; it is remembered afterwards.</p>
+          <ul class="u-list-indent-tight" style="margin-bottom:10px">
+            <li><strong>Topics</strong> &mdash; <em>the one that matters.</em> These are the rules that sort tickets into the report's sections. If they are not set up, every ticket lands in the <strong>Unmatched</strong> tab and the report comes out empty.</li>
+            <li><strong>Jira / API &rarr; Base URL</strong> &mdash; makes every ticket key a clickable link.</li>
+            <li><strong>Mid-Sprint</strong> &mdash; the report title for each project, and the story points you have free for new work.</li>
+            <li><strong>Classification</strong> &mdash; the markings that appear on the report.</li>
+          </ul>
+          <p style="font-size:var(--fs-xs);color:var(--mu);margin-bottom:18px">Settings live in <em>this</em> browser on <em>this</em> computer. Handing the app to someone else? Send them your settings too: <strong>Settings &rarr; Manage Data &rarr; Export Config</strong>, and they import it on their end.</p>
+
+          <div style="font-weight:700;color:var(--tx);margin:18px 0 8px">Step 4 &mdash; Run it</div>
+          <p style="margin:0 0 6px">Click <strong>Mid-Sprint Review</strong>. The sprint is already set to the month you are in; just confirm and generate.</p>
+          <p style="margin:0 0 18px;font-size:var(--fs-xs);color:var(--mu)">Write the BLUF (or click <strong>Use this</strong> to start from the drafted one), add what you need from the lead under each thread, then <strong>Copy for Confluence</strong> and paste into the page.</p>
+
+          <div style="background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:14px 18px;margin-bottom:20px">
+            <div style="font-weight:700;color:var(--tx);margin-bottom:8px">When something looks wrong</div>
+            <ul class="u-list-indent-tight" style="margin:0">
+              <li><strong>&ldquo;No tickets found&rdquo;</strong> &rarr; the sprint you picked is not the one written on the tickets. Check the <strong>Debug</strong> tab, and check the Sprint column in your export.</li>
+              <li><strong>Everything is in the Unmatched tab</strong> &rarr; Topics are not set up yet. See Step 3.</li>
+              <li><strong>Stalled always says 0</strong> &rarr; your export has no <strong>Updated</strong> column.</li>
+              <li><strong>Numbers look out of date</strong> &rarr; re-export from Jira and drop the new file on. The app only knows what you gave it.</li>
+              <li><strong>Your typing disappeared</strong> &rarr; private/incognito windows throw away saved text when they close. Use a normal window.</li>
+              <li><strong>A ticket is in the wrong section</strong> &rarr; Unmatched tab &rarr; <strong>+ Create Rule</strong>.</li>
+            </ul>
+          </div>
 
           <!-- ════════ YOUR FILES ════════ -->
           <div id="guide-files" style="scroll-margin-top:12px"></div>
           <h3 style="color:var(--a1);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:0 0 10px" data-guide-section="files">Your Files</h3>
-          <p>Drop files onto the gray bar at the top. The app auto-detects which file is which from the column headers. You can drop multiple files at once.</p>
+          <p>Drop files onto the bar at the top. You can drop both at once &mdash; the app tells them apart by their columns, not their names.</p>
           <ul class="u-list-indent-tight">
-            <li><strong>Issues HTML export</strong> &rarr; required &mdash; one row per issue</li>
-            <li><strong>Epics HTML export</strong> &rarr; gives readable epic names for topic routing</li>
+            <li><strong>Issues HTML export</strong> &mdash; required. One row per ticket.</li>
+            <li><strong>Epics HTML export</strong> &mdash; gives epics readable names.</li>
           </ul>
-          <p style="font-size:var(--fs-xs);color:var(--mu)">Your text (BLUF, summaries) auto-saves as you type. Come back later and it's still there. Use <strong>Continue Working</strong> on the Files step to restore everything including your date/sprint selections.</p>
+          <p style="font-size:var(--fs-xs);color:var(--mu)">Only Jira&rsquo;s HTML export is read &mdash; not CSV. Your typing (BLUF, summaries, asks) saves itself as you go, so you can close the tab and come back. Epics are remembered between sessions; issues are re-dropped each time.</p>
 
           <!-- ════════ END OF SPRINT ════════ -->
           <div id="guide-eos" style="scroll-margin-top:12px"></div>
@@ -6149,7 +6183,8 @@ function openGuide(){
               <li>Drop <strong>Issues + Epics HTML exports</strong></li>
               <li>Click <strong>Mid-Sprint Review</strong> &rarr; confirm the sprint (defaults to the one you are in)</li>
               <li>Click <strong>Generate</strong></li>
-              <li>Fill in the <strong>BLUF</strong> and <strong>Summary</strong> boxes for each topic</li>
+              <li>Write the <strong>BLUF</strong> &mdash; or click <strong>Use this</strong> to start from the drafted one</li>
+              <li>Under each thread, say <strong>what you need from the lead</strong> (leave blank if nothing)</li>
               <li>Fill in <strong>Deployments</strong>, <strong>User Engagement</strong>, <strong>Demonstrations</strong> (or leave blank for NSTR)</li>
               <li>Click <strong>Copy for Confluence</strong> &rarr; pick projects &rarr; paste</li>
             </ol>
@@ -6157,9 +6192,11 @@ function openGuide(){
 
           <p style="font-weight:700;color:var(--tx);margin:14px 0 6px">What each section does</p>
           <ul class="u-list-indent-tight">
-            <li><strong>BLUF</strong> &mdash; top-level summary for the project. Type it, it auto-saves.</li>
+            <li><strong>BLUF</strong> &mdash; the top-line summary. A factual draft is offered underneath it; <strong>Use this</strong> drops it in so you can edit. Nothing is sent to Confluence unless you accept it or write your own.</li>
+            <li><strong>Needs your attention</strong> &mdash; blocked, stalled and not-yet-started work, listed as tickets. This is the part a lead acts on.</li>
+            <li><strong>What we need from you</strong> &mdash; one per thread. Everything you write here collects into a single list near the top, and into the Confluence page.</li>
             <li><strong>Topic sections</strong> &mdash; tickets grouped by topic (HCI Migration, Tool Mod, etc.). Each has a Summary field and a ticket table.</li>
-            <li><strong>AI button</strong> &mdash; the sparkle icon next to each topic copies a prompt + ticket list to your clipboard. Paste into ChatGPT/Claude to generate a summary. Configure the prompt in Settings &rarr; EOS &rarr; AI Summary Prompt.</li>
+            <li><strong>AI button</strong> &mdash; the sparkle icon next to each topic copies a prompt + ticket list to your clipboard. Paste into ChatGPT/Claude to generate a summary. Configure the prompt in Settings &rarr; Mid-Sprint &rarr; AI Summary Prompt.</li>
             <li><strong>Prioritization</strong> &mdash; at the bottom. Pick epics to see backlog tickets, or paste JQL for Confluence to run live.</li>
             <li><strong>Deployments / User Engagement / Demos</strong> &mdash; type content or leave blank. Blank = "NSTR" in Confluence.</li>
           </ul>
@@ -6177,18 +6214,16 @@ function openGuide(){
           <!-- ════════ SETTINGS ════════ -->
           <div id="guide-config" style="scroll-margin-top:12px"></div>
           <h3 class="u-a1-hdr" data-guide-section="config">Settings</h3>
-          <p>All settings auto-save to your browser. Use <strong>Export / Import Config</strong> to transfer between machines.</p>
+          <p>Settings save themselves to this browser as you change them. Use <strong>Manage Data &rarr; Export / Import Config</strong> to move them to another machine or hand them to someone else.</p>
           <ul class="u-list-indent-tight">
-            <li><strong>General</strong> &mdash; Jira URL (makes ticket keys clickable), classification, contract info, roles, sprint prefixes</li>
-            <li><strong>Weekly Digest</strong> &mdash; backend components (excluded), user-facing components, always-include keywords, excluded keywords</li>
-            <li><strong>EOS</strong> &mdash; per-project report titles, MTL points, AI summary prompt (toggle + editable text)</li>
-            <li><strong>PMR</strong> &mdash; title, topic groups, slide layouts, feature/bug type lists, Integrated Milestone Roadmap editor</li>
-            <li><strong>Sprint Calendar</strong> &mdash; sprint dates (pre-populated FY26&ndash;FY27). Keep it current &mdash; it drives auto-detection everywhere</li>
-            <li><strong>Topics</strong> &mdash; how tickets get bucketed into report sections (epic keys, keywords, phrases). Import/Export as JSON</li>
-            <li><strong>Excluded People</strong> &mdash; government employees filtered from Sprint Plan counts only</li>
-            <li><strong>Rule Overrides</strong> &mdash; quick fixes from the Unmatched tab. Persist across sessions. Export as backup</li>
-            <li><strong>Appearance</strong> &mdash; dark/light theme, text size</li>
-            <li><strong>Field Mapping</strong> &mdash; map non-standard Jira column names</li>
+            <li><strong>Topics</strong> &mdash; the rules that sort tickets into the report&rsquo;s sections, by epic key, keyword or phrase. This is what makes the report work; everything else is trim. Import/export as JSON.</li>
+            <li><strong>Jira / API</strong> &mdash; base URL (makes ticket keys clickable), classification markings, contract info, roles, field mapping for non-standard column names.</li>
+            <li><strong>Mid-Sprint</strong> &mdash; per-project report titles, MTL story points, and the AI summary prompt.</li>
+            <li><strong>Sprint Calendar</strong> &mdash; sprints are calendar months and are filled in automatically, so you should not need to touch this. Edit a row only if a sprint genuinely ran to different dates.</li>
+            <li><strong>Rule Overrides</strong> &mdash; the one-off fixes you make from the Unmatched tab. They stick around; export them as a backup.</li>
+            <li><strong>Classification</strong> &mdash; the markings stamped on the report.</li>
+            <li><strong>Manage Data</strong> &mdash; export/import config and overrides, clear the cached epics.</li>
+            <li><strong>Appearance</strong> &mdash; dark/light theme and text size.</li>
           </ul>
 
           <p style="font-weight:600;color:var(--tx);margin:0 0 8px">Status Icons</p>
@@ -6210,30 +6245,16 @@ function openGuide(){
             <div class="u-flex-10"><span class="u-iflex"><svg viewBox="0 0 16 16" width="14" height="14"><rect fill="#00B8D9" width="16" height="16" rx="3"/><circle cx="8" cy="8" r="4" stroke="#fff" stroke-width="1.5" fill="none"/><circle cx="8" cy="8" r="1.5" fill="#fff"/></svg></span><span style="font-weight:600;color:var(--tx);min-width:130px">Strategy</span><span style="color:var(--mu)">Top-level initiative grouping programs</span></div>
           </div>
 
-          <p style="font-weight:600;color:var(--tx);margin:0 0 8px">Alert Badges</p>
-          <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px">
-            <div class="u-flex-10"><span class="badge b-behind"><span class="mi" style="font-size:11px;margin-right:2px">warning</span>2</span><span style="color:var(--mu)">Stories past their sprint end date, not yet done</span></div>
-            <div class="u-flex-10"><span class="badge b-blocked"><svg viewBox="0 0 16 16" width="11" height="11" style="vertical-align:middle;margin-right:2px"><circle cx="8" cy="8" r="7" fill="#FF5630"/><rect x="3" y="7" width="10" height="2" rx="1" fill="#fff"/></svg> 1</span><span style="color:var(--mu)">Count of blocked stories in this epic</span></div>
-            <div class="u-flex-10"><span class="badge b-dep"><svg viewBox="0 0 16 16" width="12" height="10" style="vertical-align:middle;margin-right:2px;color:var(--a2)"><path d="M6.5 4.5h-1A3 3 0 005 10.5h1a1 1 0 000-2H5a1 1 0 010-2h1.5a1 1 0 000-2zm3 0a1 1 0 000 2H11a1 1 0 010 2h-1.5a1 1 0 000 2H11A3 3 0 0011 4.5h-1.5zm-3.5 4a1 1 0 000 2h3a1 1 0 000-2H6z" fill="currentColor"/></svg> 3</span><span style="color:var(--mu)">Open blocker or linked ticket dependencies</span></div>
-          </div>
-
-          <p style="font-weight:600;color:var(--tx);margin:0 0 8px">Progress Bars</p>
-          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
-            <div style="display:flex;align-items:center;gap:12px"><div style="width:60px;height:6px;border-radius:3px;background:var(--a3);flex-shrink:0"></div><span style="color:var(--a3);font-weight:600;min-width:60px">&#8805; 67%</span><span style="color:var(--mu)">On track</span></div>
-            <div style="display:flex;align-items:center;gap:12px"><div style="width:60px;height:6px;border-radius:3px;background:var(--a4);flex-shrink:0"></div><span style="color:var(--a4);font-weight:600;min-width:60px">34–66%</span><span style="color:var(--mu)">In progress — watch this</span></div>
-            <div style="display:flex;align-items:center;gap:12px"><div style="width:60px;height:6px;border-radius:3px;background:var(--a5);flex-shrink:0"></div><span style="color:var(--a5);font-weight:600;min-width:60px">&lt; 34%</span><span style="color:var(--mu)">Needs attention</span></div>
-          </div>
-
           <!-- ==== TIPS ==== -->
           <div id="guide-tips" style="scroll-margin-top:12px"></div>
           <h3 style="color:var(--a3);font-size:var(--fs-base);border-bottom:1px solid var(--bd);padding-bottom:4px;margin:20px 0 10px" data-guide-section="tips">Tips</h3>
           <ul style="padding-left:18px;display:flex;flex-direction:column;gap:6px">
-            <li><strong>Keep the sprint calendar current.</strong> It drives auto-detection in EOS and Sprint Plan. Always have at least one sprint after the current one.</li>
-            <li><strong>Fill in summaries before copying.</strong> Confluence copy reads the live text at the moment you click.</li>
-            <li><strong>Use the Debug tab</strong> in EOS and PMR to see exactly why a ticket ended up where it did.</li>
-            <li><strong>Ticket in the wrong section?</strong> Click <strong>+ Create Rule</strong> in the Unmatched tab. For recurring issues, edit the Topic directly.</li>
-            <li><strong>Text too small?</strong> Settings &rarr; Appearance &rarr; adjust text size.</li>
-            <li><strong>Back up your settings.</strong> Export Config &amp; Overrides before major changes.</li>
+            <li><strong>Run it around the middle of the month.</strong> That is the point &mdash; early enough that a lead can still change the outcome, late enough that the numbers mean something.</li>
+            <li><strong>Read Needs Your Attention first.</strong> It is the part a lead acts on. The rest is context.</li>
+            <li><strong>Say what you need.</strong> The <em>What we need from you</em> box under each thread is the whole reason a lead reads this. Leave it blank and the report is just information.</li>
+            <li><strong>Fill in your text before copying.</strong> Copy for Confluence reads what is on screen at the moment you click it.</li>
+            <li><strong>Use the Debug tab</strong> to see exactly why a ticket landed where it did.</li>
+            <li><strong>Back up your settings</strong> before big changes: Manage Data &rarr; Export Config.</li>
           </ul>
           </div>
         </div>

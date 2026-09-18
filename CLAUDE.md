@@ -99,6 +99,22 @@ restore paths call `syncEOSAuthoredState()` to resync the suggestion and the
 roll-up. Any contenteditable with a stable id is autosaved and restored for
 free, which is why the ask field ids are deterministic.
 
+## The Guide
+
+`openGuide()` renders the in-app help, and `GUIDE_SECTIONS` drives its nav.
+Each section needs three things that must agree or the guide-consistency test
+fails: an entry in `GUIDE_SECTIONS`, an `<h3 data-guide-section="id">`, and a
+`<div id="guide-id">` anchor. Section icons come from `APP_ICONS[id]` — a
+missing entry falls back to a name the inline SVG sprite must actually carry,
+or the raw word renders as text next to the heading.
+
+**Setup — start here** is written for somebody who has never seen the app and
+is not the person who built it: what it is, the two Jira HTML exports, the
+columns those exports must carry and what breaks without each one, the one-time
+settings (Topics above all), and a plain-language troubleshooting list. Keep it
+accurate when behaviour changes — a wrong setup page is worse than none,
+because the reader has no way to know it is wrong.
+
 `buildEOSConfluence()` mirrors the on-screen structure, including the clock line
 and a Needs Attention section. `openEOSConfluencePicker()` drives the per-project
 copy dialog. `report formats/EOS_Format.txt` is the original format reference and
