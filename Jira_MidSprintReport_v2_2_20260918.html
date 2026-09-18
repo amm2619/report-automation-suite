@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- Material Icons: self-hosted inline SVG sprite -->
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mid-Sprint Report v2.1</title>
+<title>Mid-Sprint Report v2.2</title>
 <style>
 
 :root{
@@ -263,6 +263,11 @@ input[type=checkbox]{width:14px;height:14px;accent-color:var(--a1);cursor:pointe
 .eos-section-head{font-size:var(--fs-lg);font-weight:700;color:var(--tx);margin:18px 0 8px;display:flex;align-items:center;gap:7px}
 .eos-section-head .mi{font-size:18px}
 .eos-section-head.mission{color:var(--a3)}
+.eos-points-notice{display:flex;align-items:flex-start;gap:10px;background:var(--s3);border:1px solid var(--bd);border-left:3px solid var(--a4);border-radius:8px;padding:10px 14px;margin-bottom:14px}
+.eos-points-notice .mi{color:var(--a4);flex-shrink:0;font-size:18px;line-height:1.3}
+.eos-points-notice-body{flex:1;font-size:var(--fs-xs);color:var(--mu);line-height:1.5}
+.eos-points-notice-body strong{color:var(--tx);font-weight:600}
+.eos-points-notice-acts{display:flex;gap:6px;flex-shrink:0;align-self:center}
 .eos-pulse{background:var(--s2);border:1px solid var(--bd);border-left:4px solid var(--a2);border-radius:8px;padding:14px 18px;margin-bottom:18px}
 .eos-pulse-title{font-size:var(--fs-lg);font-weight:700;color:var(--tx);margin-bottom:8px}
 .eos-pulse-bluf{margin-bottom:12px}
@@ -1163,7 +1168,7 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
     <div class="app-logo" onclick="exitWizard()" style="cursor:pointer" title="Go to home">
       <div class="app-logo-icon">MSR</div>
       <span class="app-logo-text">Mid-Sprint Report</span>
-      <span class="app-logo-ver">v2.1</span>
+      <span class="app-logo-ver">v2.2</span>
     </div>
     <div class="header-sep"></div>
     <div id="header-status">
@@ -1323,6 +1328,15 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
             </div>
           </div>
           <div class="stn-section">
+            <div class="stn-section-hdr"><span class="stn-section-title">Notices</span></div>
+            <div class="stn-body">
+              <div class="stn-row">
+                <div class="stn-label">Story Points reminder<small id="points-notice-state">Shown when an export has no Story Points</small></div>
+                <button class="btn btn-ghost btn-sm" id="points-notice-reset" onclick="resetPointsNotice()"><span class="mi" style="font-size:14px;margin-right:3px">visibility</span>Show again</button>
+              </div>
+            </div>
+          </div>
+          <div class="stn-section">
             <div class="stn-section-hdr"><span class="stn-section-title">Epics Cache</span></div>
             <div class="stn-body">
               <div class="stn-row">
@@ -1422,6 +1436,15 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
         <div id="settings-topics" class="settings-pane">
           <div class="stn-page-title">Topics</div>
           <div class="stn-page-desc">Define how tickets route to report sections. Evaluated in order: Epic Key &#8594; Exact Phrase &#8594; Exclude check &#8594; Keyword. Lowest tier_rank wins.</div>
+          <div class="stn-section" style="margin-bottom:12px">
+            <div class="stn-body">
+              <div class="stn-row">
+                <div class="stn-label">Where topics come from<small>These are defined elsewhere, not here. Paste the link and it shows up in the Guide and below, so anyone can go get the current list.</small></div>
+                <input type="text" id="cfg-topics-src" placeholder="https://…" oninput="cfgSet('topics_source_url', this.value);renderTopicsSourceLink()" style="flex:1">
+              </div>
+            </div>
+          </div>
+          <div id="topics-source-link" style="margin-bottom:12px"></div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             <button class="btn btn-primary btn-sm" onclick="addTopic()"><span class="mi" style="font-size:13px;margin-right:2px">add</span>Add Topic</button>
             <button class="btn btn-ghost btn-sm" onclick="exportTopics()"><span class="mi" style="font-size:14px;margin-right:3px">download</span>Export</button>
@@ -1711,7 +1734,7 @@ body.light .l1-hdr{border-left-color:var(--bd3)}
 //
 // ==========================================================
 
-const APP_VERSION='v2.1';
+const APP_VERSION='v2.2';
 
 // ============================================================
 // STATE
@@ -1910,6 +1933,7 @@ const S = {
     })(),
     // Leave empty so ensureMonthlySprints() fills it from the month calendar.
     sprint_calendar: [],
+    topics_source_url: '',   // where the authoritative topic list is published
     schedule_blurbs: ['TBD','TBD','TBD','TBD'],
     excluded_assignees: ["xtavery", "beblant", "cdgold", "kahurd", "twspeng", "rhle", "gjmcgar", "vvillar", "amweste"],
     // jira_base_url kept in default state only so _migrateCfg() can promote old saved configs
@@ -3870,6 +3894,21 @@ function addSprintRow(){
 // ============================================================
 // TOPICS EDITOR
 // ============================================================
+// The topic list is published somewhere else and fetched, not written here, so
+// the app carries the link rather than pretending it is the source.
+function renderTopicsSourceLink(){
+  const host = document.getElementById('topics-source-link');
+  if(!host) return;
+  const url = (S.cfg.topics_source_url || '').trim();
+  if(!url){
+    host.innerHTML = '<div class="u-dim-xs">No topics source set. Add the link above so the next person knows where to get the current list.</div>';
+    return;
+  }
+  const safe = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+  host.innerHTML = `<a class="btn btn-ghost btn-sm" href="${esc(safe)}" target="_blank" rel="noopener noreferrer">`
+    + `<span class="mi" style="font-size:14px;margin-right:4px">link</span>Open topics source</a>`;
+}
+
 function renderTopicsList(){
   const el=document.getElementById('topics-list');
   el.innerHTML=S.topics.map((t,i)=>`
@@ -4132,6 +4171,57 @@ function eosIsStalled(ticket, todayISO){
 //
 // Exceptions needing a lead's attention are collected separately, as items
 // rather than threads, so nothing is hidden inside a category.
+// Story points are an optional column. `parsePoints` already defaults a missing
+// value to 0, so a zero sum is indistinguishable from "nobody estimated this" —
+// which is exactly why nothing points-shaped renders until at least one ticket
+// in the export actually carries a value.
+function eosSumPoints(tickets){
+  return (tickets||[]).reduce((n,t)=>n+(Number(t.story_points)||0), 0);
+}
+function eosExportHasPoints(tickets){
+  return (tickets||S.allTickets||[]).some(t=>(Number(t.story_points)||0) > 0);
+}
+
+// A one-time, dismissible nudge: the export is missing Story Points, so the
+// points read-out stays empty. Never blocks the report — the rest of it is
+// still correct without estimates.
+const POINTS_NOTICE_KEY='jira_reportsuite_points_notice_v1';
+function pointsNoticeDismissed(){
+  try { return localStorage.getItem(POINTS_NOTICE_KEY)==='off'; } catch(e){ return false; }
+}
+function dismissPointsNotice(forever){
+  if(forever){ try { localStorage.setItem(POINTS_NOTICE_KEY,'off'); } catch(e){} }
+  const el=document.getElementById('eos-points-notice');
+  if(el) el.remove();
+  if(typeof renderPointsNoticeState==='function') renderPointsNoticeState();
+}
+function resetPointsNotice(){
+  try { localStorage.removeItem(POINTS_NOTICE_KEY); } catch(e){}
+  renderPointsNoticeState();
+}
+function renderPointsNoticeState(){
+  const el=document.getElementById('points-notice-state');
+  if(!el) return;
+  const off=pointsNoticeDismissed();
+  el.textContent = off ? 'Hidden — you chose not to see it again' : 'Shown when an export has no Story Points';
+  const btn=document.getElementById('points-notice-reset');
+  if(btn) btn.disabled = !off;
+}
+function buildPointsNoticeHtml(){
+  if(eosExportHasPoints() || pointsNoticeDismissed()) return '';
+  return `<div class="eos-points-notice" id="eos-points-notice">
+    <span class="mi">info</span>
+    <div class="eos-points-notice-body"><strong>No Story Points in this export.</strong>
+      Points-based read-outs stay hidden until the export includes a <em>Story Points</em>
+      column. Everything else in this report is unaffected. To turn it on, add the field
+      to your Jira column list and export again.</div>
+    <div class="eos-points-notice-acts">
+      <button class="btn btn-ghost btn-xs" onclick="dismissPointsNotice(false)">Dismiss</button>
+      <button class="btn btn-ghost btn-xs" onclick="dismissPointsNotice(true)">Don&rsquo;t show again</button>
+    </div>
+  </div>`;
+}
+
 // Returns { order, pulse, attention }. Pure + deterministic so runEOS and
 // buildEOSConfluence can both call it.
 function eosCategorizeThreads(topics, results, blocked, todayISO){
@@ -4148,6 +4238,9 @@ function eosCategorizeThreads(topics, results, blocked, todayISO){
     risk:     {key:'risk',      label:'At risk',         icon:'warning',      threads:[]},
   };
   let delivered=0, advancing=0, notStarted=0, upcoming=0;
+  // Story points are optional in a Jira export. Sum them anyway; the render
+  // side decides whether there is enough signal to show a number at all.
+  let ptsLanded=0, ptsCommitted=0;
   const attention = { blocked:[], stalled:[], notStarted:[] };
   const noteAttention = (bucket, ticket, threadName, extra) =>
     attention[bucket].push(Object.assign({ticket, thread:threadName}, extra||{}));
@@ -4166,12 +4259,17 @@ function eosCategorizeThreads(topics, results, blocked, todayISO){
     delivered += done.length; advancing += active.length - idle.length;
     notStarted += idle.length; upcoming += futt.length;
 
+    const ptsDone  = eosSumPoints(done);
+    const ptsTotal = eosSumPoints(curr);
+    ptsLanded += ptsDone; ptsCommitted += ptsTotal;
+
     blk.forEach(t=>noteAttention('blocked', t, name));
     stalled.forEach(t=>noteAttention('stalled', t, name, {days: eosDaysSinceUpdate(t, todayISO)}));
     idle.forEach(t=>noteAttention('notStarted', t, name));
 
     if(!curr.length && !futt.length && !blk.length) return; // no activity — drop
-    const thread = {topic, tidx, done, active, future:futt, blk, stalled, idle, synthetic:null};
+    const thread = {topic, tidx, done, active, future:futt, blk, stalled, idle, synthetic:null,
+                    ptsDone, ptsTotal};
     const catKey = done.length   ? 'delivered'
                  : active.length ? 'advanced'
                  : futt.length   ? 'progress'
@@ -4182,12 +4280,13 @@ function eosCategorizeThreads(topics, results, blocked, todayISO){
   if(blkUnattributed.length){
     blkUnattributed.forEach(t=>noteAttention('blocked', t, 'Unattributed'));
     cats.risk.threads.push({topic:null, tidx:-1, done:[], active:[], future:[], blk:blkUnattributed,
-                            stalled:[], idle:[], synthetic:'Unattributed impediments'});
+                            stalled:[], idle:[], synthetic:'Unattributed impediments',
+                            ptsDone:0, ptsTotal:0});
   }
   return {
     order: [cats.delivered, cats.advanced, cats.progress, cats.risk],
     pulse: {delivered, advancing, notStarted, upcoming, impediments:(blocked||[]).length,
-            stalled: attention.stalled.length},
+            stalled: attention.stalled.length, ptsLanded, ptsCommitted},
     attention,
   };
 }
@@ -4316,15 +4415,17 @@ function buildEOSAttentionPanel(attention, base, clock){
        : 'Nothing logged against these yet.'},
   ].filter(g => g.items && g.items.length);
 
+  // Deliberately no assignee here. This panel is what gets screen-shared, and a
+  // name next to "stalled 9 days" reads as an accusation whatever was meant by
+  // it. The report names the problem; the Debug tab carries who to go to.
   const attRow = it => {
     const t = it.ticket;
     const age = it.days !== undefined && it.days !== null ? `<span class="eos-att-age">${it.days}d silent</span>` : '';
-    const who = t.assignee ? `<span class="eos-att-who">${esc(t.assignee)}</span>` : '<span class="eos-att-who none">unassigned</span>';
     return `<div class="eos-att-row">
       <span class="eos-att-key">${jiraLink(t.issue_key)}</span>
       <span class="eos-att-sum">${esc(t.summary||'')}</span>
       <span class="eos-att-thread">${esc(it.thread||'')}</span>
-      ${who}${age}
+      ${age}
     </div>`;
   };
   const total = groups.reduce((n,g)=>n+g.items.length,0);
@@ -4453,6 +4554,7 @@ function runEOS(){
         <div class="eos-pulse-metric" data-tone="a4"><span class="v">${cat.pulse.notStarted}</span><span class="l">Not started</span></div>
         <div class="eos-pulse-metric" data-tone="a5"><span class="v">${cat.pulse.stalled}</span><span class="l">Stalled ${EOS_STALL_DAYS}d+</span></div>
         <div class="eos-pulse-metric" data-tone="a5"><span class="v">${cat.pulse.impediments}</span><span class="l">Blocked</span></div>
+        ${cat.pulse.ptsCommitted ? `<div class="eos-pulse-metric" data-tone="a3"><span class="v">${cat.pulse.ptsLanded}/${cat.pulse.ptsCommitted}</span><span class="l">Points landed</span></div>` : ''}
       </div>
     </div>`;
 
@@ -4498,6 +4600,7 @@ function runEOS(){
           if(th.stalled.length) bits.push(`<span><strong class="risk">${th.stalled.length}</strong> stalled</span>`);
           if(th.idle.length)   bits.push(`<span><strong>${th.idle.length}</strong> not started</span>`);
           if(th.blk.length)    bits.push(`<span><strong class="risk">${th.blk.length}</strong> blocked</span>`);
+          if(th.ptsTotal)      bits.push(`<span><strong>${th.ptsDone}/${th.ptsTotal}</strong> pts</span>`);
           if(bits.length) rp+=`<div class="eos-thread-progress">${bits.join('')}</div>`;
           const total = th.done.length+th.active.length+th.future.length+th.blk.length;
           rp+=`<details class="eos-evidence"><summary>Evidence — ${total} ticket${total!==1?'s':''}</summary><div>${eosThreadEvidence(th,base)}</div></details>`;
@@ -4575,6 +4678,7 @@ function runEOS(){
         <div><h1>Mid-Sprint Review</h1><div class="rsub">Sprint ${esc(cur)}${clock ? ` &nbsp;·&nbsp; day ${clock.elapsedDays} of ${clock.totalDays} &nbsp;·&nbsp; ${clock.workdaysRemaining} working day${clock.workdaysRemaining!==1?'s':''} left` : ''} &nbsp;/&nbsp; next: ${esc(fut)}</div></div>
         <span class="badge" style="background:var(--a2d);color:var(--a2);border:1px solid var(--a2b)">MID-SPRINT &nbsp;·&nbsp; ${renderedCount} project${renderedCount!==1?'s':''}</span>
       </div>
+      ${buildPointsNoticeHtml()}
       <div class="eos-bar">
         <div class="eos-badge" data-color="${firstColor}">${esc(firstProj)}</div>
         <div class="eos-views">
@@ -4707,7 +4811,8 @@ function buildEOSConfluence(meta,proj,topics,results,blocked,projTickets,cur,fut
   // ── Sprint pulse — outcome-framed vital signs ──────────────────────────
   lines.push(`(U) Sprint Pulse: ${cat.pulse.delivered} landed · ${cat.pulse.advancing} in flight · ` +
     `${cat.pulse.notStarted} not started · ${cat.pulse.stalled} stalled ${EOS_STALL_DAYS}d+ · ` +
-    `${cat.pulse.impediments} blocked`,'');
+    `${cat.pulse.impediments} blocked` +
+    (cat.pulse.ptsCommitted ? ` · ${cat.pulse.ptsLanded}/${cat.pulse.ptsCommitted} points landed` : ''),'');
 
   // ── Needs attention — exceptions lead, same as the on-screen report ────
   const attnGroups = [
@@ -5236,12 +5341,13 @@ function eosDebugTable(allTraces, tableId){
     }).join('');
     return `<tr>
       <td class="tk-c" style="white-space:nowrap">${jiraLink(ticket.issue_key)}</td>
+      <td class="u-muted-xs" style="white-space:nowrap">${esc(ticket.assignee||'unassigned')}</td>
       <td style="font-size:var(--fs-xs)">${winnerHtml}</td>
       <td style="text-align:right;white-space:nowrap">
         ${matchCount>0?`<button class="btn btn-ghost btn-xs" onclick="toggleDbgDetail('${detailId}')"><span class="mi" style="font-size:13px;margin-right:2px">chevron_right</span>${matchCount} match${matchCount!==1?'es':''}</button>`:'<span class="u-dim-xs">0 matches</span>'}
       </td>
     </tr>
-    <tr id="${detailId}" style="display:none"><td colspan="3" style="padding:0">
+    <tr id="${detailId}" style="display:none"><td colspan="4" style="padding:0">
       <table class="rt" style="margin:0;border-top:1px solid var(--bd)">
         <thead><tr><th>Topic</th><th>Tier</th><th>Result</th><th>Rule</th></tr></thead>
         <tbody>${detailRows}</tbody>
@@ -5253,7 +5359,7 @@ function eosDebugTable(allTraces, tableId){
     <p class="muted mb8" style="font-size:var(--fs-xs)">One row per ticket — winner shown inline. Click "<span class="mi" style="font-size:13px">chevron_right</span>N matches" to see all evaluations for that ticket.</p>
     <div class="dbg-bar"><input class="dbg-in" oninput="filterDbg(this,'${tableId}')" placeholder="Filter by ticket key..."></div>
     <div class="tw"><table class="rt" id="${tableId}">
-      <thead><tr><th>Ticket</th><th>Winner</th><th></th></tr></thead>
+      <thead><tr><th>Ticket</th><th>Assignee</th><th>Winner</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
   </div>`;
@@ -5896,7 +6002,7 @@ function buildStandaloneHtml(title, bodyContent){
   var css=":root{--bg:#0a1417;--s1:#0e1a1e;--s2:#122227;--s3:#172a30;--s4:#1d343a;--bd:#22383f;--bd2:#2e4a53;--a1:#7cc4c8;--a1d:rgba(124,196,200,.10);--a1b:rgba(124,196,200,.24);--a2:#a8a6d2;--a2d:rgba(168,166,210,.10);--a2b:rgba(168,166,210,.24);--a3:#84c8a0;--a3d:rgba(132,200,160,.09);--a3b:rgba(132,200,160,.24);--a4:#e0b684;--a4d:rgba(224,182,132,.09);--a4b:rgba(224,182,132,.24);--a5:#e19191;--a5d:rgba(225,145,145,.09);--a5b:rgba(225,145,145,.24);--tx:#e7efec;--mu:#a3b8b7;--di:#7d9599;--hover:rgba(124,196,200,.05);--mono:'Consolas','Cascadia Code','Menlo',monospace;--sans:'Segoe UI','Inter','Arial',sans-serif;--r:10px;--r2:6px;--fs-base:13px;--fs-sm:12px;--fs-xs:11px;--fs-lg:14px;--fs-xl:16px}*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:var(--fs-base);line-height:1.55;padding:28px 32px 80px;min-height:100vh}a{color:var(--a1);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap}.bd-done{background:var(--a3d);color:var(--a3)}.bd-blk{background:var(--a5d);color:var(--a5)}.bd-prog{background:var(--a1d);color:var(--a1)}.bd-rev{background:var(--a4d);color:var(--a4)}.bd-open{background:var(--s4);color:var(--mu)}.nstr{color:var(--di);font-style:italic;font-size:var(--fs-sm);padding:3px 0}.rpt-frame{background:var(--s1);border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:18px;max-width:1200px;margin-left:auto;margin-right:auto}.rpt-bar{background:var(--s2);border-bottom:1px solid var(--bd);padding:9px 14px;display:flex;align-items:center;justify-content:space-between}.rbd-row{display:flex;gap:5px}.rbd{width:8px;height:8px;border-radius:50%}.rbd-r{background:#ff7b7b}.rbd-y{background:#ffb347}.rbd-g{background:#4dd89a}.rpt-bar-fn{font-family:var(--mono);font-size:var(--fs-xs);color:var(--mu)}.rpt-body{padding:22px 26px}.rpt-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 18px;margin-bottom:20px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;border-left:4px solid var(--a1)}.rpt-hdr h1{font-size:17px;font-weight:600;color:var(--tx)}.rpt-hdr .rsub{font-size:var(--fs-xs);color:var(--mu);margin-top:3px}.r-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:18px}.r-tab{padding:8px 15px;font-size:var(--fs-sm);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-tab:hover{color:var(--tx)}.r-tab.active{color:var(--a1);border-bottom-color:var(--a1)}.r-panel{display:none}.r-panel.active{display:block}.r-tabs-sticky{position:sticky;top:0;z-index:10;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-tabs-sticky .r-tab{padding:8px 14px}.r-subtabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:14px}.r-subtab{padding:6px 13px;font-size:var(--fs-xs);font-weight:500;color:var(--mu);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;margin-bottom:-1px}.r-subtab:hover{color:var(--tx)}.r-subtab.active{color:var(--a2);border-bottom-color:var(--a2)}.r-sub-panel{display:none}.r-sub-panel.active{display:block}.r-subtabs-sticky{position:sticky;top:37px;z-index:9;background:var(--s2);border-bottom:1px solid var(--bd);padding:0 22px}.r-subtabs-sticky .r-subtab{padding:6px 12px}.r-card{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:14px 18px;margin-bottom:10px}.r-card.l1{border-left:3px solid var(--a1)}.r-card.l2{border-left:3px solid var(--a2)}.r-card.l3{border-left:3px solid var(--a3)}.r-card.lw{border-left:3px solid var(--a4)}.r-card.lr{border-left:3px solid var(--a5)}.r-card h3{font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}.stats-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.stat{background:var(--s3);border:1px solid var(--bd);border-radius:5px;padding:10px 15px}.stat .sv{font-size:20px;font-weight:600;color:var(--a1)}.stat .sl{font-size:var(--fs-xs);color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.tw{overflow-x:auto;border-radius:5px;border:1px solid var(--bd);margin:8px 0}.rt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);background:var(--s2)}.rt thead th{background:var(--s3);color:var(--mu);padding:8px 11px;font-weight:600;font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}.rt tbody td{padding:7px 11px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--tx)}.rt tbody tr:last-child td{border-bottom:none}.tk-c{font-family:var(--mono);font-size:var(--fs-xs);color:var(--a1);white-space:nowrap}.bluf-label{display:block;font-size:var(--fs-xs);font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}.bluf-field{padding:4px 0;font-size:var(--fs-sm);line-height:1.6;color:var(--tx);min-height:20px}.bluf-field:empty::before{content:attr(data-placeholder);color:var(--di)}.conf-pre{background:#04060c;color:#9bbbd4;border:1px solid var(--bd);border-radius:5px;padding:12px 14px;font-family:var(--mono);font-size:var(--fs-xs);line-height:1.7;white-space:pre;overflow:auto;max-height:400px;margin-top:8px}.slide{background:var(--s2);border:1px solid var(--bd);border-left:3px solid var(--a2);border-radius:8px;padding:16px 20px;margin-bottom:14px}.slide h2{font-size:var(--fs-base);font-weight:600;color:var(--a2);margin-bottom:10px}.slide h3{font-size:var(--fs-xs);font-weight:600;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 5px}.agenda-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:3px}.agenda-list li{padding:6px 13px;border-left:2px solid var(--bd);font-size:var(--fs-sm);border-radius:0 5px 5px 0}.agenda-list li.has{border-left-color:var(--a3);color:var(--tx);background:var(--a3d)}.agenda-list li.nstr{border-left-color:var(--di);color:var(--mu);font-style:italic}.ptabs{margin-bottom:12px}.ptab{display:inline-block;padding:4px 12px;border-radius:var(--r2);font-size:var(--fs-sm);font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--s3);color:var(--mu);margin:0 4px 4px 0}.ptab.active{background:var(--a1d);color:var(--a1);border-color:var(--a1b)}.muted{color:var(--mu)}.mono{font-family:var(--mono)}";
   var inlineJS="function switchRtab(btn){\n  var rtabs=btn.parentElement;\n  var idx=Array.from(rtabs.children).indexOf(btn);\n  rtabs.querySelectorAll('.r-tab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=rtabs.parentElement;\n  cont.querySelectorAll(':scope > .r-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchRstab(btn){\n  var stabs=btn.parentElement;\n  var idx=Array.from(stabs.children).indexOf(btn);\n  stabs.querySelectorAll('.r-subtab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  var cont=stabs.parentElement;\n  cont.querySelectorAll(':scope > .r-sub-panel').forEach(function(p,i){p.classList.toggle('active',i===idx);});\n}\nfunction switchPtab(btn,proj){\n  var cont=btn.closest('.ptabs').parentElement;\n  cont.querySelectorAll('.ptab').forEach(function(t){t.classList.remove('active');});\n  btn.classList.add('active');\n  cont.querySelectorAll('[data-ptab-panel]').forEach(function(p){\n    p.style.display=p.dataset.ptabPanel===proj?'block':'none';\n  });\n}\nfunction filterDbg(inp,tableId){\n  var val=inp.value.toLowerCase().trim();\n  var tbody=document.querySelector('#'+tableId+' tbody');\n  if(!tbody) return;\n  tbody.querySelectorAll('tr').forEach(function(tr){\n    tr.style.display=(!val||tr.textContent.toLowerCase().includes(val))?'':'none';\n  });\n}\ndocument.addEventListener('click',function(e){\n  var a=e.target.closest('.agenda-list a');\n  if(a){e.preventDefault();var t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'});}\n});";
   return '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">\n'
-    + '<title>Mid-Sprint Report v2.1</title>\n'
+    + '<title>Mid-Sprint Report v2.2</title>\n'
     + '<style>'+css+'</style>\n'
     + '</head>\n<body style="margin:0;padding:0">\n'
     + bodyContent
@@ -6135,6 +6241,7 @@ function openGuide(){
               <li><strong>Epic Link</strong>, <strong>Labels</strong>, <strong>Components</strong> &mdash; decide which section a ticket lands in.</li>
               <li><strong>Assignee</strong> &mdash; tells a lead who to go to.</li>
               <li><strong>Issue key</strong>, <strong>Summary</strong>, <strong>Issue Type</strong>, <strong>Created</strong>, <strong>Resolved</strong>.</li>
+              <li><strong>Story Points</strong> &mdash; <em>optional.</em> Adds a &ldquo;points landed&rdquo; read-out to the pulse and to each thread. Leave it out and the report is unaffected; it just tells you once that the number is not available.</li>
             </ul>
           </div>
 
@@ -6144,7 +6251,8 @@ function openGuide(){
           <div style="font-weight:700;color:var(--tx);margin:18px 0 8px">Step 3 &mdash; Set it up once</div>
           <p style="margin:0 0 8px">Open <strong>Settings</strong> (top right). You only do this once &mdash; it is remembered afterwards.</p>
           <ul class="u-list-indent-tight" style="margin-bottom:10px">
-            <li><strong>Topics</strong> &mdash; <em>the one that matters.</em> These are the rules that sort tickets into the report's sections. If they are not set up, every ticket lands in the <strong>Unmatched</strong> tab and the report comes out empty.</li>
+            <li><strong>Topics</strong> &mdash; <em>the one that matters.</em> These are the rules that sort tickets into the report's sections. If they are not set up, every ticket lands in the <strong>Unmatched</strong> tab and the report comes out empty.<br>
+              You do not write these yourself &mdash; they are published by the team that owns them. Settings &rarr; Topics has an <strong>Open topics source</strong> link to wherever that list lives; download the JSON and use <strong>Import</strong>. If the link is missing, ask whoever handed you this app and paste it in so the next person does not have to.</li>
             <li><strong>Jira / API &rarr; Base URL</strong> &mdash; makes every ticket key a clickable link.</li>
             <li><strong>Mid-Sprint</strong> &mdash; the report title for each project, and the story points you have free for new work.</li>
             <li><strong>Classification</strong> &mdash; the markings that appear on the report.</li>
@@ -6779,7 +6887,7 @@ function switchSettings(section) {
   };
   document.getElementById('settings-title').textContent = _titles[section] || 'Settings';
   setTimeout(()=>{
-    if(section==='topics')     renderTopicsList();
+    if(section==='topics')   { renderTopicsList(); const _ts=document.getElementById('cfg-topics-src'); if(_ts) _ts.value=S.cfg.topics_source_url||''; renderTopicsSourceLink(); }
     if(section==='overrides')  renderOverridesUI();
     if(section==='config')     renderConfigUI();
     if(section==='calendar')      renderCalendarPane();
@@ -6788,6 +6896,7 @@ function switchSettings(section) {
     if(section==='appearance') populateAppPrefsUI();
     if(section==='manage'){
       try{const m=JSON.parse(localStorage.getItem('jira_reportsuite_epics_meta_v1')||'{}');const el=document.getElementById('epics-cache-meta');if(el)el.textContent=m.filename?(m.count+' epics — '+m.filename):'Not cached';}catch(e){}
+      renderPointsNoticeState();
     }
   },0);
 }
@@ -7438,6 +7547,57 @@ function runTests() {
     if (landed.threads.length !== 1) return 'landed threads ' + landed.threads.length + ' (blocker stole the thread again)';
     if (risk.threads.length !== 0)   return 'risk threads ' + risk.threads.length;
     if (cat.attention.blocked.length !== 1) return 'blocker missing from the attention list';
+    return true;
+  });
+
+  t('story points sum per thread and roll up to the pulse', function() {
+    var topics = [{topic_id:'T1', header:'Tier 1: Priority 1: Test Thread', projects:['DX'],
+                   epic_keys:[], keywords:['test thread'], exclude_keywords:[], components:[], labels:[]}];
+    var mk = function(k, st, pts){ return {issue_key:k, summary:'x', status:st, story_points:pts,
+      project_bucket:'DX', epic_link:'', labels:'', components:[], match_blob:'test thread'}; };
+    var results = {}; results[topics[0].header] =
+      {current:[mk('DX-1','Done',5), mk('DX-2','In Progress',3), mk('DX-3','Open',2)], future:[]};
+    var cat = eosCategorizeThreads(topics, results, []);
+    var th = cat.order.find(function(c){ return c.key === 'delivered'; }).threads[0];
+    if (th.ptsDone !== 5)   return 'thread ptsDone ' + th.ptsDone;
+    if (th.ptsTotal !== 10) return 'thread ptsTotal ' + th.ptsTotal;
+    if (cat.pulse.ptsLanded !== 5)     return 'pulse.ptsLanded ' + cat.pulse.ptsLanded;
+    if (cat.pulse.ptsCommitted !== 10) return 'pulse.ptsCommitted ' + cat.pulse.ptsCommitted;
+    return true;
+  });
+
+  t('an export with no story points reports zero committed, not a fake total', function() {
+    // parsePoints defaults a missing column to 0, so a zero sum is the signal
+    // the render side keys off to hide every points read-out.
+    var topics = [{topic_id:'T1', header:'Tier 1: Priority 1: Test Thread', projects:['DX'],
+                   epic_keys:[], keywords:['test thread'], exclude_keywords:[], components:[], labels:[]}];
+    var t1 = {issue_key:'DX-1', summary:'x', status:'Done', story_points:0, project_bucket:'DX',
+              epic_link:'', labels:'', components:[], match_blob:'test thread'};
+    var results = {}; results[topics[0].header] = {current:[t1], future:[]};
+    var cat = eosCategorizeThreads(topics, results, []);
+    if (cat.pulse.ptsCommitted !== 0) return 'ptsCommitted ' + cat.pulse.ptsCommitted;
+    if (eosExportHasPoints([t1]))     return 'eosExportHasPoints true on a zero-point export';
+    if (!eosExportHasPoints([t1, {story_points:3}])) return 'eosExportHasPoints false when one ticket has points';
+    return true;
+  });
+
+  t('the story-points notice only appears when points are missing and undismissed', function() {
+    var saved = S.allTickets, savedFlag = null;
+    try { savedFlag = localStorage.getItem(POINTS_NOTICE_KEY); } catch(e){}
+    try { localStorage.removeItem(POINTS_NOTICE_KEY); } catch(e){}
+    S.allTickets = [{story_points:0}];
+    var missing = buildPointsNoticeHtml();
+    S.allTickets = [{story_points:5}];
+    var present = buildPointsNoticeHtml();
+    S.allTickets = [{story_points:0}];
+    try { localStorage.setItem(POINTS_NOTICE_KEY, 'off'); } catch(e){}
+    var dismissed = buildPointsNoticeHtml();
+    S.allTickets = saved;
+    try { savedFlag === null ? localStorage.removeItem(POINTS_NOTICE_KEY)
+                             : localStorage.setItem(POINTS_NOTICE_KEY, savedFlag); } catch(e){}
+    if (!missing)  return 'no notice when points are missing';
+    if (present)   return 'notice shown even though points are present';
+    if (dismissed) return 'notice shown after Do not show again';
     return true;
   });
 

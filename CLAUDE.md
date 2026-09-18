@@ -25,16 +25,18 @@ and no separate source tree.
 
 ## Primary file
 
-`Jira_MidSprintReport_v<version>_<date>.html`, and the version lives in three
+`Jira_MidSprintReport_v<version>_<date>.html`, and the version lives in four
 places that must stay in sync:
 
 1. `<title>Mid-Sprint Report vX.Y</title>` (document head)
 2. `const APP_VERSION='vX.Y';` (main script block)
 3. `'<title>Mid-Sprint Report vX.Y</title>\n'` (inside `buildStandaloneHtml`)
+4. `<span class="app-logo-ver">vX.Y</span>` (header badge)
 
-When the version changes, rename the file to match and update all three spots.
-`Grep` for `APP_VERSION|Mid-Sprint Report v`. The header badge
-(`.app-logo-ver`) is set from `APP_VERSION` at load, so it needs no edit.
+When the version changes, rename the file to match and update all four spots.
+`Grep` for `APP_VERSION|Mid-Sprint Report v|app-logo-ver`. The badge is
+overwritten from `APP_VERSION` at load, so a stale literal there only shows
+for the instant before JS runs — keep it in sync anyway.
 
 ## Sprints are calendar months
 
@@ -77,6 +79,11 @@ hidden inside a category, and rendered by `buildEOSAttentionPanel`:
   the sprint is genuinely underway; on day 2 everything is unstarted.
 - `EOS_ATTENTION_VISIBLE = 8` — longer groups collapse behind a disclosure.
 
+The attention panel deliberately carries **no assignee**. It is what gets
+screen-shared, and a name next to "stalled 9 days" reads as an accusation
+whatever was meant by it. The report names the problem; the **Debug** tab
+carries an Assignee column so a lead can still find who to go to.
+
 ## Authored content: the BLUF draft and the asks
 
 `buildBlufDraft` composes a factual first sentence from `cat.pulse` and the
@@ -99,9 +106,31 @@ restore paths call `syncEOSAuthoredState()` to resync the suggestion and the
 roll-up. Any contenteditable with a stable id is autosaved and restored for
 free, which is why the ask field ids are deterministic.
 
+## Story points — optional, and honest about it
+
+`parsePoints` defaults a missing column to 0, so a zero sum is
+indistinguishable from "nobody estimated this". Nothing points-shaped renders
+until at least one ticket in the export actually carries a value:
+
+- `eosSumPoints(tickets)` / `eosExportHasPoints(tickets?)` — the latter
+  defaults to `S.allTickets`.
+- `eosCategorizeThreads` adds `ptsDone`/`ptsTotal` per thread and
+  `pulse.ptsLanded`/`pulse.ptsCommitted`. The **Points landed** pulse tile, the
+  per-thread `N/M pts` stat and the Confluence pulse clause are all gated on
+  `ptsCommitted` being non-zero.
+- `buildPointsNoticeHtml` renders a one-time nudge when the export has no
+  points, with **Dismiss** (this run) and **Don't show again**
+  (`dismissPointsNotice(true)` → `POINTS_NOTICE_KEY` = `jira_reportsuite_points_notice_v1`).
+  It never blocks the report. **Settings → Manage Data → Notices** has a
+  *Show again* button (`resetPointsNotice`), so a permanent dismissal is
+  recoverable and a fresh browser sees the notice again.
+
 ## Topics — the routing rules
 
-`configs/topics_config.json` is the **source of truth** for the 18 topics, and
+Topics are published by another team, not written here. `topics_source_url`
+(Settings → Topics) stores the link and `renderTopicsSourceLink()` renders the
+**Open topics source** button from it, so the next person can find the list
+without asking. `configs/topics_config.json` is the **source of truth** for the 18 topics, and
 the app's built-in `S.topics` default is a copy of it. Change one, change the
 other; a test pins the six values that were found out of sync once already
 (codenames spelled out, and the narrower `508_compliance` / `techsigint`
@@ -158,7 +187,7 @@ node --check /tmp/c0.js
 ```
 
 Then open the page and click **[Tests] → Run All** (or call `runTests()`).
-It should be **169/169** green.
+It should be **172/172** green.
 
 `test files/jira_issues_export.html` and `jira_epics_export.html` are
 Jira-shaped fixtures whose sprints are remapped onto the current month and the
