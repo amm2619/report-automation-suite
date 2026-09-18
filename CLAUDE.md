@@ -99,6 +99,19 @@ restore paths call `syncEOSAuthoredState()` to resync the suggestion and the
 roll-up. Any contenteditable with a stable id is autosaved and restored for
 free, which is why the ask field ids are deterministic.
 
+## Topics — the routing rules
+
+`configs/topics_config.json` is the **source of truth** for the 18 topics, and
+the app's built-in `S.topics` default is a copy of it. Change one, change the
+other; a test pins the six values that were found out of sync once already
+(codenames spelled out, and the narrower `508_compliance` / `techsigint`
+project scopes) so the copies cannot drift silently again.
+
+Built-in defaults only apply to somebody who has never saved topics — once a
+browser has `jira_reportsuite_topics_v1` in localStorage, that wins and a new
+default never reaches them. An existing user takes an updated list through
+**Settings → Topics → Import**, which replaces or merges.
+
 ## The Guide
 
 `openGuide()` renders the in-app help, and `GUIDE_SECTIONS` drives its nav.
@@ -145,7 +158,7 @@ node --check /tmp/c0.js
 ```
 
 Then open the page and click **[Tests] → Run All** (or call `runTests()`).
-It should be **168/168** green.
+It should be **169/169** green.
 
 `test files/jira_issues_export.html` and `jira_epics_export.html` are
 Jira-shaped fixtures whose sprints are remapped onto the current month and the
